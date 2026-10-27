@@ -16,6 +16,9 @@ VkSemaphore hle_tl_sem(void);
  * Acquires the queue lock itself; can wait for a free fence before doing so. */
 VkResult hle_tl_submit(const VkSubmitInfo2 *submit, uint64_t value);
 void hle_tl_signaled(uint64_t value);
+/* Before each submit: the GPU left idle a moment when the app asked
+ * (hle_tl_gap, back.h). */
+void hle_tl_gap_serve(void);
 
 /* Resolution scale (the surface_scale setting, 1-4, read at DEVICE_CREATE):
  * every render target and depth surface is rendered at d.w * scale by
@@ -192,7 +195,6 @@ extern int g_hle_gpucut;
 void hle_draw_counts(uint64_t *verts, uint64_t *pipes);
 void hle_draw_forget_tex(uint32_t id);
 void hle_draw_forget_surf(uint32_t id);
-uint64_t hle_back_swap_count(void);
 /* A debug capture is armed (pixel history): pipelines are built in
  * place, no draw of the captured frames skipped (vk/draw.c). */
 bool hle_back_capture_armed(void);

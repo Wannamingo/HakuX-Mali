@@ -40,6 +40,15 @@ bool nc_present_shown(void);
  * front of the custom driver, its vkGetInstanceProcAddr returned in place of
  * the driver's (drv_gipa as it is otherwise, or without the layer). */
 void *nc_vk_layers(void *drv_gipa);
+/* vkdriver.c — "<driver dir>|<library>|<hook library dir>": the custom
+ * Vulkan driver (Turnip or MaliSX2) loaded through adrenotools and handed
+ * to the HLE GPU. A failed/invalid selection reports a boot error; MaliSX2
+ * additionally verifies the enumerated driver's identity. */
+bool nc_vk_driver_load(const char *spec);
+/* The kgsl priority the loaded driver's draw contexts got (1 the highest,
+ * 15 the lowest), 0 when none was set (no custom driver, not Turnip, or the
+ * system driver after a failed load: the kernel's default, 8). */
+int nc_vk_driver_kgsl_priority(void);
 
 /* vsync.c — the panel's vsyncs to the emulated display's vblank clock. */
 void nc_vsync_start(void);

@@ -35,6 +35,7 @@ add_library(hakux_native STATIC
   core/xbe_load.c
   core/xbe_media.c
   core/mods.c
+  core/options.c
   core/cheats.c
   core/memscan.c
   core/core.c
@@ -47,6 +48,11 @@ add_library(hakux_native STATIC
   dev/xid.c
   dev/ohci.c
   dev/aci.c
+  dev/nvnet.c
+  net/net.c
+  net/lan.c
+  net/kai.c
+  net/nat.c
   kernel/kernel.c
   kernel/pool.c
   kernel/ob.c
@@ -81,8 +87,11 @@ target_compile_definitions(hakux_native PRIVATE HLE_HOST_TEST)
 target_link_libraries(hakux_native PUBLIC nc_fex hakux_hle hakux_apu log z)
 target_compile_options(hakux_native PRIVATE -Wall -Wno-unused-parameter)
 
-add_executable(xboxrun run/xboxrun.c run/capture.c)
-target_link_libraries(xboxrun PRIVATE hakux_native hakux_hle z)
+# xboxrun's custom Vulkan driver ("vkdriver="): the app's code for it
+# (native/app/vkdriver.c, vklayer.c), through adrenotools when NC_DEPS has it
+# (cmake/app.cmake).
+add_executable(xboxrun run/xboxrun.c run/capture.c app/vkdriver.c app/vklayer.c)
+target_link_libraries(xboxrun PRIVATE hakux_native hakux_hle z log)
 target_link_libraries(hakux_hle PUBLIC hakux_native)
 
 # The hakuX app's native core library (native/app, cmake/app.cmake).

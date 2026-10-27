@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <vulkan/vulkan.h>
 
 #ifdef _WIN32
@@ -20,6 +21,11 @@ static void hle_cond_init(HleCond *c) { InitializeConditionVariable(&c->c); }
 static void hle_cond_wait(HleCond *c, HleMutex *m) { SleepConditionVariableCS(&c->c, &m->m, INFINITE); }
 static void hle_cond_broadcast(HleCond *c) { WakeAllConditionVariable(&c->c); }
 static void sleep_ms(unsigned n) { Sleep(n); }
+static int64_t hle_now_ns(void) { return (int64_t)GetTickCount64() * 1000000; }
+static int test_nanosleep(const struct timespec *t, struct timespec *unused) {
+    sleep_ms((unsigned)(t->tv_sec * 1000 + (t->tv_nsec + 999999) / 1000000)); return 0;
+}
+#define nanosleep test_nanosleep
 static uint64_t atom_read(uint64_t *p) { return (uint64_t)InterlockedCompareExchange64((LONG64 *)p, 0, 0); }
 static void atom_set(uint64_t *p, uint64_t v) { InterlockedExchange64((LONG64 *)p, (LONG64)v); }
 static uint64_t atom_cmp(uint64_t *p, uint64_t a, uint64_t b) {
@@ -48,6 +54,7 @@ static void hle_cond_init(HleCond *c) { pthread_cond_init(&c->c, NULL); }
 static void hle_cond_wait(HleCond *c, HleMutex *m) { pthread_cond_wait(&c->c, &m->m); }
 static void hle_cond_broadcast(HleCond *c) { pthread_cond_broadcast(&c->c); }
 static void sleep_ms(unsigned n) { struct timespec t = {n / 1000, (n % 1000) * 1000000L}; nanosleep(&t, NULL); }
+static int64_t hle_now_ns(void) { struct timespec t; clock_gettime(CLOCK_MONOTONIC, &t); return (int64_t)t.tv_sec * 1000000000 + t.tv_nsec; }
 static uint64_t atom_read(uint64_t *p) { return __atomic_load_n(p, __ATOMIC_SEQ_CST); }
 static void atom_set(uint64_t *p, uint64_t v) { __atomic_store_n(p, v, __ATOMIC_SEQ_CST); }
 static uint64_t atom_cmp(uint64_t *p, uint64_t a, uint64_t b) {
@@ -65,6 +72,7 @@ static void join(HleThread *t) { pthread_join(t->t, NULL); }
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
 #define MAX(a,b) ((a) > (b) ? (a) : (b))
 #define MIN(a,b) ((a) < (b) ? (a) : (b))
+#define likely(x) (x)
 #define HLE_THREAD_DETACHED 0
 #define HLE_ACT_GPU 0
 #define hle_log(...) ((void)0)
@@ -104,6 +112,7 @@ static void hle_vk_queue_unlock(void) { hle_mutex_unlock(&queue_lock); }
 static bool hle_vk_lost(void) { return atom_read(&lost) != 0; }
 void hle_tl_lose(void);
 uint64_t hle_tl_completed(void);
+void hle_tl_wait(uint64_t value);
 static void hle_vk_lose(VkResult r, const char *why) { atom_set(&lost, 1); hle_tl_lose(); }
 
 #include "../../../hw/xbox/hle/vk/timeline.c"
