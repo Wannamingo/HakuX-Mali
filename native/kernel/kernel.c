@@ -1312,8 +1312,11 @@ static void port_io(NcFrame *f, const uint8_t *insn, unsigned size, bool out)
 bool nc_kernel_page_fault(NcKernel *k, NcFrame *f, uint32_t va, bool write)
 {
     const uint32_t handler = pf_handler(k);
+    if (handler == k->trap_va) {
+        return nc_seh_access_violation(k, f, va, write);
+    }
     const uint32_t esp = nc_frame_gpr(f, NC_ESP) - 16;
-    if (handler == k->trap_va || nc_vm_phys(k->vm, esp) == UINT32_MAX || nc_vm_phys(k->vm, esp + 15) == UINT32_MAX) {
+    if (nc_vm_phys(k->vm, esp) == UINT32_MAX || nc_vm_phys(k->vm, esp + 15) == UINT32_MAX) {
         return false;
     }
     /* As a ring-0 interrupt gate: EFLAGS, CS, EIP (the faulting instruction,

@@ -45,8 +45,10 @@
   <string name="settings_gpu_driver_system">System driver</string>
   <string name="settings_gpu_driver_custom">Custom driver</string>
   <string name="settings_gpu_driver_active_version">%1$s (%2$s)</string>
-  <string name="settings_gpu_driver_not_supported">System driver. Other drivers can only be loaded on phones with an Adreno GPU.</string>
-  <string name="gpu_driver_desc">The Vulkan driver hakuX draws the Xbox\'s graphics with. A Turnip driver (Mesa\'s driver for Adreno GPUs) can be more accurate and faster than the one that came with the phone. A change takes effect at the next game start.</string>
+  <string name="settings_gpu_driver_not_supported">System driver. Custom drivers are available on Adreno and experimentally on RG477M with MaliSX2.</string>
+  <string name="gpu_driver_desc">The Vulkan driver hakuX draws the Xbox\'s graphics with. Use a package made for your GPU: Turnip for Adreno, or MaliSX2 for RG477M. A change takes effect at the next game start.</string>
+  <string name="gpu_driver_malisx2">RG477M / Mali-G615: install a MaliSX2 ZIP containing libvulkan_malisx2.so and meta.json. This integration is experimental. Start at 1× resolution; use System driver if a game fails. Turnip is incompatible with Mali.</string>
+  <string name="gpu_driver_err_gpu">This package does not match this device. RG477M requires libvulkan_malisx2.so; Adreno requires an Adreno driver.</string>
   <string name="gpu_driver_section">Drivers</string>
   <string name="gpu_driver_system_choice">System driver</string>
   <string name="gpu_driver_system_desc">The driver that came with the phone</string>
@@ -54,7 +56,7 @@
   <string name="gpu_driver_by">by %1$s</string>
   <string name="gpu_driver_no_package">In use. Its package isn\'t on this phone anymore.</string>
   <string name="gpu_driver_add">Add a driver</string>
-  <string name="gpu_driver_add_desc">A driver package: a ZIP with a meta.json, such as a Turnip release. A package with the same file name is replaced.</string>
+  <string name="gpu_driver_add_desc">A driver package: a ZIP with meta.json and its driver library (Turnip for Adreno or MaliSX2 for RG477M). A package with the same file name is replaced.</string>
   <string name="gpu_driver_delete">Delete driver</string>
   <string name="gpu_driver_delete_text">%1$s will be deleted from the phone.</string>
   <string name="gpu_driver_delete_text_in_use">%1$s will be deleted from the phone, and hakuX goes back to the system driver.</string>
@@ -73,7 +75,7 @@
   <string name="turnip_note_open">GPU driver</string>
   <string name="turnip_note_later">Not now</string>
   <string name="native_fatal_title">This game can\'t run with this GPU driver</string>
-  <string name="native_fatal_gpu">The graphics driver %1$s, which hakuX\'s Xbox GPU needs.\n\nChoose a Turnip driver in Settings → GPU driver and start the game again.</string>
+  <string name="native_fatal_gpu">The graphics driver %1$s, which hakuX\'s Xbox GPU needs.\n\nChoose a compatible driver in Settings → GPU driver (Turnip for Adreno, MaliSX2 or System driver for RG477M) and start the game again.</string>
   <string name="native_fatal_gpu_system">The graphics driver %1$s, which hakuX\'s Xbox GPU needs.\n\nA system update may bring a newer driver.</string>
   <string name="native_gpu_lost_title">The GPU driver stopped</string>
   <string name="native_gpu_lost">The graphics driver %1$s, so the game can\'t go on.\n\nStart the game again. If it keeps happening, try another GPU driver in Settings → GPU driver.</string>
@@ -114,7 +116,10 @@
   <string name="settings_export_logs_done">Logs saved as %1$s</string>
   <string name="settings_export_logs_failed">Couldn\'t export the logs</string>
   <string name="settings_uncap">Uncapped frame rate</string>
-  <string name="settings_uncap_desc">Present every frame at once instead of waiting for the display.</string>
+  <string name="settings_uncap_desc">Present every frame at once instead of waiting for the display. The frame rate limit still applies.</string>
+  <string name="settings_fps_limit">Frame rate limit</string>
+  <string name="settings_fps_no_limit">No limit</string>
+  <string name="settings_fps_value">%1$d FPS</string>
   <string name="settings_scale">Resolution scale</string>
   <string name="settings_scale_value">%1$dx the game\'s resolution</string>
   <string name="settings_scale_native">1x (native)</string>

@@ -43,6 +43,7 @@ typedef struct Contig {
     uint32_t va, size;
     uint32_t ra;    /* the caller's return address (who holds the memory) */
     uint32_t slack; /* free pages above it it took (contig_alloc), freed with it */
+    uint32_t protect; /* guest-visible attributes, including PAGE_WRITECOMBINE */
 } Contig;
 
 static Contig g_contig[MAX_CONTIG];
@@ -465,7 +466,7 @@ static void log_splitters(NcKernel *k)
 }
 
 static uint32_t contig_alloc(NcKernel *k, uint32_t size, uint32_t lo, uint32_t hi, uint32_t align,
-                             uint32_t ra)
+                             uint32_t ra, uint32_t protect)
 {
     size = nc_align_up(size ? size : 1, NC_PAGE);
     /* The top of RAM, virtual pages moved out of the way (vm.c), then the
@@ -520,7 +521,7 @@ static uint32_t contig_alloc(NcKernel *k, uint32_t size, uint32_t lo, uint32_t h
         slack += NC_PAGE;
     }
     const uint32_t va = NC_CONTIG_WINDOW | pa;
-    g_contig[g_ncontig++] = (Contig){va, size, ra, slack};
+    g_contig[g_ncontig++] = (Contig){va, size, ra, slack, protect};
     return va;
 }
 
@@ -564,13 +565,13 @@ uint32_t nc_mm_contig_free_callers(NcKernel *k, uint32_t lo, uint32_t hi)
 
 uint32_t nc_mm_contig_alloc(NcKernel *k, uint32_t size)
 {
-    return contig_alloc(k, size, 0, 0, NC_PAGE, 0);
+    return contig_alloc(k, size, 0, 0, NC_PAGE, 0, PAGE_READWRITE);
 }
 
 /* MmAllocateContiguousMemory(NumberOfBytes) */
 static uint64_t MmAllocateContiguousMemory(NcKernel *k, NcFrame *f, const uint32_t *a)
 {
-    return contig_alloc(k, a[0], 0, 0, NC_PAGE, caller_of(k, f));
+    return contig_alloc(k, a[0], 0, 0, NC_PAGE, caller_of(k, f), PAGE_READWRITE);
 }
 
 /* MmAllocateContiguousMemoryEx(NumberOfBytes, LowestAcceptableAddress,
@@ -578,7 +579,7 @@ static uint64_t MmAllocateContiguousMemory(NcKernel *k, NcFrame *f, const uint32
 static uint64_t MmAllocateContiguousMemoryEx(NcKernel *k, NcFrame *f, const uint32_t *a)
 {
     uint32_t hi = a[2] >= k->vm->ram_size - 1 ? 0 : a[2] + 1;
-    return contig_alloc(k, a[0], a[1], hi, a[3] ? a[3] : NC_PAGE, caller_of(k, f));
+    return contig_alloc(k, a[0], a[1], hi, a[3] ? a[3] : NC_PAGE, caller_of(k, f), a[4]);
 }
 
 /* MmFreeContiguousMemory(BaseAddress) */
@@ -591,7 +592,7 @@ static uint64_t MmFreeContiguousMemory(NcKernel *k, NcFrame *f, const uint32_t *
 /* MmAllocateSystemMemory(NumberOfBytes, Protect) */
 static uint64_t MmAllocateSystemMemory(NcKernel *k, NcFrame *f, const uint32_t *a)
 {
-    return contig_alloc(k, a[0], 0, 0, NC_PAGE, caller_of(k, f));
+    return contig_alloc(k, a[0], 0, 0, NC_PAGE, caller_of(k, f), a[1]);
 }
 
 /* MmFreeSystemMemory(BaseAddress, NumberOfBytes) -> pages freed */
@@ -773,7 +774,7 @@ uint32_t nc_mm_keep_restore(NcKernel *k)
             }
             continue;
         }
-        g_contig[g_ncontig++] = (Contig){va, size, 0, 0};
+        g_contig[g_ncontig++] = (Contig){va, size, 0, 0, PAGE_READWRITE};
         g_kept[g_nkept].va = va;
         g_kept[g_nkept++].len = len;
         nc_log("hakuX-native-mm", "kept memory %08x+%u restored", va, len);
@@ -796,7 +797,19 @@ unsigned nc_mm_kept(uint32_t *pa, uint32_t *len, unsigned max)
 /* MmQueryAddressProtect(VirtualAddress) */
 static uint64_t MmQueryAddressProtect(NcKernel *k, NcFrame *f, const uint32_t *a)
 {
-    return nc_vm_phys(k->vm, a[0]) == UINT32_MAX ? 0 : PAGE_READWRITE;
+    if (nc_vm_phys(k->vm, a[0]) == UINT32_MAX) {
+        return 0;
+    }
+    /* Cache attributes are observable: Ultimate Spider-Man uses
+     * PAGE_WRITECOMBINE to distinguish contiguous GPU allocations from CRT
+     * heap blocks. Losing that bit sends a physical allocation to HeapFree. */
+    for (unsigned i = 0; i < g_ncontig; i++) {
+        if (a[0] >= g_contig[i].va && a[0] - g_contig[i].va < g_contig[i].size) {
+            return g_contig[i].protect;
+        }
+    }
+    Region *r = region_at(a[0]);
+    return r ? r->protect : PAGE_READWRITE;
 }
 
 /* MmClaimGpuInstanceMemory(NumberOfBytes, NumberOfPaddingBytes): the GPU's
@@ -937,6 +950,11 @@ bool nc_mm_state_load(NcRd *r, unsigned v)
     nc_recs_get(r, &nc_rec_KeptRange, g_kept, sizeof(g_kept[0]), st.nkept, v);
     g_nregions = st.nregions;
     g_ncontig = st.ncontig;
+    if (v < 2) {
+        for (unsigned i = 0; i < g_ncontig; i++) {
+            g_contig[i].protect = PAGE_READWRITE; /* v1 did not store attributes */
+        }
+    }
     g_nkept = st.nkept;
     g_gpu_instance_end = st.gpu_instance_end;
     return !r->fail;

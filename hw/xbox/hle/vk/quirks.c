@@ -60,6 +60,11 @@ static bool mali_g615(const HleDriver *d)
     return mali(d) && strstr(d->props.deviceName, "Mali-G615") != NULL;
 }
 
+static bool malisx2_023(const HleDriver *d)
+{
+    return mali(d) && strstr(d->drv.driverInfo, "malisx2.0.2.3") != NULL;
+}
+
 /* Seen on (driver, version, what showed it). */
 static const HleQuirk k_quirks[] = {
     /* Adreno 840 stock driver 0x8034a02c: Forza's menu text picks its glyph
@@ -93,6 +98,9 @@ static const HleQuirk k_quirks[] = {
     { HLE_QUIRK_SWAP_W32, "swap_w32", powervr_old },
     /* ARMSX2: "Mali-G615's timestamp queries never resolve" */
     { HLE_QUIRK_NO_TIMESTAMPS, "no_timestamps", mali_g615 },
+    /* RG477M, MaliSX2 0.2.3: Sands of Time's sky and dust drew black blocks.
+     * A/B: keeping blend-enable and write-mask uniform per pass removes them. */
+    { HLE_QUIRK_ROP_PASS_SPLIT, "rop_pass_split", malisx2_023 },
 };
 
 static uint32_t g_defaults;

@@ -176,6 +176,7 @@ static void caps_override(HleCaps *c)
         { "fbfetch", offsetof(HleCaps, fbfetch) },   { "vk13", offsetof(HleCaps, vk13) },
         { "dynrender", offsetof(HleCaps, dyn_render) }, { "sync2", offsetof(HleCaps, sync2) },
         { "eds1", offsetof(HleCaps, eds1) },         { "eds2", offsetof(HleCaps, eds2) },
+        { "timeline", offsetof(HleCaps, timeline) },
     };
     for (char *save = NULL, *t = strtok_r(v, ", ", &save); t; t = strtok_r(NULL, ", ", &save)) {
         const char *name = *t == '-' ? t + 1 : t;
@@ -228,7 +229,8 @@ int hle_vk_init(void)
     VkApplicationInfo app = {
         .sType = VK_STRUCTURE_TYPE_APPLICATION_INFO,
         .pApplicationName = "hakuX-hle",
-        .apiVersion = force11 ? VK_API_VERSION_1_1 : VK_API_VERSION_1_3,
+        .apiVersion = force11 ? VK_API_VERSION_1_1 :
+            MIN(volkGetInstanceVersion(), VK_API_VERSION_1_3),
     };
     /* the window's surface (vk/swapchain.c): where the loader has it */
     uint32_t nie = 0;
@@ -283,6 +285,27 @@ int hle_vk_init(void)
     vkEnumerateDeviceExtensionProperties(v->phys, NULL, &ne, NULL);
     g_autofree VkExtensionProperties *ext = g_new(VkExtensionProperties, ne);
     vkEnumerateDeviceExtensionProperties(v->phys, NULL, &ne, ext);
+    if (getenv("HAKUX_HLE_REQUIRE_MALISX2")) {
+        /* adrenotools can return a loader even when its HAL hook fell back
+         * to the system driver. Verify the actual device, not just dlopen. */
+        VkPhysicalDeviceDriverProperties drv = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_DRIVER_PROPERTIES };
+        VkPhysicalDeviceProperties2 dp = {
+            .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_PROPERTIES_2, .pNext = &drv };
+        if (v->props.apiVersion >= VK_API_VERSION_1_2 ||
+            has_ext(ext, ne, VK_KHR_DRIVER_PROPERTIES_EXTENSION_NAME)) {
+            vkGetPhysicalDeviceProperties2(v->phys, &dp);
+        }
+        if (!strstr(drv.driverInfo, "malisx2")) {
+            snprintf(g_hle_unavailable, sizeof(g_hle_unavailable),
+                     "did not load MaliSX2 (the Android loader selected a different driver)");
+            hle_log("hakuX-hle-back", "%s", g_hle_unavailable);
+            vkDestroyInstance(v->inst, NULL);
+            v->inst = VK_NULL_HANDLE;
+            return -2;
+        }
+        hle_log("hakuX-hle-back", "MaliSX2 active: %s", drv.driverInfo);
+    }
     bool e_vids = has_ext(ext, ne, VK_EXT_VERTEX_INPUT_DYNAMIC_STATE_EXTENSION_NAME);
     bool e_eds2 = has_ext(ext, ne, VK_EXT_EXTENDED_DYNAMIC_STATE_2_EXTENSION_NAME);
     bool e_cbc = has_ext(ext, ne, VK_EXT_CUSTOM_BORDER_COLOR_EXTENSION_NAME);
@@ -301,7 +324,7 @@ int hle_vk_init(void)
     bool e_pd = has_ext(ext, ne, VK_KHR_PUSH_DESCRIPTOR_EXTENSION_NAME);
     /* Below 1.3 (vk/compat.c): what 1.2 and 1.3 made core, from extensions;
      * a 1.2 device has 1.2's in its core (the structs are core 1.2's then) */
-    const uint32_t api = force11 ? VK_API_VERSION_1_1 : v->props.apiVersion;
+    const uint32_t api = MIN(app.apiVersion, v->props.apiVersion);
     const bool v13 = api >= VK_API_VERSION_1_3, v12 = api >= VK_API_VERSION_1_2;
     bool e_tl = v12 || has_ext(ext, ne, VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME);
     bool e_di = v12 || has_ext(ext, ne, VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME);
@@ -444,7 +467,7 @@ int hle_vk_init(void)
     c->wide_lines = q.features.wideLines;
     need(c, q.features.largePoints, "largePoints");
     c->depth_clamp = q.features.depthClamp;
-    need(c, ok_tl, "timelineSemaphore");
+    c->timeline = ok_tl;
     /* the bindless set: its arrays indexed nonuniformEXT, written while bound */
     c->bindless = ok_rda && ok_pb && ok_uab && ok_nui &&
                   l_img >= 3 * HLE_MAX_IMAGES && l_set_img >= 3 * HLE_MAX_IMAGES &&
@@ -581,7 +604,7 @@ int hle_vk_init(void)
         .shaderDemoteToHelperInvocation = q13.shaderDemoteToHelperInvocation };
     VkPhysicalDeviceVulkan12Features f12 = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, .pNext = &f13,
-        .timelineSemaphore = VK_TRUE, .bufferDeviceAddress = c->bda,
+        .timelineSemaphore = c->timeline, .bufferDeviceAddress = c->bda,
         .runtimeDescriptorArray = VK_TRUE, .descriptorBindingPartiallyBound = VK_TRUE,
         .descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
         .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
@@ -621,7 +644,7 @@ int hle_vk_init(void)
     f_vids.vertexInputDynamicState = VK_TRUE;
     tail = v13 ? (VkBaseOutStructure *)&f13 : (VkBaseOutStructure *)&f;
     if (!v13) {
-        chain(&tail, &f_tl);
+        if (c->timeline) chain(&tail, &f_tl);
         if (c->bindless) chain(&tail, &f_di);
         if (c->bda) chain(&tail, &f_bda);
         if (c->host_query_reset) chain(&tail, &f_hqr);
@@ -645,7 +668,7 @@ int hle_vk_init(void)
     uint32_t nx = 0;
     if (!v13) {
         if (!v12) {                     /* core in 1.2 */
-            exts[nx++] = VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME;
+            if (c->timeline) exts[nx++] = VK_KHR_TIMELINE_SEMAPHORE_EXTENSION_NAME;
             if (c->bindless) exts[nx++] = VK_EXT_DESCRIPTOR_INDEXING_EXTENSION_NAME;
             if (c->bda) exts[nx++] = VK_KHR_BUFFER_DEVICE_ADDRESS_EXTENSION_NAME;
             if (c->host_query_reset) exts[nx++] = VK_EXT_HOST_QUERY_RESET_EXTENSION_NAME;

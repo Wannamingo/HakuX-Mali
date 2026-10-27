@@ -69,6 +69,7 @@ typedef struct HleCaps {
      * emulated (vk/compat.c); each true on a 1.3 device */
     bool vk13;                  /* else timeline semaphores and descriptor indexing from
                                    their extensions, SPIR-V 1.3 (shader/glsl_compile.c) */
+    bool timeline;              /* timeline semaphore, else an ordered queue of fences */
     bool dyn_render;            /* dynamic rendering, else render passes (compat.c) */
     bool sync2;                 /* synchronization2, else 1.0's barriers and submits */
     bool eds1;                  /* extended dynamic state, else the draws' cull, topology,

@@ -2,6 +2,8 @@
  * hakuX HLE GPU — push-buffer mode's drawing (pbdraw.h).
  */
 #include "hw/xbox/hle/base.h"
+#include "hw/xbox/hle/pb/tex_view.h"
+#include "hw/xbox/hle/pb/vertex_repack.h"
 #include "hw/xbox/hle/hle.h"
 #include "hw/xbox/hle/pb/kelvin.h"
 #include "hw/xbox/hle/front/cmd.h"
@@ -104,6 +106,10 @@ typedef struct PbObj {
     HleSurfDesc d;
     uint64_t bound;                     /* when last bound as a target (g_pd.binds) */
     bool cube;                          /* a cube texture's image, its faces' targets views */
+    bool tex_view;                      /* exact-size sampling copy, not a guest-memory writer */
+    uint32_t view_src;
+    uint64_t view_seq;
+    uint64_t view_draw;                  /* protects views already selected by the current draw */
     uint64_t written;                   /* g_pd.wseq at its last draw, clear or copy */
     uint64_t edge_hash[2];              /* its bytes on its first and last page (rt_cpu_sync) */
     bool cpu_used;                      /* the CPU wrote its memory (writeback) */
@@ -547,7 +553,8 @@ static PbObj *evict_slot(void)
     for (unsigned i = 0; i < g_pd.nobjs; i++) {
         PbObj *o = &g_pd.objs[i];
         bool busy = o->id == g_pd.rt || o->id == g_pd.ds || o->id == g_pd.shown_id ||
-                    o->id == g_pd.made || o->cube || o->d.parent;
+                    o->id == g_pd.made || o->cube || o->d.parent ||
+                    (o->tex_view && o->view_draw == g_pd.draws + 1);
         for (unsigned j = 0; j < g_pd.nzr && !busy; j++) {
             busy = g_pd.zr[j].src == o->id;
         }
@@ -568,20 +575,22 @@ static PbObj *evict_slot(void)
  * part of the identity: it comes from the pitch or the display (linear_size),
  * and DOA2's supersampled 1440-wide fight buffer in the same 1536-pixel
  * pitch, shown as the wider one, had 96 never drawn columns. */
-static uint32_t object(uint32_t pa, uint32_t xfmt, uint32_t pitch, uint32_t w, uint32_t h)
+static uint32_t object_sized(uint32_t pa, uint32_t xfmt, uint32_t pitch, uint32_t w, uint32_t h,
+                             bool tex_view)
 {
     uint32_t best = 0;
     uint64_t best_area = 0;
     for (unsigned i = 0; i < g_pd.nobjs; i++) {
         const HleSurfDesc *d = &g_pd.objs[i].d;
-        if (d->pa != pa || d->xfmt != xfmt || d->pitch != pitch || g_pd.objs[i].cube) {
+        if (d->pa != pa || d->xfmt != xfmt || d->pitch != pitch || g_pd.objs[i].cube ||
+            g_pd.objs[i].tex_view != tex_view) {
             continue;
         }
-        if (d->w == w && d->h == h && !pitch) {
+        if (d->w == w && d->h == h && (!pitch || tex_view)) {
             return g_pd.objs[i].id;
         }
         const uint64_t area = (uint64_t)d->w * d->h;
-        if (pitch && d->w == w && d->h >= h && area > best_area) {
+        if (!tex_view && pitch && d->w == w && d->h >= h && area > best_area) {
             best = g_pd.objs[i].id;
             best_area = area;
         }
@@ -608,6 +617,7 @@ static uint32_t object(uint32_t pa, uint32_t xfmt, uint32_t pitch, uint32_t w, u
     }
     memset(o, 0, sizeof(*o));
     o->id = g_pd.next_id++;
+    o->tex_view = tex_view;
     g_pd.made = o->id;
     o->d.id = o->id;
     o->d.xfmt = xfmt;
@@ -620,7 +630,7 @@ static uint32_t object(uint32_t pa, uint32_t xfmt, uint32_t pitch, uint32_t w, u
     HleCmdObj *c = begin(HLE_OP_OBJ_CREATE, sizeof(*c));
     c->s = o->d;
     hle_fe_commit();
-    if (pitch) {
+    if (pitch && !tex_view) {
         hle_mem_written(pa, pitch * h);     /* CPU writes from now on (rt_cpu_sync) */
         obj_edges_set(o);
         restored_pixels(o);
@@ -631,6 +641,11 @@ static uint32_t object(uint32_t pa, uint32_t xfmt, uint32_t pitch, uint32_t w, u
                 pitch);
     }
     return o->id;
+}
+
+static uint32_t object(uint32_t pa, uint32_t xfmt, uint32_t pitch, uint32_t w, uint32_t h)
+{
+    return object_sized(pa, xfmt, pitch, w, h, false);
 }
 
 /* object() for a linear target whose swizzled twin (alt: that format) may
@@ -649,7 +664,7 @@ static uint32_t object_view(uint32_t pa, uint32_t xfmt, uint32_t alt, uint32_t p
 {
     for (unsigned i = 0; alt && i < g_pd.nobjs; i++) {
         const HleSurfDesc *d = &g_pd.objs[i].d;
-        if (d->pa == pa && d->xfmt == alt && d->w == w && d->h == h) {
+        if (!g_pd.objs[i].tex_view && d->pa == pa && d->xfmt == alt && d->w == w && d->h == h) {
             return g_pd.objs[i].id;
         }
     }
@@ -888,7 +903,7 @@ static void zwrite_from_colour(uint32_t ds)
     }
     for (unsigned i = 0; i < g_pd.nobjs; i++) {
         const PbObj *o = &g_pd.objs[i];
-        const HleFmtInfo *oi = o->d.pa == d->pa && o->id != ds && !o->cube ? hle_fmt_info(o->d.xfmt) : NULL;
+        const HleFmtInfo *oi = o->d.pa == d->pa && o->id != ds && !o->cube && !o->tex_view ? hle_fmt_info(o->d.xfmt) : NULL;
         if (oi && !(oi->flags & HLE_FI_DEPTH) && oi->bpp == 32 && o->d.w == d->w && o->d.h == d->h) {
             HleCmdZWrite *z = begin(HLE_OP_ZWRITE, sizeof(*z));
             z->dst = ds;
@@ -1736,7 +1751,7 @@ static uint32_t object_at(uint32_t pa)
     const PbObj *best = NULL;
     for (unsigned i = 0; i < g_pd.nobjs; i++) {
         const PbObj *o = &g_pd.objs[i];
-        const HleFmtInfo *oi = o->d.pa == pa && !o->cube ? hle_fmt_info(o->d.xfmt) : NULL;
+        const HleFmtInfo *oi = o->d.pa == pa && !o->cube && !o->tex_view ? hle_fmt_info(o->d.xfmt) : NULL;
         if (oi && !(oi->flags & HLE_FI_DEPTH) && (!best || o->bound > best->bound)) {
             best = o;
         }
@@ -2045,7 +2060,7 @@ static uint32_t zread(uint32_t pa, uint32_t w, uint32_t h, const uint8_t map[4],
      * the texture's byte order (tex_order: Mercenaries' sky) */
     for (unsigned k = 0; k < g_pd.nobjs; k++) {
         const PbObj *o = &g_pd.objs[k];
-        const HleFmtInfo *oi = o->d.pa == pa && !o->cube &&
+        const HleFmtInfo *oi = o->d.pa == pa && !o->cube && !o->tex_view &&
                                (o->bound > src->bound || o->written > src->written) ?
                                hle_fmt_info(o->d.xfmt) : NULL;
         if (oi && !(oi->flags & HLE_FI_DEPTH)) {
@@ -2181,7 +2196,7 @@ static uint32_t target_part(uint32_t pa, uint32_t code, const HleFmtInfo *fi, ui
     PbObj *src = NULL;
     for (unsigned i = 0; i < g_pd.nobjs; i++) {
         PbObj *o = &g_pd.objs[i];
-        const HleFmtInfo *oi = !o->cube && o->d.pitch == pitch && !o->d.parent ? hle_fmt_info(o->d.xfmt) : NULL;
+        const HleFmtInfo *oi = !o->cube && !o->tex_view && o->d.pitch == pitch && !o->d.parent ? hle_fmt_info(o->d.xfmt) : NULL;
         if (oi && !(oi->flags & HLE_FI_DEPTH) && oi->bpp == fi->bpp && o->d.pa < pa &&
             pa - o->d.pa < pitch * o->d.h && (!src || o->written > src->written)) {
             src = o;
@@ -2212,6 +2227,44 @@ static uint32_t target_part(uint32_t pa, uint32_t code, const HleFmtInfo *fi, ui
     return dst->id;
 }
 
+/* The row pitch may include columns outside a linear texture's IMAGE_RECT.
+ * Sampling the full target lets blur taps read that padding instead of the
+ * texture's border (Sands of Time: 40/20/10-wide bloom in 48/32/16-wide rows).
+ * Keep the target intact; cache a GPU copy with the exact sampling bounds.
+ * These copies never write guest RAM or supersede the original target. */
+static uint32_t texture_bounds(PbObj *src, HleTexView view)
+{
+    if (!src) return 0;
+    const HleFmtInfo *fi = hle_fmt_info(src->d.xfmt);
+    const HleTexView target = { src->d.pitch, src->d.w, src->d.h, fi ? fi->bpp : 0 };
+    if (!hle_tex_view_needs_crop(view, target)) return src->id;
+    g_pd.made = src->id;                     /* do not evict the source while making its copy */
+    const uint32_t id = object_sized(src->d.pa, src->d.xfmt, src->d.pitch, view.w, view.h, true);
+    PbObj *dst = obj_of(id);
+    if (!dst) return src->id;
+    dst->view_draw = g_pd.draws + 1;
+    dst->bound = src->bound;
+    if (dst->view_src != src->id || dst->view_seq != src->written) {
+        HleCmdCopy *c = begin(HLE_OP_COPY, sizeof(*c));
+        memset(c, 0, sizeof(*c));
+        c->src = src->id;
+        c->dst = id;
+        c->nrects = 1;
+        c->rect[0] = (HleRect){ 0, 0, (int32_t)view.w, (int32_t)view.h };
+        hle_fe_commit();
+        if (!dst->view_src) {
+            static unsigned logged;
+            if (logged++ < 8) {
+                hle_log("hakuX-hle-pb", "texture bounds: %u %ux%u -> %u %ux%u (pitch %u)",
+                        src->id, target.w, target.h, id, view.w, view.h, view.pitch);
+            }
+        }
+        dst->view_src = src->id;
+        dst->view_seq = src->written;
+    }
+    return id;
+}
+
 /* The texture stage s samples: the object id, 0 if it can't be drawn;
  * *unset when the stage has none (CONTROL0 disabled), *lin when its format
  * is linear (sampled by texel coordinates). */
@@ -2240,11 +2293,14 @@ static uint32_t texture(unsigned s, bool *unset, bool *lin)
             return zid;
         }
     }
-    /* a render target's memory: its image (with what the CPU wrote there).
-     * Only a target of the texture's kind, colour or depth, and of those
-     * the one bound last: memory D3D reuses holds several (Fable's glow
-     * textures sampled a stale depth target there, compared as a shadow
-     * map, and washed the frame out). */
+    /* A render target's memory: its image (with what the CPU wrote there).
+     * Keep the texture's kind, colour or depth. Linear views first prefer
+     * targets covering their dimensions with the same pitch and texel size:
+     * Warrior Within's 640x480 Bink frame shares an address with a 320x240
+     * postprocess target bound later. Sampling the latter changes the row
+     * layout and clamps the bottom half to its last row. Within compatible
+     * layouts (or with no match), keep the most recently bound target, as
+     * memory D3D reuses holds several (Fable's glow). */
     const bool want_depth = fi && (fi->flags & HLE_FI_DEPTH);
     if ((fmt & 4) && fi && (fi->flags & HLE_FI_SWZ) && fi->bpp >= 8) {
         /* a cube: its faces' targets, if that is what its memory is */
@@ -2267,12 +2323,19 @@ static uint32_t texture(unsigned s, bool *unset, bool *lin)
      * colour pass used; sampled as that target, the CPU's DXT bytes uploaded
      * into it as colour, the picture was the clear colour (teal). */
     const bool dxt = fi && (fi->flags & HLE_FI_DXT);
+    const uint32_t rect = *lin ? R(NV097_SET_TEXTURE_IMAGE_RECT + b) : 0;
+    const HleTexView view = { *lin ? R(NV097_SET_TEXTURE_CONTROL1 + b) >> 16 : 0,
+                              rect >> 16, rect & 0xFFFF, fi ? fi->bpp : 0 };
     PbObj *best = NULL;
+    HleTexView best_view = { 0 };
     for (unsigned i = 0; !dxt && i < g_pd.nobjs; i++) {
         PbObj *o = &g_pd.objs[i];
-        const HleFmtInfo *oi = o->d.pa == pa && !o->cube ? hle_fmt_info(o->d.xfmt) : NULL;
-        if (oi && !!(oi->flags & HLE_FI_DEPTH) == want_depth && (!best || o->bound > best->bound)) {
+        const HleFmtInfo *oi = o->d.pa == pa && !o->cube && !o->tex_view ? hle_fmt_info(o->d.xfmt) : NULL;
+        const HleTexView candidate = { o->d.pitch, o->d.w, o->d.h, oi ? oi->bpp : 0 };
+        if (oi && !!(oi->flags & HLE_FI_DEPTH) == want_depth &&
+            (!best || hle_tex_view_prefer(view, candidate, o->bound, best_view, best->bound))) {
             best = o;
+            best_view = candidate;
         }
     }
     if (best) {
@@ -2283,7 +2346,7 @@ static uint32_t texture(unsigned s, bool *unset, bool *lin)
         const uint32_t part = target_part(pa, code, fi, R(NV097_SET_TEXTURE_CONTROL1 + b) >> 16,
                                           rect >> 16, rect & 0xFFFF, best);
         if (part) {
-            return part;
+            return texture_bounds(obj_of(part), view);
         }
     }
     if (best) {
@@ -3041,7 +3104,9 @@ static void draw_arrays(void)
         uint32_t from = base[b] + (st ? lo * st : 0);
         uint32_t len = st ? (hi - lo) * st + MAX(end[b], 1u) : end[b];
         const uint8_t *src = hle_pa_ptr(from, len);
-        if (src && vb_in_place() && !hle_barrier_contended(from, len)) {
+        HleVertexPack pack;
+        const bool repack = hle_vertex_pack_plan(d.attr, b, st, from, &pack);
+        if (src && !repack && vb_in_place() && !hle_barrier_contended(from, len)) {
             hle_barrier_arm(from, len, hle_fe_last_value() + 1);
             d.guest_vb |= 1u << b;
             d.bind_off[b] = from;
@@ -3049,7 +3114,9 @@ static void draw_arrays(void)
             continue;
         }
         uint8_t *dst;
-        uint32_t off = src ? arena(len, &dst) : HLE_ARENA_FULL;
+        const uint32_t vertices = st ? hi - lo + 1 : 1;
+        const uint32_t out_len = repack ? pack.stride * vertices : len;
+        uint32_t off = src ? arena(out_len, &dst) : HLE_ARENA_FULL;
         if (off == HLE_ARENA_FULL) {
             skip(SK_DRAW_ARRAYS_ARENA);
             return;
@@ -3057,11 +3124,27 @@ static void draw_arrays(void)
         if (recopied(from, len)) {
             hle_barrier_arm_copied(from, len);
         }
-        memcpy(dst, src, len);
+        if (repack) {
+            if (!hle_vertex_pack_copy(&pack, src, len, st, dst, out_len, vertices)) {
+                skip(SK_DRAW_ARRAYS_ARENA);
+                return;
+            }
+            for (unsigned a = 0; a < HLE_DRAW_ATTRS; ++a) {
+                if ((pack.mask >> a) & 1) d.attr[a] = (d.attr[a] & 0xFFFFu) | (uint32_t)pack.dst[a] << 16;
+            }
+            d.bind_stride[b] = st ? pack.stride : 0;
+            static unsigned logged;
+            if (logged++ < 4) {
+                hle_log("hakuX-hle-pb", "vertex arrays: repacked unaligned binding %u stride %u -> %u (%u vertices)",
+                        b, st, d.bind_stride[b], vertices);
+            }
+        } else {
+            memcpy(dst, src, len);
+        }
         d.bind_off[b] = off;
         g_pd.vb_copied++;
         bool pos = ((R(NV097_SET_VERTEX_DATA_ARRAY_FORMAT) >> 4) & 0xF) && ((d.attr[0] >> 8) & 0xFF) == b;
-        vbrace(from, len, st, pos ? (int)(d.attr[0] >> 16) : -1, dst);
+        vbrace(from, len, st, pos ? (int)(d.attr[0] >> 16) : -1, repack ? src : dst);
     }
     uint32_t pt = g_pd.prim;
     /* One run of vertices in order, of a primitive Vulkan draws as it is

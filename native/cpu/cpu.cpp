@@ -7,6 +7,7 @@
  * the syscall path and are handed to the core's callback.
  */
 #include "native/cpu/cpu.h"
+#include "native/cpu/rep_fault.h"
 
 #include "Common/HostFeatures.h"
 
@@ -562,6 +563,19 @@ extern "C" NcFrame* nc_cpu_fault_frame(NcCpu* cpu, void* ucontext) {
   const uint32_t EFlags = cpu->CTX->ReconstructCompactedEFLAGS(
     Thread, true, reinterpret_cast<const uint64_t*>(uc->uc_mcontext.regs), uc->uc_mcontext.pstate);
   cpu->CTX->SetFlagsFromCompactedEFLAGS(Thread, EFlags);
+  // REP MOVS updates the JIT's scratch pointers inside its loop, and writes
+  // ESI/EDI/ECX only on completion. Preserve partial progress before handing
+  // a page fault to guest SEH, which can evict pages copied earlier in the loop.
+  const auto Base = reinterpret_cast<uint64_t>(cpu->Sys.Cfg.membase);
+  const auto* Code = reinterpret_cast<const uint8_t*>(Base + S.rip);
+  uint32_t Src = S.gregs[NC_ESI], Dst = S.gregs[NC_EDI], Count = S.gregs[NC_ECX];
+  if (nc_rep_movs_progress(Code, 4096 - (S.rip & 4095),
+                           *reinterpret_cast<const uint32_t*>(uc->uc_mcontext.pc), Base,
+                           reinterpret_cast<const uint64_t*>(uc->uc_mcontext.regs), EFlags, &Src, &Dst, &Count)) {
+    S.gregs[NC_ESI] = Src;
+    S.gregs[NC_EDI] = Dst;
+    S.gregs[NC_ECX] = Count;
+  }
   return reinterpret_cast<NcFrame*>(Thread->CurrentFrame);
 }
 

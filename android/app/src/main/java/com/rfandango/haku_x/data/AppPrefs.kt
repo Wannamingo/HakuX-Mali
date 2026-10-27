@@ -51,6 +51,11 @@ class AppPrefs(context: Context) {
     get() = sp.getBoolean(NativeCoreActivity.PREF_UNCAP, false)
     set(value) = sp.edit { putBoolean(NativeCoreActivity.PREF_UNCAP, value) }
 
+  /** An upper bound on emulated frames, independent of the game's vblank mode. */
+  var frameRateLimit: Int
+    get() = sp.getInt("frame_rate_limit", 0).coerceIn(0, 240)
+    set(value) = sp.edit { putInt("frame_rate_limit", value.coerceIn(0, 240)) }
+
   /** Shaders compiled off the render thread, draws needing one skipped meanwhile (read at game start). */
   var asyncShaders: Boolean
     get() = sp.getBoolean(NativeCoreActivity.PREF_ASYNC_SHADERS, true)
@@ -77,7 +82,7 @@ class AppPrefs(context: Context) {
 
   /** Debug builds: the HLE GPU's stutter and hang monitor over the game (NativeCoreActivity). */
   var showHitches: Boolean
-    get() = sp.getBoolean(NativeCoreActivity.PREF_SHOW_HITCHES, true)
+    get() = sp.getBoolean(NativeCoreActivity.PREF_SHOW_HITCHES, false)
     set(value) = sp.edit { putBoolean(NativeCoreActivity.PREF_SHOW_HITCHES, value) }
 
   /** The HLE GPU's render scale, 1-4x the title's resolution (read at game start). */

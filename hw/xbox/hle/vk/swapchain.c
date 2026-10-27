@@ -50,7 +50,8 @@ typedef struct PsFrame {
     VkCommandBuffer cb;
     VkSemaphore acquired;       /* its swapchain image is ready */
     VkDescriptorSet set[2];     /* the window pass's, FXAA's */
-    uint64_t value;             /* its last submit's on the timeline */
+    uint64_t value;             /* its last submitted sequence */
+    VkFence done;               /* completion when timelines are unavailable */
     bool ramp_stale;            /* its share of the ramp buffer is behind */
 } PsFrame;
 
@@ -58,7 +59,7 @@ static struct {
     struct VolkDeviceTable t;
     bool inited, failed;
     VkSemaphore tl;             /* timeline: each submit's value */
-    uint64_t submitted;
+    uint64_t submitted, completed;
     VkSampler smp;
     VkDescriptorSetLayout dsl;
     VkPipelineLayout pl;
@@ -385,7 +386,8 @@ static bool init(void)
         { 1, VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, 1, VK_SHADER_STAGE_FRAGMENT_BIT, NULL } };
     VkDescriptorSetLayoutCreateInfo dci = {
         .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO, .bindingCount = 2, .pBindings = b };
-    if (T.vkCreateSemaphore(g_hvk.dev, &tsi, NULL, &g_ps.tl) != VK_SUCCESS ||
+    if ((g_hvk.caps.timeline &&
+         T.vkCreateSemaphore(g_hvk.dev, &tsi, NULL, &g_ps.tl) != VK_SUCCESS) ||
         T.vkCreateSampler(g_hvk.dev, &sci, NULL, &g_ps.smp) != VK_SUCCESS ||
         T.vkCreateDescriptorSetLayout(g_hvk.dev, &dci, NULL, &g_ps.dsl) != VK_SUCCESS) {
         return false;
@@ -426,12 +428,15 @@ static bool init(void)
                                         .flags = VK_COMMAND_POOL_CREATE_TRANSIENT_BIT,
                                         .queueFamilyIndex = g_hvk.qfam };
         VkSemaphoreCreateInfo si = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
+        VkFenceCreateInfo fi = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
         VkDescriptorSetLayout l[2] = { g_ps.dsl, g_ps.dsl };
         VkDescriptorSetAllocateInfo dai = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
                                             .descriptorPool = g_ps.dp, .descriptorSetCount = 2,
                                             .pSetLayouts = l };
         if (T.vkCreateCommandPool(g_hvk.dev, &cpi, NULL, &f->pool) != VK_SUCCESS ||
             T.vkCreateSemaphore(g_hvk.dev, &si, NULL, &f->acquired) != VK_SUCCESS ||
+            (!g_hvk.caps.timeline &&
+             T.vkCreateFence(g_hvk.dev, &fi, NULL, &f->done) != VK_SUCCESS) ||
             T.vkAllocateDescriptorSets(g_hvk.dev, &dai, f->set) != VK_SUCCESS) {
             return false;
         }
@@ -443,6 +448,8 @@ static bool init(void)
         }
         f->ramp_stale = true;
     }
+    hle_log("hakuX-hle-back", "present: completion via %s",
+            g_hvk.caps.timeline ? "timeline semaphore" : "Vulkan fences");
     g_ps.vs = module(HLE_SHADER_VERTEX, k_vs, "");
     static const char *const body[P_COUNT] = { k_fs_bilinear, k_fs_area, k_fs_sgsr, k_fs_fxaa };
     for (unsigned i = 0; i < P_COUNT; i++) {
@@ -463,16 +470,21 @@ static void idle(void)
     if (hle_vk_lost()) {
         return;                         /* nothing runs on it any more */
     }
-    VkSemaphoreWaitInfo wi = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO, .semaphoreCount = 1,
-                               .pSemaphores = &g_ps.tl, .pValues = &g_ps.submitted };
-    VkResult r = T.vkWaitSemaphores(g_hvk.dev, &wi, 2000000000ull);
-    if (r != VK_TIMEOUT) {
-        hle_vk_check(r, "vkWaitSemaphores (present)");
+    if (g_hvk.caps.timeline) {
+        VkSemaphoreWaitInfo wi = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO, .semaphoreCount = 1,
+                                   .pSemaphores = &g_ps.tl, .pValues = &g_ps.submitted };
+        VkResult r = T.vkWaitSemaphores(g_hvk.dev, &wi, 2000000000ull);
+        if (r != VK_TIMEOUT) {
+            hle_vk_check(r, "vkWaitSemaphores (present)");
+        }
     }
     hle_vk_queue_lock();
-    r = T.vkQueueWaitIdle(g_hvk.queue);
+    VkResult r = T.vkQueueWaitIdle(g_hvk.queue);
     hle_vk_queue_unlock();
     hle_vk_check(r, "vkQueueWaitIdle (present)");
+    if (r == VK_SUCCESS) {
+        g_ps.completed = g_ps.submitted;
+    }
 }
 
 static void drop_images(void)
@@ -619,11 +631,33 @@ static bool make_swapchain(uint32_t w, uint32_t h)
 
 static bool wait_value(uint64_t v)
 {
-    VkSemaphoreWaitInfo wi = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO, .semaphoreCount = 1,
-                               .pSemaphores = &g_ps.tl, .pValues = &v };
-    const VkResult r = T.vkWaitSemaphores(g_hvk.dev, &wi, 1000000000ull);
-    if (r == VK_ERROR_DEVICE_LOST) {
-        hle_vk_lose(r, "vkWaitSemaphores (present)");
+    if (v <= g_ps.completed) {
+        return true;                    /* zero, or already observed before a fence was reused */
+    }
+    VkResult r;
+    if (g_hvk.caps.timeline) {
+        VkSemaphoreWaitInfo wi = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO, .semaphoreCount = 1,
+                                   .pSemaphores = &g_ps.tl, .pValues = &v };
+        r = T.vkWaitSemaphores(g_hvk.dev, &wi, 1000000000ull);
+    } else {
+        VkFence fence = VK_NULL_HANDLE;
+        for (unsigned i = 0; i < PS_FRAMES; i++) {
+            if (g_ps.fr[i].value == v) {
+                fence = g_ps.fr[i].done;
+                break;
+            }
+        }
+        if (!fence) {
+            hle_log("hakuX-hle-back", "present: no fence for an outstanding sequence");
+            g_ps.failed = true;
+            return false;
+        }
+        r = T.vkWaitForFences(g_hvk.dev, 1, &fence, VK_TRUE, 1000000000ull);
+    }
+    if (r == VK_SUCCESS) {
+        g_ps.completed = v;              /* this queue completes the earlier sequences too */
+    } else if (r == VK_ERROR_DEVICE_LOST) {
+        hle_vk_lose(r, "present completion");
     }
     return r == VK_SUCCESS;
 }
@@ -957,15 +991,22 @@ void hle_present_end(float sx, float sy, bool fxaa, int upscale, bool average, u
     VkCommandBufferSubmitInfo cbi = { .sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO, .commandBuffer = cb };
     VkSubmitInfo2 si = { .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2, .waitSemaphoreInfoCount = 1,
                          .pWaitSemaphoreInfos = &wait, .commandBufferInfoCount = 1,
-                         .pCommandBufferInfos = &cbi, .signalSemaphoreInfoCount = 1,
-                         .pSignalSemaphoreInfos = &sig };
+                         .pCommandBufferInfos = &cbi,
+                         .signalSemaphoreInfoCount = g_hvk.caps.timeline ? 1 : 0,
+                         .pSignalSemaphoreInfos = g_hvk.caps.timeline ? &sig : NULL };
     VkPresentInfoKHR pi = { .sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR, .swapchainCount = 1,
                             .pSwapchains = &g_ps.sc, .pImageIndices = &g_ps.idx };
-    hle_vk_queue_lock();
-    const int64_t ts0 = hle_now_ns();
-    VkResult r = T.vkQueueSubmit2(g_hvk.queue, 1, &si, VK_NULL_HANDLE);
-    g_submit_ns += hle_now_ns() - ts0;
-    hle_vk_queue_unlock();
+    VkResult r = VK_SUCCESS;
+    if (!g_hvk.caps.timeline) {
+        r = T.vkResetFences(g_hvk.dev, 1, &f->done); /* begin waited before reusing this frame */
+    }
+    if (r == VK_SUCCESS) {
+        hle_vk_queue_lock();
+        const int64_t ts0 = hle_now_ns();
+        r = T.vkQueueSubmit2(g_hvk.queue, 1, &si, g_hvk.caps.timeline ? VK_NULL_HANDLE : f->done);
+        g_submit_ns += hle_now_ns() - ts0;
+        hle_vk_queue_unlock();
+    }
     if (r == VK_SUCCESS) {
         g_ps.submitted = value;
         f->value = value;
@@ -978,7 +1019,13 @@ void hle_present_end(float sx, float sy, bool fxaa, int upscale, bool average, u
     }
     VkResult pr = r;
     if (r == VK_SUCCESS) {
-        wait_value(value);              /* (timed out: presented all the same, or the image stays ours) */
+        if (!wait_value(value) && !g_hvk.caps.timeline) {
+            /* No present semaphore: never hand an image to Android before
+             * its writes finish, or recycle this frame's live command pool. */
+            hle_log("hakuX-hle-back", "present: fence wait failed; presentation stopped");
+            g_ps.failed = true;
+            return;
+        }
         hle_vk_queue_lock();
         const int64_t tp0 = hle_now_ns();
         pr = T.vkQueuePresentKHR(g_hvk.queue, &pi);

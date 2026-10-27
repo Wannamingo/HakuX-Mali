@@ -20,6 +20,21 @@ static struct {
     void (*on_complete)(uint64_t);
 } g_tl;
 
+/* MaliSX2 exposes binary sync only. Each ordered submission gets a fence;
+ * the watcher is its sole waiter and recycler. CPU waiters observe completed
+ * through the condition variable, never a fence that could be reset under
+ * them. Empty submissions and merged (non-consecutive) values work too.
+ * Bounded storage applies back pressure before taking the Vulkan queue lock. */
+enum { FENCE_SLOTS = 64 };
+static struct {
+    bool init;
+    HleMutex lock;
+    HleCond changed;
+    VkFence fence[FENCE_SLOTS];
+    uint64_t value[FENCE_SLOTS];
+    unsigned head, count;
+} g_fences;
+
 /* Readbacks waiting to land in guest memory (hle_tl_land): each lands once
  * the back end recorded its copy (copied), else is dropped (the image held
  * nothing newer: guest memory stays) */
@@ -118,6 +133,76 @@ static void publish(uint64_t v)
     }
 }
 
+static void *fence_watch_thread(void *opaque)
+{
+    for (;;) {
+        hle_mutex_lock(&g_fences.lock);
+        while (!hle_vk_lost() && (!g_fences.count ||
+               g_fences.value[g_fences.head] > hle_atomic_read(&g_tl.submitted))) {
+            hle_cond_wait(&g_fences.changed, &g_fences.lock);
+        }
+        if (hle_vk_lost()) {
+            hle_mutex_unlock(&g_fences.lock);
+            return NULL;
+        }
+        unsigned slot = g_fences.head;
+        VkFence fence = g_fences.fence[slot];
+        uint64_t value = g_fences.value[slot];
+        hle_mutex_unlock(&g_fences.lock);
+        VkResult r = T.vkWaitForFences(g_hvk.dev, 1, &fence, VK_TRUE, 100000000ull);
+        if (r == VK_TIMEOUT) {
+            continue;
+        }
+        if (r != VK_SUCCESS) {
+            hle_vk_lose(r, "vkWaitForFences (render timeline)");
+            return NULL;
+        }
+        publish(value);               /* readbacks land before CPU waiters wake */
+        hle_mutex_lock(&g_fences.lock);
+        g_fences.head = (slot + 1) % FENCE_SLOTS;
+        g_fences.count--;
+        hle_cond_broadcast(&g_fences.changed);
+        hle_mutex_unlock(&g_fences.lock);
+        if (g_tl.on_complete) {
+            g_tl.on_complete(value);
+        }
+    }
+}
+
+VkResult hle_tl_submit(const VkSubmitInfo2 *submit, uint64_t value)
+{
+    VkFence fence = VK_NULL_HANDLE;
+    unsigned slot = 0;
+    if (!g_hvk.caps.timeline) {
+        hle_mutex_lock(&g_fences.lock);
+        while (g_fences.count == FENCE_SLOTS && !hle_vk_lost()) {
+            hle_cond_wait(&g_fences.changed, &g_fences.lock);
+        }
+        if (hle_vk_lost()) {
+            hle_mutex_unlock(&g_fences.lock);
+            return VK_ERROR_DEVICE_LOST;
+        }
+        slot = (g_fences.head + g_fences.count) % FENCE_SLOTS;
+        fence = g_fences.fence[slot];
+        VkResult r = T.vkResetFences(g_hvk.dev, 1, &fence);
+        if (r != VK_SUCCESS) {
+            hle_mutex_unlock(&g_fences.lock);
+            return r;
+        }
+    }
+    hle_vk_queue_lock();
+    VkResult r = T.vkQueueSubmit2(g_hvk.queue, 1, submit, fence);
+    hle_vk_queue_unlock();
+    if (!g_hvk.caps.timeline) {
+        if (r == VK_SUCCESS) {
+            g_fences.value[slot] = value;
+            g_fences.count++;
+        }
+        hle_mutex_unlock(&g_fences.lock);
+    }
+    return r;
+}
+
 static void *watch_thread(void *opaque)
 {
     uint64_t done = 0;
@@ -162,13 +247,28 @@ int hle_tl_init(void (*on_complete)(uint64_t))
         .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE, .initialValue = 0 };
     VkSemaphoreCreateInfo si = {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO, .pNext = &ti };
-    if (T.vkCreateSemaphore(g_hvk.dev, &si, NULL, &g_tl.sem) != VK_SUCCESS) {
+    if (g_hvk.caps.timeline && T.vkCreateSemaphore(g_hvk.dev, &si, NULL, &g_tl.sem) != VK_SUCCESS) {
         return -1;
+    }
+    if (!g_hvk.caps.timeline) {
+        VkFenceCreateInfo fi = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
+        for (unsigned i = 0; i < FENCE_SLOTS; i++) {
+            if (T.vkCreateFence(g_hvk.dev, &fi, NULL, &g_fences.fence[i]) != VK_SUCCESS) {
+                while (i) T.vkDestroyFence(g_hvk.dev, g_fences.fence[--i], NULL);
+                return -1;
+            }
+        }
+        hle_mutex_init(&g_fences.lock);
+        hle_cond_init(&g_fences.changed);
+        g_fences.init = true;
     }
     g_tl.on_complete = on_complete;
     hle_mutex_init(&g_land.lock);
     hle_event_init(&g_tl.ev, false);
-    hle_thread_create(&g_tl.thread, "hle.timeline", watch_thread, NULL,
+    hle_log("hakuX-hle-back", "GPU completion: %s",
+            g_hvk.caps.timeline ? "timeline semaphore" : "ordered Vulkan fences (MaliSX2 compatible)");
+    hle_thread_create(&g_tl.thread, "hle.timeline",
+                       g_hvk.caps.timeline ? watch_thread : fence_watch_thread, NULL,
                        HLE_THREAD_DETACHED);
     return 0;
 }
@@ -182,6 +282,11 @@ void hle_tl_signaled(uint64_t value)
 {
     hle_atomic_set(&g_tl.submitted, value);
     hle_event_set(&g_tl.ev);
+    if (g_fences.init) {
+        hle_mutex_lock(&g_fences.lock);
+        hle_cond_broadcast(&g_fences.changed);
+        hle_mutex_unlock(&g_fences.lock);
+    }
 }
 
 uint64_t hle_tl_completed(void)
@@ -201,6 +306,11 @@ void hle_tl_lose(void)
 {
     publish(UINT64_MAX);
     hle_event_set(&g_tl.ev);
+    if (g_fences.init) {
+        hle_mutex_lock(&g_fences.lock);
+        hle_cond_broadcast(&g_fences.changed);
+        hle_mutex_unlock(&g_fences.lock);
+    }
 }
 
 void hle_tl_wait(uint64_t value)
@@ -209,6 +319,15 @@ void hle_tl_wait(uint64_t value)
         return;
     }
     uint32_t pa = hle_hitch_enter(HLE_ACT_GPU);
+    if (!g_hvk.caps.timeline) {
+        hle_mutex_lock(&g_fences.lock);
+        while (hle_tl_completed() < value) {
+            hle_cond_wait(&g_fences.changed, &g_fences.lock);
+        }
+        hle_mutex_unlock(&g_fences.lock);
+        hle_hitch_leave(pa);
+        return;
+    }
     while (hle_tl_completed() < value) {
         VkSemaphoreWaitInfo wi = {
             .sType = VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,

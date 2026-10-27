@@ -31,6 +31,7 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
+import com.rfandango.haku_x.GpuDriverHelper
 import com.rfandango.haku_x.GpuDriverHelper.DriverMetadata
 import com.rfandango.haku_x.R
 import com.rfandango.haku_x.ui.common.ActionItem
@@ -66,6 +67,7 @@ fun GpuDriverScreen(onBack: () -> Unit, vm: GpuDriverViewModel = viewModel()) {
       }
       Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Hint(stringResource(R.string.gpu_driver_desc))
+        if (GpuDriverHelper.isRg477mMali()) Hint(stringResource(R.string.gpu_driver_malisx2))
         Section(stringResource(R.string.gpu_driver_section))
         DriverRow(
           title = stringResource(R.string.gpu_driver_system_choice),

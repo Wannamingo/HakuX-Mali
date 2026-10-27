@@ -70,6 +70,10 @@ enum {
     /* Timestamp queries never resolve (Mali-G615): the GPU time profile
      * (debug) is off. */
     HLE_QUIRK_NO_TIMESTAMPS = 1u << 10,
+    /* MaliSX2 0.2.3 corrupts blended layers after a blend-enable or colour
+     * write-mask change within a legacy render pass. End the pass at these
+     * transitions, preserving runs with the same ROP state. */
+    HLE_QUIRK_ROP_PASS_SPLIT = 1u << 11,
 };
 
 extern uint32_t g_hle_quirks;

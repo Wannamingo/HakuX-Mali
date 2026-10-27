@@ -366,6 +366,9 @@ void nc_kernel_apu_spin(NcKernel *k, NcFrame *f);
 /* seh.c: RtlRaiseException and RtlUnwind, and their stubs. */
 void nc_seh_register(NcKernel *k);
 void nc_seh_stub(NcKernel *k, NcFrame *f, unsigned ordinal);
+/* First-chance hardware access violation, before the faulting instruction
+ * runs again. False: no valid guest SEH chain/stack can receive it. */
+bool nc_seh_access_violation(NcKernel *k, NcFrame *f, uint32_t va, bool write);
 /* After the XBE is loaded: what the kernel exposes about the title. */
 void nc_kernel_title_loaded(NcKernel *k, const struct NcDisc *disc, const struct NcDiscFile *xbe,
                             uint32_t xbe_base, uint32_t image_size);
@@ -553,7 +556,8 @@ void nc_kernel_dump_threads(NcKernel *k, int fd);
 /* A guest access to va, a page the guest doesn't have (the host fault in
  * translated code, f its state there): with a page-fault handler of the
  * title's in the IDT (Fable's pager), #PF goes to it as the CPU raises it
- * and true returns; otherwise the fault is the guest's crash. */
+ * and true returns; otherwise deliver a first-chance access violation to
+ * the title's SEH chain (Serious Sam's stream pager). */
 bool nc_kernel_page_fault(NcKernel *k, NcFrame *f, uint32_t va, bool write);
 /* In a kernel call, before the kernel reads (or, write, fills) the guest
  * buffer [va, va+len) with host I/O, which fails rather than faults on a

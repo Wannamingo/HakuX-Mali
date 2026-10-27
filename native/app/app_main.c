@@ -505,11 +505,17 @@ EXPORT int SDL_main(int argc, char *argv[])
         }
     }
     bool uncap = false;
+    unsigned fps_limit = 0;
     bool async_pipe = true, prebuild = true;    /* the app's defaults */
     int64_t video = -1;
     int av_pack = NC_AV_PACK_HDTV;
+    unsetenv("HAKUX_HLE_REQUIRE_MALISX2");
     for (int i = 3; i < argc; i++) {
         uncap |= !strcmp(argv[i], "uncap");
+        if (!strncmp(argv[i], "fpslimit=", 9)) {
+            const int n = atoi(argv[i] + 9);
+            fps_limit = n > 0 && n <= 240 ? (unsigned)n : 0;
+        }
         if (!strcmp(argv[i], "relaunch")) {
             nc_core_set_relaunch(true);
         }
@@ -577,7 +583,9 @@ EXPORT int SDL_main(int argc, char *argv[])
             nc_kernel_set_time_zone(atoi(argv[i] + 3));
         }
         /* vkdriver=<driver dir>|<library>|<hook library dir>: the custom
-         * Vulkan driver chosen in the settings (Turnip), via adrenotools. */
+         * Vulkan driver chosen in the settings (Turnip or MaliSX2), via
+         * adrenotools' isolated Android loader. MaliSX2 is a HAL: do not
+         * dlopen it directly, since Android owns its surfaces/swapchains. */
         if (!strncmp(argv[i], "vkdriver=", 9)) {
 #ifdef NC_ADRENOTOOLS
             /* Turnip's debug flags for A/B runs (debug.hakux.tu_debug, e.g.
@@ -602,10 +610,23 @@ EXPORT int SDL_main(int argc, char *argv[])
                     nc_hle_set_vk_loader(nc_vk_layers(gipa));
                 }
                 nc_log("hakuX-app", "Vulkan driver %s from %s: %s", lib, spec,
-                       gipa ? "loaded" : "failed, the system driver it is");
+                       gipa ? "loader opened" : "failed");
+                if (!gipa) {
+                    nc_hle_set_fatal(NC_FATAL_BOOT,
+                        "The selected Vulkan driver could not be loaded. Select System driver or reinstall the driver package.");
+                    return 1;
+                }
+                if (!strcmp(lib, "libvulkan_malisx2.so")) {
+                    setenv("HAKUX_HLE_REQUIRE_MALISX2", "1", 1);
+                }
+            } else {
+                nc_hle_set_fatal(NC_FATAL_BOOT, "The selected Vulkan driver path is invalid.");
+                return 1;
             }
 #else
             nc_log("hakuX-app", "Vulkan driver requested, but this build has no adrenotools");
+            nc_hle_set_fatal(NC_FATAL_BOOT, "This build cannot load custom Vulkan drivers (adrenotools is missing).");
+            return 1;
 #endif
         }
     }
@@ -616,6 +637,14 @@ EXPORT int SDL_main(int argc, char *argv[])
     if (video >= 0) {
         nc_log("hakuX-app", "video flags %08llx, AV pack %d", (unsigned long long)video, av_pack);
     }
+    if (fps_limit) {
+        char limit[16];
+        snprintf(limit, sizeof(limit), "%u", fps_limit);
+        setenv("HAKUX_HLE_FPS_LIMIT", limit, 1);
+    } else {
+        unsetenv("HAKUX_HLE_FPS_LIMIT");
+    }
+    nc_log("hakuX-app", "frame rate limit: %u FPS (0: disabled)", fps_limit);
     if (uncap) {
         setenv("HAKUX_HLE_UNCAP", "1", 1);
     } else {

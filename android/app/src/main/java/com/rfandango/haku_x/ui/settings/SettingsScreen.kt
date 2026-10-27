@@ -79,6 +79,8 @@ fun SettingsScreen(
   var replacing by remember { mutableStateOf<Uri?>(null) }     /* the folder a pick replaces; null: adds */
   var removing by remember { mutableStateOf<Uri?>(null) }
   var uncapped by remember { mutableStateOf(prefs.uncapped) }
+  var frameRateLimit by remember { mutableIntStateOf(prefs.frameRateLimit) }
+  var frameRateDialog by remember { mutableStateOf(false) }
   var asyncShaders by remember { mutableStateOf(prefs.asyncShaders) }
   var prebuildShaders by remember { mutableStateOf(prefs.prebuildShaders) }
   var showFps by remember { mutableStateOf(prefs.showFps) }
@@ -180,6 +182,15 @@ fun SettingsScreen(
         headlineContent = { Text(stringResource(R.string.settings_theme)) },
         supportingContent = { Text(stringResource(themeLabel(theme))) },
         modifier = Modifier.clickable { themeDialog = true },
+      )
+      ListItem(
+        headlineContent = { Text(stringResource(R.string.settings_fps_limit)) },
+        supportingContent = {
+          Text((if (frameRateLimit == 0) stringResource(R.string.settings_fps_no_limit)
+                else stringResource(R.string.settings_fps_value, frameRateLimit)) + ". " +
+            stringResource(R.string.settings_applies_next_start))
+        },
+        modifier = Modifier.clickable { frameRateDialog = true },
       )
       SwitchItem(
         title = stringResource(R.string.settings_uncap),
@@ -317,7 +328,7 @@ fun SettingsScreen(
         checked = prebuildShaders,
         onChange = { prebuildShaders = it; prefs.prebuildShaders = it },
       )
-      // other drivers load on Qualcomm's GPU driver interface only (adrenotools): said, not offered, elsewhere
+      // Turnip on Adreno and MaliSX2 on RG477M use the isolated Android Vulkan loader.
       val customDrivers = remember { GpuDriverHelper.supportsCustomDriverLoading() }
       ListItem(
         headlineContent = { Text(stringResource(R.string.settings_gpu_driver_title)) },
@@ -363,6 +374,18 @@ fun SettingsScreen(
     }
   }
 
+  if (frameRateDialog) {
+    ChoiceDialog(
+      title = stringResource(R.string.settings_fps_limit),
+      options = listOf(0, 30, 60, 90, 120).map {
+        it to if (it == 0) stringResource(R.string.settings_fps_no_limit)
+              else stringResource(R.string.settings_fps_value, it)
+      },
+      current = frameRateLimit,
+      onPick = { frameRateLimit = it; prefs.frameRateLimit = it; frameRateDialog = false },
+      onDismiss = { frameRateDialog = false },
+    )
+  }
   if (languageDialog) {
     ChoiceDialog(
       title = stringResource(R.string.settings_language),

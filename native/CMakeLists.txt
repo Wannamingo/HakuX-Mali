@@ -33,6 +33,7 @@ add_library(hakux_native STATIC
   core/vm.c
   core/xdvdfs.c
   core/xbe_load.c
+  core/xbe_media.c
   core/mods.c
   core/cheats.c
   core/memscan.c

@@ -28,6 +28,31 @@ HleRing *hle_fe_ring(void)
 
 void *hle_fe_begin_raw(uint16_t op, uint32_t len)
 {
+    /* Pace the producer before publishing another frame, rather than let
+     * the guest queue frames ahead of a throttled GPU/presenter (input lag).
+     * All native presentation paths emit SWAP here, including IMMEDIATE. */
+    if (op == HLE_OP_SWAP) {
+        static bool checked;
+        static int64_t interval, last;
+        if (!checked) {
+            const char *e = getenv("HAKUX_HLE_FPS_LIMIT");
+            const int fps = e ? atoi(e) : 0;
+            interval = fps > 0 && fps <= 240 ? 1000000000ll / fps : 0;
+            checked = true;
+        }
+        if (interval) {
+            int64_t now = hle_now_ns();
+            const int64_t due = last + interval;
+            if (last && now < due) {
+                hle_fe_commit(); /* existing draws can run while their producer waits */
+                do {
+                    g_usleep((gulong)((due - now + 999) / 1000));
+                    now = hle_now_ns();
+                } while (now < due);
+            }
+            last = now; /* no burst of catch-up frames after a stall or pause */
+        }
+    }
     void *p = hle_ring_reserve(&g_ring, op, len);
     if (likely(p)) {
         return p;

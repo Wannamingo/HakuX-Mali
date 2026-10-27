@@ -20,6 +20,8 @@ copyrighted Xbox software.
 
 See [android/README.md](android/README.md).
 
+Experimental RG477M / MaliSX2 integration: [android/RG477M.md](android/RG477M.md).
+
 ## License
 
 hakuX is free software under the GNU General Public License, version 3 or

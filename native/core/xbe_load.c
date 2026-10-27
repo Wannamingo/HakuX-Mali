@@ -11,6 +11,7 @@
  * of 107: backing the whole image left it 4 MiB short in gameplay).
  */
 #include "native/core/xbe_load.h"
+#include "native/core/xbe_media.h"
 
 #include <stdlib.h>
 
@@ -74,6 +75,9 @@ bool nc_xbe_load(NcVm *vm, const NcDisc *disc, const char *path, const NcKernel 
         return false;
     }
     const HleXbeInfo *x = &out->info;
+    if (nc_xbe_file_media(hdr, hdr_size)) {
+        nc_log("hakuX-native", "xbe: file-backed media; physical DVD security-sector check disabled");
+    }
     out->tls_dir = nc_rd32(hdr + XBE_TLS_DIR);
     out->stack_commit = nc_rd32(hdr + XBE_STACK_COMMIT);
 

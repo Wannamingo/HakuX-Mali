@@ -37,8 +37,34 @@ object GpuDriverHelper {
   }
 
   fun supportsCustomDriverLoading(): Boolean {
-    return File("/dev/kgsl-3d0").exists()
+    return isAdreno() || isRg477mMali()
   }
+
+  private fun isAdreno(): Boolean = File("/dev/kgsl-3d0").exists()
+
+  private val rg477mMali: Boolean by lazy {
+    Build.VERSION.SDK_INT >= 29 && Build.SUPPORTED_ABIS.contains("arm64-v8a") &&
+      File("/dev/mali0").exists() &&
+      (GpuDriverPolicy.isRg477m(Build.MODEL, Build.DEVICE, Build.PRODUCT) ||
+        // GammaOS/GSI replaces the system model with "GammaOS Full". The
+        // read-only vendor model still identifies the actual handheld.
+        GpuDriverPolicy.isRg477m(vendorModel()))
+  }
+
+  private fun vendorModel(): String = runCatching {
+    val process = ProcessBuilder("/system/bin/getprop", "ro.product.vendor.model").start()
+    try {
+      if (!process.waitFor(1, java.util.concurrent.TimeUnit.SECONDS)) ""
+      else process.inputStream.bufferedReader().use { it.readLine().orEmpty() }
+    } finally {
+      process.destroy()
+    }
+  }.getOrDefault("")
+
+  fun isRg477mMali(): Boolean = rg477mMali
+
+  private fun compatible(meta: DriverMetadata): Boolean =
+    GpuDriverPolicy.acceptsLibrary(meta.libraryName, isAdreno(), isRg477mMali())
 
   /**
    * A Turnip driver is worth recommending: the phone can load one (Qualcomm), it runs on its own
@@ -47,7 +73,7 @@ object GpuDriverHelper {
    */
   fun turnipRecommended(context: Context): Boolean {
     init(context)
-    return supportsCustomDriverLoading() && getActiveDriver() == null &&
+    return isAdreno() && getActiveDriver() == null &&
       !context.packageManager.hasSystemFeature(PackageManager.FEATURE_VULKAN_HARDWARE_VERSION, VULKAN_1_3)
   }
 
@@ -59,7 +85,7 @@ object GpuDriverHelper {
   }
 
   /** Why a package wasn't added (addDriver). */
-  enum class AddError { UNREADABLE, NOT_A_DRIVER, NO_LIBRARY, API, UNPACK }
+  enum class AddError { UNREADABLE, NOT_A_DRIVER, NO_LIBRARY, API, GPU, UNPACK }
 
   /** addDriver's outcome: the package added (and in use), or why not. */
   data class AddResult(val driver: DriverMetadata? = null, val error: AddError? = null)
@@ -86,6 +112,7 @@ object GpuDriverHelper {
       meta == null -> AddError.NOT_A_DRIVER
       meta.libraryName.isNullOrEmpty() || !hasEntry(tmpFile, meta.libraryName) -> AddError.NO_LIBRARY
       meta.minApi > Build.VERSION.SDK_INT -> AddError.API
+      !compatible(meta) -> AddError.GPU
       else -> null
     }
     if (meta == null || error != null) {
@@ -122,6 +149,9 @@ object GpuDriverHelper {
    * whole (a package that fails to unpack leaves the driver in use as it was).
    */
   fun useDriver(driverZip: File): Boolean {
+    val meta = readMetadata(driverZip) ?: return false
+    if (meta.minApi > Build.VERSION.SDK_INT || !compatible(meta) ||
+        !hasEntry(driverZip, meta.libraryName!!)) return false
     val installDir = File(driverInstallDir)
     val newDir = File(installDir.parentFile, installDir.name + ".new")
     newDir.deleteRecursively()
@@ -189,7 +219,9 @@ object GpuDriverHelper {
 
   fun getInstalledDriverName(): String? = getActiveDriver()?.name
 
-  fun getInstalledDriverLibrary(): String? = getActiveDriver()?.libraryName
+  fun getInstalledDriverLibrary(): String? = getActiveDriver()
+    ?.takeIf { compatible(it) && it.minApi <= Build.VERSION.SDK_INT }
+    ?.libraryName
 
   /**
    * The stored package is the driver in use: by the package name the install keeps, else (a driver

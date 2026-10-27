@@ -99,7 +99,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
         fatalShown = true
         val kind = nativeGetFatalKind()
         val driver = kind == FATAL_DRIVER
-        /* another driver can be chosen on Adreno only (Turnip); elsewhere the system's */
+        /* Turnip on Adreno, experimental MaliSX2 on RG477M. */
         val custom = GpuDriverHelper.supportsCustomDriverLoading()
         AlertDialog.Builder(this@NativeCoreActivity)
           .setTitle(
@@ -159,6 +159,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     }
     /* The app's settings, under this game's overrides. */
     val settings = RunSettings(AppPrefs(this), gameOverrides())
+    args += "fpslimit=${AppPrefs(this).frameRateLimit}"
     /* Every frame presented at once, no vblank wait: on by default. */
     if (settings.uncapped) {
       args += "uncap"
@@ -333,7 +334,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     hideSystemBars()
     val prefs = getSharedPreferences("x1box_prefs", Context.MODE_PRIVATE)
     fpsOn = prefs.getBoolean("show_fps", true)
-    hitchesOn = BuildConfig.DEBUG && prefs.getBoolean(PREF_SHOW_HITCHES, true)
+    hitchesOn = BuildConfig.DEBUG && prefs.getBoolean(PREF_SHOW_HITCHES, false)
     fpsView?.visibility = if (fpsOn) View.VISIBLE else View.GONE
     if (!hitchesOn) hitchView?.visibility = View.GONE
     fpsHandler.removeCallbacks(fpsRunnable)

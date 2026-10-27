@@ -27,12 +27,12 @@ android {
   ndkVersion = "29.0.14206865"
 
   defaultConfig {
-    applicationId = "com.rfandango.haku_x"
+    applicationId = providers.gradleProperty("hakuxApplicationId").getOrElse("com.rfandango.haku_x")
     minSdk = 28
     targetSdk = 36
 
-    versionCode = 7
-    versionName = "1.1.0"
+    versionCode = 8
+    versionName = "1.1.0-rg477m.1"
 
     ndk {
       abiFilters += listOf("arm64-v8a")
@@ -74,7 +74,8 @@ android {
       )
     }
     release {
-      resValue("string", "app_name", "hakuX")
+      resValue("string", "app_name", "hakuX RG477M")
+      isDebuggable = false
       isMinifyEnabled = true
       proguardFiles(
         getDefaultProguardFile("proguard-android-optimize.txt"),

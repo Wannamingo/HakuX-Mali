@@ -24,3 +24,8 @@ One entry per section version (tools/native/statelock.py).
 
 - NcFile.no_buffering: a handle opened with FILE_NO_INTERMEDIATE_BUFFERING; only its writes pend (v2 states: buffered, writes complete in the call)
 - upgraded: v1..v2 states load
+
+## MM v2 (2026-10-26, after 3804370)
+
+- Preserve contiguous allocation protection and cache attributes
+- upgraded: v1..v1 states load

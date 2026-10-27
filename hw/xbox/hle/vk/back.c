@@ -25,6 +25,8 @@
 #include "hw/xbox/hle/vk/display.h"
 #include "hw/xbox/hle/vk/guest_ram.h"
 #include "hw/xbox/hle/vk/quirks.h"
+#include "hw/xbox/hle/vk/vis_result.h"
+#include "hw/xbox/hle/vk/rop_pass.h"
 
 #define T (g_hvk.t)
 
@@ -72,6 +74,7 @@ static struct {
     VkQueryPool pool;
     uint32_t next;                              /* ring position */
     bool active;                                /* a test is open */
+    bool missing;                               /* some draws could not be counted */
     int32_t in_pass;                            /* its query in the open pass, -1 none */
     uint32_t parts[VIS_MAX_PARTS], nparts;
     struct {
@@ -79,6 +82,7 @@ static struct {
         uint32_t report;                        /* guest PA of the device's report, 0 none */
         uint64_t after;                         /* HLE_SURF_PARKED until submitted */
         uint64_t expect;                        /* the value its poller waits for */
+        bool missing;
     } pend[VIS_PENDING];
     uint32_t npend;
     uint64_t lost;
@@ -91,16 +95,25 @@ static struct {
 
 static bool vis_init(void)
 {
+    static bool unavailable_logged;
     if (g_vis.pool) {
         return true;
     }
     if (!g_hvk.caps.host_query_reset) {
+        if (!unavailable_logged) {
+            unavailable_logged = true;
+            hle_log("hakuX-hle-back", "vis: GPU queries unavailable; uncounted tests report visible");
+        }
         return false;
     }
     VkQueryPoolCreateInfo qi = { .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
                                  .queryType = VK_QUERY_TYPE_OCCLUSION, .queryCount = VIS_SLOTS };
     if (T.vkCreateQueryPool(g_hvk.dev, &qi, NULL, &g_vis.pool) != VK_SUCCESS) {
         g_vis.pool = VK_NULL_HANDLE;
+        if (!unavailable_logged) {
+            unavailable_logged = true;
+            hle_log("hakuX-hle-back", "vis: query pool creation failed; uncounted tests report visible");
+        }
         return false;
     }
     T.vkResetQueryPool(g_hvk.dev, g_vis.pool, 0, VIS_SLOTS);
@@ -110,8 +123,11 @@ static bool vis_init(void)
 /* A draw inside the open pass while a test is open: its query starts. */
 static void vis_draw(VkCommandBuffer cb)
 {
-    if (!g_vis.active || g_vis.in_pass >= 0 || g_vis.nparts >= VIS_MAX_PARTS ||
-        g_vis_dbg.off || !vis_init()) {
+    if (!g_vis.active || g_vis.in_pass >= 0) {
+        return;
+    }
+    if (g_vis.nparts >= VIS_MAX_PARTS || g_vis_dbg.off || !vis_init()) {
+        g_vis.missing = true;
         return;
     }
     uint32_t slot = g_vis.next++ % VIS_SLOTS;
@@ -162,11 +178,11 @@ static void cmd_vis_end(const HleCmdVis *c)
     }
     if (g_vis.npend >= VIS_PENDING) {
         if (g_vis.lost++ == 0) {
-            hle_log("hakuX-hle-back", "vis: %u tests pending, index %u reported occluded",
+            hle_log("hakuX-hle-back", "vis: %u tests pending, index %u conservatively reported visible",
                     g_vis.npend, c->index);
         }
         g_vis.nparts = 0;
-        vis_report(c->report, 0);
+        vis_report(c->report, HLE_VIS_FALLBACK_PIXELS);
         return;
     }
     typeof(g_vis.pend[0]) *p = &g_vis.pend[g_vis.npend++];
@@ -177,6 +193,10 @@ static void cmd_vis_end(const HleCmdVis *c)
     p->report = c->report;
     p->expect = c->expect;
     p->nparts = g_vis.nparts;
+    /* Without a query backend even a report with no recorded parts is
+     * unknown. Some titles issue reports without a draw between them; a
+     * fabricated zero there still hides geometry (Serious Sam's first room). */
+    p->missing = g_vis.missing || !g_hvk.caps.host_query_reset || !g_vis.pool;
     memcpy(p->parts, g_vis.parts, sizeof(p->parts));
     /* parked until the next submission, also without an open recording:
      * the front end waits for the value after its last one (and kicks once
@@ -205,14 +225,17 @@ static void vis_reap(uint64_t completed)
             continue;
         }
         uint64_t sum = 0;
+        bool complete = !p->missing;
         for (uint32_t k = 0; k < p->nparts; k++) {
             uint64_t n = 0;
             if (T.vkGetQueryPoolResults(g_hvk.dev, g_vis.pool, p->parts[k], 1, sizeof(n), &n,
                                         sizeof(n), VK_QUERY_RESULT_64_BIT) == VK_SUCCESS) {
                 sum += n;
+            } else {
+                complete = false;
             }
         }
-        uint32_t count = (uint32_t)(sum / p->div);
+        uint32_t count = hle_vis_result(sum, p->div, complete);
         {   /* debug: HAKUX_HLE_VISALL=1 (or debug.hakux.visall=1, live)
              * reports every test fully visible; HAKUX_HLE_VISLOG=<n> (or a new
              * debug.hakux.vislog=<n>) logs the next n results */
@@ -541,6 +564,8 @@ uint64_t hle_back_breaks;
 
 /* lrz_off: the pass's first draw runs without the driver's LRZ
  * (hle_draw_lrz_off; true when not known) */
+static HleRopPass g_rop_pass;
+
 static bool open_pass(bool lrz_off)
 {
     hle_back_breaks++;
@@ -556,6 +581,25 @@ static bool open_pass(bool lrz_off)
         return false;
     }
     VkCommandBuffer cb = cb_get();
+    if (!g_hvk.caps.dyn_render) {
+        /* A legacy pass can resume attachments without changing their layout.
+         * Make the previous pass's stores visible to its load/blend operations. */
+        VkMemoryBarrier2 mb = {
+            .sType = VK_STRUCTURE_TYPE_MEMORY_BARRIER_2,
+            .srcStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT |
+                            VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+                            VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+            .srcAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT |
+                             VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT,
+            .dstStageMask = VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT |
+                            VK_PIPELINE_STAGE_2_EARLY_FRAGMENT_TESTS_BIT |
+                            VK_PIPELINE_STAGE_2_LATE_FRAGMENT_TESTS_BIT,
+            .dstAccessMask = VK_ACCESS_2_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT |
+                             VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_READ_BIT | VK_ACCESS_2_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT };
+        VkDependencyInfo di = { .sType = VK_STRUCTURE_TYPE_DEPENDENCY_INFO,
+                                .memoryBarrierCount = 1, .pMemoryBarriers = &mb };
+        T.vkCmdPipelineBarrier2(cb, &di);
+    }
     uint32_t pf = g_back.pend_clear ? g_back.pend_flags : 0;
     VkRenderingAttachmentInfo ca = { .sType = VK_STRUCTURE_TYPE_RENDERING_ATTACHMENT_INFO };
     VkRenderingAttachmentInfo da = ca, sa = ca;
@@ -682,6 +726,7 @@ static void draw_nopass(void)
 
 static void close_pass_why(unsigned why)
 {
+    hle_rop_pass_reset(&g_rop_pass);
     hle_back_breaks++;
     if (!g_back.pass_open && g_back.pend_clear) {
         open_pass(false);                     /* clear-only pass: loadOp=CLEAR */
@@ -779,12 +824,10 @@ static void submit(uint64_t value)
     VkSubmitInfo2 si = {
         .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO_2,
         .commandBufferInfoCount = has_cb ? 1 : 0, .pCommandBufferInfos = &cbi,
-        .signalSemaphoreInfoCount = 1, .pSignalSemaphoreInfos = &sig };
+        .signalSemaphoreInfoCount = g_hvk.caps.timeline ? 1 : 0, .pSignalSemaphoreInfos = &sig };
     int64_t ts = hle_prof_begin();
     uint32_t pa = hle_hitch_enter(HLE_ACT_SUBMIT);
-    hle_vk_queue_lock();
-    VkResult r = T.vkQueueSubmit2(g_hvk.queue, 1, &si, VK_NULL_HANDLE);
-    hle_vk_queue_unlock();
+    VkResult r = hle_tl_submit(&si, value);
     hle_hitch_leave(pa);
     hle_prof_end(HLE_PROF_SUBMIT, ts);
     if (r != VK_SUCCESS) {
@@ -2392,6 +2435,7 @@ static void dispatch(const HleCmdHdr *h)
     case HLE_OP_VSH:      hle_draw_cmd_vsh(p); break;
     case HLE_OP_VIS_BEGIN:
         g_vis.active = true;
+        g_vis.missing = false;
         g_vis.nparts = 0;
         g_vis.in_pass = -1;
         break;
@@ -2427,6 +2471,12 @@ static void dispatch(const HleCmdHdr *h)
             close_pass_why(PE_COPY);
             hle_draw_snap(cb_get(), hle_surf_get(g_back.rt));
         }
+        uint32_t rop[9];
+        const bool split_rop = !g_hvk.caps.dyn_render && hle_quirk(HLE_QUIRK_ROP_PASS_SPLIT);
+        if (split_rop) {
+            hle_draw_rs_brief(rop);
+            if (hle_rop_pass_split(&g_rop_pass, rop[3], rop[7])) close_pass();
+        }
         if (g_hle_gpucut == 3) {
             if (!g_back.pass_open) {
                 open_pass(true);        /* debug: the passes alone, no draw state */
@@ -2445,6 +2495,7 @@ static void dispatch(const HleCmdHdr *h)
             }
             g_hle_zeq = zv ? zq : 0;
             hle_draw_cmd_draw(p, g_back.fr[g_back.cur].cb, g_back.rt, g_back.ds, &g_back.vp);
+            if (split_rop) hle_rop_pass_record(&g_rop_pass, rop[3], rop[7]);
             g_back.st.draws++;
             if (g_pix.active) {
                 pix_after(p);

@@ -1,5 +1,6 @@
 /build/
 /.cache/
+/android/.kotlin/
 /.vscode/
 /.idea/
 /.claude/

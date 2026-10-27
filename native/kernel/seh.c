@@ -254,6 +254,56 @@ static void step(NcKernel *k, NcFrame *f, NcThread *t)
     nc_frame_set_eip(f, rd(k, l->reg + 4));
 }
 
+/* A hardware #PF without a title-owned IDT handler reaches SEH as a
+ * first-chance access violation. In particular, Serious Engine reserves a
+ * file-sized virtual buffer and commits/loads its pages in an exception
+ * filter. Resume at the faulting EIP and ESP, not past a kernel call. */
+bool nc_seh_access_violation(NcKernel *k, NcFrame *f, uint32_t va, bool write)
+{
+    NcThread *t = k->current;
+    if (!t || !k->kpcr_va) {
+        return false;
+    }
+    const uint32_t reg = chain_head(k);
+    const uint32_t limit = rd(k, k->kpcr_va + 8), top = rd(k, k->kpcr_va + 4);
+    const uint32_t esp = nc_frame_gpr(f, NC_ESP);
+    if (reg == CHAIN_END || (reg & 3) || reg < limit || (uint64_t)reg + 8 > top ||
+        esp > top || esp < LV_SIZE || ((esp - LV_SIZE) & ~15u) < limit) {
+        return false;
+    }
+    const uint32_t low = (esp - LV_SIZE) & ~15u;
+    for (uint32_t p = low & ~(NC_PAGE - 1); p < esp; p += NC_PAGE) {
+        if (nc_vm_phys(k->vm, p) == UINT32_MAX) {
+            return false;
+        }
+    }
+    if (nc_vm_phys(k->vm, reg) == UINT32_MAX || nc_vm_phys(k->vm, reg + 7) == UINT32_MAX) {
+        return false;
+    }
+    NcSeh *l = push_level(k, f, t, esp);
+    if (!l) {
+        return false;
+    }
+    const uint32_t eip = nc_frame_eip(f);
+    capture(k, f, l->ctx, eip, esp);
+    l->rec = l->base + LV_REC;
+    memset(nc_vm_host(k->vm, l->rec), 0, ER_SIZE);
+    wr(k, l->rec + ER_CODE, 0xC0000005u); /* STATUS_ACCESS_VIOLATION */
+    wr(k, l->rec + ER_ADDRESS, eip);
+    wr(k, l->rec + ER_NPARAMS, 2);
+    wr(k, l->rec + ER_INFO, write ? 1 : 0);
+    wr(k, l->rec + ER_INFO + 4, va);
+    l->reg = reg;
+    static unsigned s_faults;
+    const unsigned n = ++s_faults;
+    if (n <= 8 || !(n & (n - 1))) {
+        nc_log("hakuX-native", "seh: access %s at %08x from %08x dispatched to the title (#%u)",
+               write ? "write" : "read", va, eip, n);
+    }
+    step(k, f, t);
+    return true;
+}
+
 /* RtlRaiseException(ExceptionRecord): first-chance dispatch from the caller. */
 static uint64_t RtlRaiseException(NcKernel *k, NcFrame *f, const uint32_t *a)
 {

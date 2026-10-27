@@ -460,7 +460,8 @@ static VkResult VKAPI_CALL c_submit2(VkQueue q, uint32_t n, const VkSubmitInfo2 
             .signalSemaphoreValueCount = x->signalSemaphoreInfoCount,
             .pSignalSemaphoreValues = sv[i] };
         si[i] = (VkSubmitInfo){
-            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO, .pNext = &ti[i],
+            .sType = VK_STRUCTURE_TYPE_SUBMIT_INFO,
+            .pNext = g_hvk.caps.timeline ? &ti[i] : NULL,
             .waitSemaphoreCount = x->waitSemaphoreInfoCount, .pWaitSemaphores = ws[i],
             .pWaitDstStageMask = wst[i],
             .commandBufferCount = x->commandBufferInfoCount, .pCommandBuffers = cbs[i],

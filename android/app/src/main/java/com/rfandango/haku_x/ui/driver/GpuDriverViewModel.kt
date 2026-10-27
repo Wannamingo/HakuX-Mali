@@ -85,6 +85,7 @@ class GpuDriverViewModel(app: Application) : AndroidViewModel(app) {
       AddError.NOT_A_DRIVER -> str(R.string.gpu_driver_err_not_driver)
       AddError.NO_LIBRARY -> str(R.string.gpu_driver_err_no_library)
       AddError.API -> str(R.string.gpu_driver_err_api, r.driver?.minApi ?: 0, android.os.Build.VERSION.SDK_INT)
+      AddError.GPU -> str(R.string.gpu_driver_err_gpu)
       AddError.UNPACK -> str(R.string.gpu_driver_err_unpack, name)
     }
   }
