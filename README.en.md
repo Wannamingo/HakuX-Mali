@@ -6,11 +6,11 @@
 
 A free, unofficial [hakuX](https://github.com/rfandango/hakuX) adaptation for **ANBERNIC RG477M / Mali-G615 MC6**, Android arm64 and **MaliSX2 0.2.3**. The current release is based on hakuX 1.2.0. Upstream credits and component licenses are preserved.
 
-Prepared build **1.2.0-rg477m.2** is installed for testing on RG477M: bundled MaliSX2, Dimensity 8300 detection, fork updates and a verified 4:3/16:9 switch. [Build notes](releases/1.2.0-rg477m.2.en.md). It has not been published to GitHub; the installation instructions below describe the published .1 release.
+**1.2.0-rg477m.2**: bundled MaliSX2, Dimensity 8300 detection, fork updates and a verified 4:3/16:9 switch. Installed and tested on RG477M. [Release notes](releases/1.2.0-rg477m.2.en.md).
 
 ## Download
 
-**[1.2.0-rg477m.1 — APK, sources and checksums](https://github.com/Wannamingo/hakuX-for-RG477M/releases/tag/v1.2.0-rg477m.1)**
+**[1.2.0-rg477m.2 — APK, sources and checksums](https://github.com/Wannamingo/hakuX-for-RG477M/releases/tag/v1.2.0-rg477m.2)**
 
 The published APK is identical to the version installed and tested on RG477M. It is an optimized, non-debuggable arm64-v8a release build. The `com.rfandango.haku_x.debug` package ID is retained to update our earlier installation; the suffix does not enable debugging.
 
@@ -18,11 +18,11 @@ The published APK is identical to the version installed and tested on RG477M. It
 
 1. Install the APK from Releases. Updating our earlier build retains data and settings.
 2. On a fresh installation, complete setup and select your own Xbox ISO/XISO folder.
-3. In Settings → GPU driver, import and select official [MaliSX2 0.2.3](https://github.com/bmdhacks/malisx2/releases/tag/v0.2.3). Restart the game after changing drivers.
-4. On a fresh installation, select Settings → Frame rate limit → **120 FPS**. This setting is retained on the tested console. Games with an internal 30/60 FPS cap retain it.
+3. MaliSX2 0.2.3 is bundled and selected automatically on a fresh RG477M / supported MT6897 installation. Updates preserve an explicit system/other driver choice; the built-in package is available in Settings → GPU driver. Restart the game after changing drivers.
+4. The fresh-install default is **120 FPS**; existing saved values are retained. Change it in Settings → Frame rate limit. Games with an internal 30/60 FPS cap retain it.
 5. When enabled, the FPS HUD shows only FPS and average/last frame time.
 
-Install updates to this fork from its Releases; this APK’s built-in update check still queries upstream hakuX.
+The built-in update check now uses Releases from **Wannamingo/hakuX-for-RG477M**. APKs must match the installed package ID and signing certificate; Android asks before installation. Version .1 still queried upstream: install .2 manually from this release first.
 
 ## RG477M fixes
 
@@ -41,12 +41,13 @@ Install updates to this fork from its Releases; this APK’s built-in update che
 - The supplied artwork is used for legacy, adaptive and monochrome icons across five densities, preserving its aspect ratio.
 - Updated to hakuX 1.2.0, retaining upstream audio, memory, thread-stack, controller and System Link changes. present_cpu_wait and rop_pass_split have distinct bits; fpslimit uses the shared parser, and the adrenotools hooks are built together.
 
-See the complete [release notes](releases/1.2.0-rg477m.1.en.md) and [technical details](android/RG477M.md).
+See the complete [release notes](releases/1.2.0-rg477m.2.en.md) and [technical details](android/RG477M.md).
 
 ## Successfully launched games
 
-The owner confirmed all 29 images currently in the games folder; Syberia is confirmed by an earlier run. **30 entries** are listed below. The Sands of Time was separately rechecked on the new base. [Test scope and confirmation sources](docs/COMPATIBILITY.en.md).
+**31 confirmed startups**: the owner confirmed 29 images on 2026-10-27, Syberia was checked earlier, and Call of Cthulhu gameplay was confirmed on .2 on 2026-10-28. This does not establish complete playthroughs or defect-free graphics; the earlier 30 games were not all rechecked on .2. [Test scope and confirmation sources](docs/COMPATIBILITY.en.md).
 
+- Call of Cthulhu: Dark Corners of the Earth — gameplay works; missing textures remain in its introductory cinematic.
 - Colin McRae Rally 2005
 - Dead or Alive Xtreme Beach Volleyball
 - Jet Set Radio Future
@@ -77,6 +78,10 @@ The owner confirmed all 29 images currently in the games folder; Syberia is conf
 - Ultimate Spider-Man
 - WTA Tour Tennis (USA)
 - XGRA: Extreme G Racing Association
+
+## Known limits
+
+The Call of Cthulhu introductory cinematic texture defect remains unresolved. Every Ultimate Spider-Man comic scene and long gameplay sessions have not been checked. Conker: Live & Reloaded is not yet included in confirmed gameplay checks. Dimensity 8300/8300 Ultra is recognized through MT6897 identifiers, but actual hardware testing was on RG477M.
 
 ## Building and sources
 
