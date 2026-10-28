@@ -152,6 +152,23 @@ static void place(uint32_t fw, uint32_t fh, uint32_t ww, uint32_t wh, float *sx,
     } else {
         *sy = wa / fa;
     }
+    /* One line when the source/window/setting changes: verifies the actual
+     * rectangle handed to the Vulkan presenter, without a per-frame trace. */
+    static uint64_t last_frame, last_window;
+    static int last_mode = -1;
+    const uint64_t frame = (uint64_t)fw << 32 | fh, window = (uint64_t)ww << 32 | wh;
+    const int mode = g_aspect * 2 + g_widescreen;
+    if (frame != last_frame || window != last_window || mode != last_mode) {
+        const char *aspect = g_aspect == NC_ASPECT_4_3 ? "4:3" :
+                             g_aspect == NC_ASPECT_16_9 ? "16:9" :
+                             g_aspect == NC_ASPECT_STRETCH ? "stretch" : "auto";
+        const uint32_t vw = (uint32_t)(ww * *sx + 0.5f), vh = (uint32_t)(wh * *sy + 0.5f);
+        nc_log("hakuX-app", "present layout: aspect=%s frame=%ux%u window=%ux%u viewport=%ux%u offset=%u,%u",
+               aspect, fw, fh, ww, wh, vw, vh, (ww - vw) / 2, (wh - vh) / 2);
+        last_frame = frame;
+        last_window = window;
+        last_mode = mode;
+    }
 }
 
 /* With nothing new to show, the refresh goes by: the panel keeps the image,

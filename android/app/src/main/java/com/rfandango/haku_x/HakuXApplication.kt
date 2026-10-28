@@ -12,6 +12,7 @@ class HakuXApplication : Application() {
      * process (":native") starts its own log in NativeCoreActivity. */
     if (getProcessName() == packageName) {
       Logs.startApp(this)
+      GpuDriverHelper.init(this)
       dropPerfMaps()
     }
   }

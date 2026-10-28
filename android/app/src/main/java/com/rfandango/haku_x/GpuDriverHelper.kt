@@ -6,6 +6,7 @@ import android.net.Uri
 import android.os.Build
 import android.provider.OpenableColumns
 import android.util.Log
+import com.rfandango.haku_x.data.AppPrefs
 import org.json.JSONObject
 import java.io.File
 import java.io.FileOutputStream
@@ -23,6 +24,12 @@ object GpuDriverHelper {
   private const val META_JSON = "meta.json"
   /** In driverInstallDir: the file name of the package the driver came from. */
   private const val PACKAGE_MARKER = ".hakux_package"
+  const val BUNDLED_FILE = "hakux-bundled-malisx2-0.2.3.zip"
+  private const val BUNDLED_ASSET = "gpu_drivers/malisx2-0.2.3-b85d5f7f36.zip"
+  private const val BUNDLED_SHA256 = "133c35a49c4197e9177969e69e4dba41ea2433598810277b4f37597c8751a78f"
+  private const val BUNDLED_MARKER = "bundled:malisx2-0.2.3"
+  private const val BOOTSTRAPPED = "bundled_malisx2_bootstrapped"
+  private var bundledPrepared = false
 
   private lateinit var appContext: Context
 
@@ -30,14 +37,50 @@ object GpuDriverHelper {
   val driverStorageDir: String get() = appContext.getExternalFilesDir(null)!!.absolutePath + "/gpu_drivers/"
   val hookLibDir: String get() = appContext.applicationInfo.nativeLibraryDir + "/"
 
+  @Synchronized
   fun init(context: Context) {
     appContext = context.applicationContext
     File(driverInstallDir).mkdirs()
     File(driverStorageDir).mkdirs()
+    if (!bundledPrepared) bundledPrepared = prepareBundledDriver()
   }
 
+  private val bundledFile: File get() = File(appContext.filesDir, "bundled_drivers/$BUNDLED_FILE")
+  private val choices get() = appContext.getSharedPreferences("gpu_driver_choices", Context.MODE_PRIVATE)
+
+  private fun prepareBundledDriver(): Boolean {
+    if (!isMaliSX2Device()) return true
+    return try {
+      val bundled = bundledFile
+      BundledDriverArchive.ensure(bundled, BUNDLED_SHA256) { appContext.assets.open(BUNDLED_ASSET) }
+      val done = choices.getBoolean(BOOTSTRAPPED, false)
+      val active = getActiveDriver()
+      val library = File(driverInstallDir, GpuDriverPolicy.MALISX2_LIBRARY)
+      val identical = !done && active?.libraryName == GpuDriverPolicy.MALISX2_LIBRARY && library.isFile &&
+        ZipFile(bundled).use { zip ->
+          zip.getInputStream(zip.getEntry(GpuDriverPolicy.MALISX2_LIBRARY)).use {
+            BundledDriverArchive.sha256(it) == BundledDriverArchive.sha256(library)
+          }
+        }
+      if (GpuDriverPolicy.selectBundled(done, AppPrefs(appContext).setupComplete, active != null, identical)) {
+        if (!useDriver(bundled)) throw IOException("Could not select bundled MaliSX2")
+        Log.i(TAG, "Bundled MaliSX2 0.2.3 selected for Dimensity 8300 / RG477M")
+      }
+      choices.edit().putBoolean(BOOTSTRAPPED, true).commit()
+      Log.i(TAG, "Bundled MaliSX2 0.2.3 ready (checksum verified)")
+      true
+    } catch (e: Exception) {
+      Log.e(TAG, "Could not prepare bundled MaliSX2", e)
+      false
+    }
+  }
+
+  fun isBundledDriver(file: File): Boolean = file.absolutePath == bundledFile.absolutePath
+  private fun packageId(file: File): String = if (isBundledDriver(file)) BUNDLED_MARKER else file.name
+  fun isBundledInUse(): Boolean = isInUse(bundledFile)
+
   fun supportsCustomDriverLoading(): Boolean {
-    return isAdreno() || isRg477mMali()
+    return isAdreno() || isMaliSX2Device()
   }
 
   private fun isAdreno(): Boolean = File("/dev/kgsl-3d0").exists()
@@ -63,8 +106,26 @@ object GpuDriverHelper {
 
   fun isRg477mMali(): Boolean = rg477mMali
 
+  private val dimensity8300Mali: Boolean by lazy {
+    Build.VERSION.SDK_INT >= 29 && Build.SUPPORTED_ABIS.contains("arm64-v8a") && File("/dev/mali0").exists() &&
+      GpuDriverPolicy.isDimensity8300(
+        if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else "", Build.HARDWARE,
+        property("ro.soc.model"), property("ro.board.platform"), property("ro.vendor.mediatek.platform"),
+      )
+  }
+
+  private fun property(name: String): String = runCatching {
+    val process = ProcessBuilder("/system/bin/getprop", name).start()
+    try {
+      if (!process.waitFor(1, java.util.concurrent.TimeUnit.SECONDS)) ""
+      else process.inputStream.bufferedReader().use { it.readLine().orEmpty() }
+    } finally { process.destroy() }
+  }.getOrDefault("")
+
+  fun isMaliSX2Device(): Boolean = !isAdreno() && (rg477mMali || dimensity8300Mali)
+
   private fun compatible(meta: DriverMetadata): Boolean =
-    GpuDriverPolicy.acceptsLibrary(meta.libraryName, isAdreno(), isRg477mMali())
+    GpuDriverPolicy.acceptsLibrary(meta.libraryName, isAdreno(), isMaliSX2Device())
 
   /**
    * A Turnip driver is worth recommending: the phone can load one (Qualcomm), it runs on its own
@@ -174,7 +235,7 @@ object GpuDriverHelper {
           }
         }
       }
-      File(newDir, PACKAGE_MARKER).writeText(driverZip.name)
+      File(newDir, PACKAGE_MARKER).writeText(packageId(driverZip))
     } catch (e: Exception) {
       Log.e(TAG, "Failed to extract driver", e)
       newDir.deleteRecursively()
@@ -192,12 +253,14 @@ object GpuDriverHelper {
 
   /** The system driver in use: driverInstallDir emptied. */
   fun useSystemDriver() {
+    choices.edit().putBoolean(BOOTSTRAPPED, true).commit()
     File(driverInstallDir).deleteRecursively()
     File(driverInstallDir).mkdirs()
   }
 
   /** A stored package deleted; the one in use too: then the system driver is. True if it was in use. */
   fun deleteDriver(driverZip: File): Boolean {
+    if (isBundledDriver(driverZip)) return false
     val inUse = isInUse(driverZip)
     driverZip.delete()
     if (inUse) {
@@ -230,7 +293,7 @@ object GpuDriverHelper {
   fun isInUse(driverZip: File): Boolean {
     val marker = File(driverInstallDir, PACKAGE_MARKER)
     if (marker.exists()) {
-      return runCatching { marker.readText() }.getOrNull() == driverZip.name
+      return runCatching { marker.readText() }.getOrNull() == packageId(driverZip)
     }
     val active = getActiveDriver()?.name ?: return false
     return readMetadata(driverZip)?.name == active
@@ -238,12 +301,13 @@ object GpuDriverHelper {
 
   fun getAvailableDrivers(): List<DriverMetadata> {
     val dir = File(driverStorageDir)
-    if (!dir.exists()) return emptyList()
-    return dir.listFiles()
+    val stored = dir.listFiles()
       ?.filter { it.extension == "zip" && it.name != "driver_tmp.zip" }
       ?.mapNotNull { readMetadata(it)?.copy(path = it.absolutePath) }
       ?.sortedBy { it.name?.lowercase() }
       ?: emptyList()
+    val bundled = if (isMaliSX2Device()) readMetadata(bundledFile) else null
+    return listOfNotNull(bundled) + stored
   }
 
   /** A package's meta.json (the first .json if none is called that), or null. */

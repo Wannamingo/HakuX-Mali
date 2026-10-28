@@ -6,6 +6,8 @@
 
 A free, unofficial [hakuX](https://github.com/rfandango/hakuX) adaptation for **ANBERNIC RG477M / Mali-G615 MC6**, Android arm64 and **MaliSX2 0.2.3**. The current release is based on hakuX 1.2.0. Upstream credits and component licenses are preserved.
 
+Prepared build **1.2.0-rg477m.2** is installed for testing on RG477M: bundled MaliSX2, Dimensity 8300 detection, fork updates and a verified 4:3/16:9 switch. [Build notes](releases/1.2.0-rg477m.2.en.md). It has not been published to GitHub; the installation instructions below describe the published .1 release.
+
 ## Download
 
 **[1.2.0-rg477m.1 — APK, sources and checksums](https://github.com/Wannamingo/hakuX-for-RG477M/releases/tag/v1.2.0-rg477m.1)**

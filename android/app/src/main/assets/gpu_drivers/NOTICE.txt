@@ -1,0 +1,7 @@
+MaliSX2 0.2.3, source b85d5f7f366994a403fcc14bc6a0813c3fde628f
+Copyright (c) 2026 ARMSX2 and bmdhacks. MIT license: MaliSX2-LICENSE.txt.
+Official, unmodified driver archive: https://github.com/bmdhacks/malisx2/releases/tag/v0.2.3
+Source: https://github.com/bmdhacks/malisx2/tree/b85d5f7f366994a403fcc14bc6a0813c3fde628f
+Mesa components retain their original licenses and copyright notices.
+Mesa snapshot used by the pinned MaliSX2 source: db9bce6c3d36570ef996a898f53cbcde08db39e8.
+Its license texts are included under mesa-licenses/; individual components retain their original terms.

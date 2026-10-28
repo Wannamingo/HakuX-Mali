@@ -67,7 +67,7 @@ fun GpuDriverScreen(onBack: () -> Unit, vm: GpuDriverViewModel = viewModel()) {
       }
       Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Hint(stringResource(R.string.gpu_driver_desc))
-        if (GpuDriverHelper.isRg477mMali()) Hint(stringResource(R.string.gpu_driver_malisx2))
+        if (GpuDriverHelper.isMaliSX2Device()) Hint(stringResource(R.string.gpu_driver_malisx2))
         Section(stringResource(R.string.gpu_driver_section))
         DriverRow(
           title = stringResource(R.string.gpu_driver_system_choice),
@@ -90,11 +90,16 @@ fun GpuDriverScreen(onBack: () -> Unit, vm: GpuDriverViewModel = viewModel()) {
         for (d in s.drivers) {
           DriverRow(
             title = GpuDriverViewModel.label(d),
-            detail = details(d),
+            detail = listOfNotNull(
+              if (d.path?.let { GpuDriverHelper.isBundledDriver(java.io.File(it)) } == true)
+                stringResource(R.string.gpu_driver_bundled) else null,
+              details(d),
+            ).joinToString("\n"),
             selected = d.path == s.inUse,
             enabled = enabled,
             onSelect = { if (d.path != s.inUse) vm.use(d) },
-            onDelete = { deleting = d },
+            onDelete = if (d.path?.let { GpuDriverHelper.isBundledDriver(java.io.File(it)) } == true) null
+                       else { { deleting = d } },
           )
         }
         HorizontalDivider(Modifier.padding(vertical = 4.dp))

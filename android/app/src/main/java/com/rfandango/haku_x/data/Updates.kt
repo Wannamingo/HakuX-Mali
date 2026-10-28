@@ -26,16 +26,13 @@ import java.net.URL
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
- * hakuX's releases on GitHub (rfandango/hakuX): the latest one, when it is newer than this app, with
+ * This fork's releases on GitHub: the latest one, when it is newer than this app, with
  * its notes and its APK. A check runs once as the app's screens start, and on demand in the settings;
  * the APK is downloaded into the cache, checked to be this app signed as this app, and handed to the
  * system installer, which asks the user (UpdateInstallReceiver).
  */
 object Updates {
   private const val TAG = "hakuX-update"
-  private const val REPO = "rfandango/hakuX"
-  /** The release builds' application id (a debug build's has ".debug"): what the APK must be. */
-  private const val RELEASE_PACKAGE = "com.rfandango.haku_x"
   private const val TIMEOUT_MS = 15_000
 
   class Release(
@@ -72,7 +69,8 @@ object Updates {
    * Network and format failures throw.
    */
   suspend fun check(context: Context): Release? = withContext(Dispatchers.IO) {
-    val conn = open("https://api.github.com/repos/$REPO/releases/latest")
+    Log.i(TAG, "update source: ${UpdatePolicy.REPO}")
+    val conn = open(UpdatePolicy.LATEST_URL)
     conn.setRequestProperty("Accept", "application/vnd.github+json")
     try {
       when (conn.responseCode) {
@@ -84,14 +82,14 @@ object Updates {
       val version = json.getString("tag_name").trim().removePrefix("v").removePrefix("V")
       val assets = json.optJSONArray("assets")
       val apk = (0 until (assets?.length() ?: 0)).map { assets!!.getJSONObject(it) }
-        .firstOrNull { it.optString("name").endsWith(".apk", ignoreCase = true) }
+        .firstOrNull { UpdatePolicy.isApkAsset(it.optString("name"), it.optString("browser_download_url")) }
       val newer = compareVersions(version, installedVersion(context)) > 0
       Log.i(TAG, "latest release $version (this app ${installedVersion(context)}): " +
         if (apk == null) "no APK" else if (newer) "newer" else "not newer")
       if (apk == null || !newer) return@withContext null
       Release(
         version = version,
-        title = json.optString("name").ifBlank { "hakuX $version" },
+        title = json.optString("name").ifBlank { "HakuX for RG477M $version" },
         notes = json.optString("body"),
         apkUrl = apk.getString("browser_download_url"),
         apkSize = apk.optLong("size"),
@@ -114,16 +112,7 @@ object Updates {
   }
 
   /** a < b: negative; numeric parts compared in turn ("1.10" after "1.9"), a missing one as 0. */
-  fun compareVersions(a: String, b: String): Int {
-    fun parts(v: String) = v.split('.', '-', '+').map { p -> p.takeWhile(Char::isDigit).toIntOrNull() ?: 0 }
-    val x = parts(a)
-    val y = parts(b)
-    for (i in 0 until maxOf(x.size, y.size)) {
-      val c = x.getOrElse(i) { 0 }.compareTo(y.getOrElse(i) { 0 })
-      if (c != 0) return c
-    }
-    return 0
-  }
+  fun compareVersions(a: String, b: String): Int = UpdatePolicy.compareVersions(a, b)
 
   /**
    * The release's APK, downloaded into the cache (progress: bytes so far, the total or 0), and
@@ -167,13 +156,11 @@ object Updates {
     val pm = context.packageManager
     val flags = if (Build.VERSION.SDK_INT >= 28) PackageManager.GET_SIGNING_CERTIFICATES else 0
     val info = pm.getPackageArchiveInfo(apk.path, flags) ?: throw IOException("the download isn't an app")
-    if (info.packageName != RELEASE_PACKAGE) throw IOException("the download is ${info.packageName}, not hakuX")
-    if (context.packageName == RELEASE_PACKAGE) {
-      val ours = pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
-        .signingInfo?.apkContentsSigners.orEmpty().map { it.toCharsString() }.toSet()
-      val theirs = info.signingInfo?.apkContentsSigners.orEmpty().map { it.toCharsString() }.toSet()
-      if (ours.isEmpty() || ours != theirs) throw IOException("the download isn't signed as this app")
-    }
+    val ours = pm.getPackageInfo(context.packageName, PackageManager.GET_SIGNING_CERTIFICATES)
+      .signingInfo?.apkContentsSigners.orEmpty().map { it.toCharsString() }.toSet()
+    val theirs = info.signingInfo?.apkContentsSigners.orEmpty().map { it.toCharsString() }.toSet()
+    if (!UpdatePolicy.acceptsApk(context.packageName, info.packageName, ours, theirs))
+      throw IOException("the download must have this app's package ID and signing certificate")
   }
 
   /**
@@ -183,7 +170,7 @@ object Updates {
   suspend fun install(context: Context, apk: File) = withContext(Dispatchers.IO) {
     val installer = context.packageManager.packageInstaller
     val params = PackageInstaller.SessionParams(PackageInstaller.SessionParams.MODE_FULL_INSTALL)
-    params.setAppPackageName(RELEASE_PACKAGE)
+    params.setAppPackageName(context.packageName)
     params.setSize(apk.length())
     val id = installer.createSession(params)
     installer.openSession(id).use { session ->

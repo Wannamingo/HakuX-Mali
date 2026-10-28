@@ -1,10 +1,17 @@
 {
-  "date": "2026-10-27",
-  "current_folder_images": 29,
-  "listed_entries": 30,
+  "date": "2026-10-28",
+  "current_folder_images": 31,
+  "listed_entries": 31,
   "current_release_recheck": "The Sands of Time: correct sky/gameplay scene and controls, tester-confirmed",
   "scope": "Successful startup; not a guarantee of a complete playthrough. Regional names retained separately.",
   "games": [
+    {
+      "title": "Call of Cthulhu: Dark Corners of the Earth",
+      "image_filename": "Call of Cthulhu - Dark Corners of the Earth (USA).iso",
+      "confirmation": "owner-confirmed gameplay, 2026-10-28",
+      "build": "1.2.0-rg477m.2",
+      "known_issues": "Owner reports missing textures in the introductory cinematic; gameplay currently works well. Cinematic defect unresolved."
+    },
     {
       "title": "Colin McRae Rally 2005",
       "image_filename": "Colin McRae Rally 2005 (USA).iso",
@@ -184,6 +191,13 @@
       "image_filename": "XGRA - Extreme G Racing Association (USA) (En,Fr,De,Es,It).iso",
       "confirmation": "owner-confirmed startup, 2026-10-27",
       "build": "not recorded for each title"
+    }
+  ],
+  "current_folder_confirmed_startups": 30,
+  "not_confirmed": [
+    {
+      "title": "Conker: Live & Reloaded",
+      "status": "Copied and discovered in library; complete gameplay check not established."
     }
   ]
 }

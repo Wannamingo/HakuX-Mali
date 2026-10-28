@@ -53,7 +53,7 @@ class AppPrefs(context: Context) {
 
   /** An upper bound on emulated frames, independent of the game's vblank mode. */
   var frameRateLimit: Int
-    get() = sp.getInt("frame_rate_limit", 0).coerceIn(0, 240)
+    get() = sp.getInt("frame_rate_limit", 120).coerceIn(0, 240)
     set(value) = sp.edit { putInt("frame_rate_limit", value.coerceIn(0, 240)) }
 
   /** Shaders compiled off the render thread, draws needing one skipped meanwhile (read at game start). */
