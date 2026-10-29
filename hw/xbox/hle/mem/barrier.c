@@ -531,7 +531,9 @@ void hle_mem_stale_access(uint32_t pa)
     __atomic_store_n(&g_stale, 0, __ATOMIC_RELEASE);
     stale_unlock();
     /* the image into the memory, then the wait for the copy (the guest's
-     * thread is the only one that touches guest memory through its views) */
+     * thread is the only one that touches guest memory through its views),
+     * the guest's time standing still */
+    hle_host_guest_hold(true);
     __atomic_load_n(&g_stale_fill, __ATOMIC_ACQUIRE)(lo, len);
     const uint64_t v = hle_pageuse_get(&g_pu, lo, len);
     if (g_completed && v > g_completed()) {
@@ -541,6 +543,7 @@ void hle_mem_stale_access(uint32_t pa)
         }
         g_wait(v);
     }
+    hle_host_guest_hold(false);
 }
 
 void hle_barrier_arm_landing(uint32_t pa, uint32_t len, uint64_t value)
@@ -575,7 +578,9 @@ uint64_t hle_mem_write_fence(uint32_t pa, uint32_t len)
 void hle_mem_wait_fence(uint64_t value)
 {
     if (value && g_wait) {
+        hle_host_guest_hold(true);
         g_wait(value);
+        hle_host_guest_hold(false);
     }
 }
 
@@ -616,11 +621,13 @@ void hle_mem_first_write(uint64_t ram_addr, unsigned size)
         int64_t t0 = hle_now_ns();
         g_st.waits++;
         g_wpages[g_nwpages++ % 8] = pa >> 12;
+        hle_host_guest_hold(true);              /* the guest's time stands still meanwhile */
         void (*flush)(uint64_t) = __atomic_load_n(&g_flush, __ATOMIC_ACQUIRE);
         if (flush) {
             flush(v);
         }
         g_wait(v);
+        hle_host_guest_hold(false);
         g_st.wait_ns += hle_now_ns() - t0;
         if (g_contended) {
             __atomic_fetch_or(&g_contended[(pa >> 12) >> 5], 1u << ((pa >> 12) & 31),
