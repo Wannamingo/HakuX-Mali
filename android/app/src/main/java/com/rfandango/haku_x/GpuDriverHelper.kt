@@ -64,7 +64,7 @@ object GpuDriverHelper {
         }
       if (GpuDriverPolicy.selectBundled(done, AppPrefs(appContext).setupComplete, active != null, identical)) {
         if (!useDriver(bundled)) throw IOException("Could not select bundled MaliSX2")
-        Log.i(TAG, "Bundled MaliSX2 0.2.3 selected for Dimensity 8300 / RG477M")
+        Log.i(TAG, "Bundled MaliSX2 0.2.3 selected for a supported Mali handheld")
       }
       choices.edit().putBoolean(BOOTSTRAPPED, true).commit()
       Log.i(TAG, "Bundled MaliSX2 0.2.3 ready (checksum verified)")
@@ -122,7 +122,15 @@ object GpuDriverHelper {
     } finally { process.destroy() }
   }.getOrDefault("")
 
-  fun isMaliSX2Device(): Boolean = !isAdreno() && (rg477mMali || dimensity8300Mali)
+  private val rgVitaProMali: Boolean by lazy {
+    Build.VERSION.SDK_INT >= 29 && Build.SUPPORTED_ABIS.contains("arm64-v8a") && File("/dev/mali0").exists() &&
+      GpuDriverPolicy.isRgVitaPro(Build.MODEL, Build.DEVICE, Build.PRODUCT, vendorModel()) &&
+      (property("ro.board.platform").equals("rk3576", ignoreCase = true) ||
+        (Build.VERSION.SDK_INT >= 31 && Build.SOC_MODEL.equals("rk3576", ignoreCase = true)))
+  }
+
+  fun isMaliSX2Device(): Boolean = !isAdreno() && (rg477mMali || dimensity8300Mali || rgVitaProMali)
+  fun isRgVitaPro(): Boolean = rgVitaProMali
 
   private fun compatible(meta: DriverMetadata): Boolean =
     GpuDriverPolicy.acceptsLibrary(meta.libraryName, isAdreno(), isMaliSX2Device())

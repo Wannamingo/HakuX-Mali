@@ -66,6 +66,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   /* the settings' overlays, read as the game comes back (onResume) */
   private var fpsOn = false
   private var hitchesOn = false
+  private val temperatures by lazy { HudTemperatureMonitor(applicationContext) }
   private val fpsHandler = Handler(Looper.getMainLooper())
   /** The overlays' redraws and the game's GPU work (the controls' and the lines below). */
   private val overlayPacer = OverlayPacer({ nativeGpuBusyMs() }, { nativeGpuGap() })
@@ -87,7 +88,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
         if (s[1] > 0f && s[2] > 2f * s[1]) {
           text += " *" /* the last frame took over twice the average */
         }
-        fpsView?.text = text
+        fpsView?.text = text + temperatures.hudText
       }
       hitchView?.takeIf { hitchesOn }?.let { v ->
         val hitches = nativeGetHleHitches()
@@ -426,6 +427,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     hideSystemBars()
     val prefs = getSharedPreferences("x1box_prefs", Context.MODE_PRIVATE)
     fpsOn = prefs.getBoolean("show_fps", true)
+    if (fpsOn) temperatures.start() else temperatures.stop()
     hitchesOn = BuildConfig.DEBUG && prefs.getBoolean(PREF_SHOW_HITCHES, false)
     fpsView?.visibility = if (fpsOn) View.VISIBLE else View.GONE
     if (!hitchesOn) hitchView?.visibility = View.GONE
@@ -472,6 +474,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   }
 
   override fun onPause() {
+    temperatures.stop()
     fpsHandler.removeCallbacks(fpsRunnable)
     fpsHandler.removeCallbacks(fatalRunnable)
     fpsHandler.removeCallbacks(rumbleRunnable)
@@ -482,6 +485,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   }
 
   override fun onDestroy() {
+    temperatures.close()
     fpsHandler.removeCallbacks(fpsRunnable)
     fpsHandler.removeCallbacks(fatalRunnable)
     fpsHandler.removeCallbacks(rumbleRunnable)

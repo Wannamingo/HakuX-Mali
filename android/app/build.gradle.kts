@@ -31,9 +31,8 @@ android {
     minSdk = 28
     targetSdk = 36
 
-    versionCode = 8
-    versionCode = 10
-    versionName = "1.2.0-rg477m.2"
+    versionCode = 12
+    versionName = "1.2.0-rg477m.2-vita.2"
 
     ndk {
       abiFilters += listOf("arm64-v8a")
@@ -75,7 +74,7 @@ android {
       )
     }
     release {
-      resValue("string", "app_name", "hakuX RG477M")
+      resValue("string", "app_name", providers.gradleProperty("hakuxAppName").getOrElse("hakuX RG477M"))
       isDebuggable = false
       isMinifyEnabled = true
       proguardFiles(

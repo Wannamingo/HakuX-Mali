@@ -31,6 +31,7 @@ const char *hle_vk_result_text(VkResult r)
     case VK_ERROR_OUT_OF_HOST_MEMORY: return "VK_ERROR_OUT_OF_HOST_MEMORY";
     case VK_ERROR_OUT_OF_DEVICE_MEMORY: return "VK_ERROR_OUT_OF_DEVICE_MEMORY";
     case VK_ERROR_INITIALIZATION_FAILED: return "VK_ERROR_INITIALIZATION_FAILED";
+    case VK_ERROR_FEATURE_NOT_PRESENT: return "VK_ERROR_FEATURE_NOT_PRESENT";
     case VK_ERROR_DEVICE_LOST: return "VK_ERROR_DEVICE_LOST";
     case VK_ERROR_SURFACE_LOST_KHR: return "VK_ERROR_SURFACE_LOST_KHR";
     case VK_ERROR_OUT_OF_DATE_KHR: return "VK_ERROR_OUT_OF_DATE_KHR";
@@ -606,9 +607,12 @@ int hle_vk_init(void)
     VkPhysicalDeviceVulkan12Features f12 = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_VULKAN_1_2_FEATURES, .pNext = &f13,
         .timelineSemaphore = c->timeline, .bufferDeviceAddress = c->bda,
-        .runtimeDescriptorArray = VK_TRUE, .descriptorBindingPartiallyBound = VK_TRUE,
-        .descriptorBindingSampledImageUpdateAfterBind = VK_TRUE,
-        .shaderSampledImageArrayNonUniformIndexing = VK_TRUE,
+        /* Vulkan 1.3 does not require bindless descriptors. Mali-G52 g25p0
+         * advertises 1.3 but has none of these optional features; the draw
+         * descriptor-set path already handles that case. */
+        .runtimeDescriptorArray = c->bindless, .descriptorBindingPartiallyBound = c->bindless,
+        .descriptorBindingSampledImageUpdateAfterBind = c->bindless,
+        .shaderSampledImageArrayNonUniformIndexing = c->bindless,
         .hostQueryReset = c->host_query_reset };
     VkPhysicalDeviceFeatures2 f = {
         .sType = VK_STRUCTURE_TYPE_PHYSICAL_DEVICE_FEATURES_2, .pNext = v13 ? &f12 : NULL };
@@ -720,7 +724,9 @@ int hle_vk_init(void)
         .enabledExtensionCount = nx, .ppEnabledExtensionNames = exts };
     VkResult r = vkCreateDevice(v->phys, &dci, NULL, &v->dev);
     if (r != VK_SUCCESS) {
-        hle_log("hakuX-hle-back", "vk: vkCreateDevice failed (%d)", r);
+        hle_log("hakuX-hle-back", "vk: vkCreateDevice failed (%s): api %u.%u.%u bindless=%d",
+                hle_vk_result_text(r), VK_API_VERSION_MAJOR(api), VK_API_VERSION_MINOR(api),
+                VK_API_VERSION_PATCH(api), c->bindless);
         vkDestroyInstance(v->inst, NULL);
         v->inst = VK_NULL_HANDLE;
         v->dev = VK_NULL_HANDLE;

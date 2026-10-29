@@ -4,6 +4,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GpuDriverPolicyTest {
+  @Test fun vitaProAliasesAndOtherHandhelds() {
+    for (name in listOf("RG VITA Pro", "RG-Vita-Pro", "rgvitapro"))
+      assertTrue(name, GpuDriverPolicy.isRgVitaPro(name))
+    for (name in listOf("RG VITA", "RG477M", "RK3576", "RK3566", "GammaOS Next Lite", "other rgvitapro device"))
+      assertFalse(name, GpuDriverPolicy.isRgVitaPro(name))
+    assertTrue(GpuDriverPolicy.isRgVitaPro("GammaOS Next Lite", "RG VITA Pro"))
+  }
+
   @Test fun dimensityAliasesAndOtherChips() {
     for (name in listOf("MT6897", "mt6897", "Dimensity 8300", "MediaTek Dimensity 8300 Ultra"))
       assertTrue(name, GpuDriverPolicy.isDimensity8300(name))

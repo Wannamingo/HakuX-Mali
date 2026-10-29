@@ -1,6 +1,6 @@
 package com.rfandango.haku_x
 
-/** MaliSX2 is scoped to the tested handheld and Dimensity 8300/MT6897 family. */
+/** Device-scoped MaliSX2 loading; broad Mali/Rockchip matching is deliberately avoided. */
 object GpuDriverPolicy {
   const val MALISX2_LIBRARY = "libvulkan_malisx2.so"
 
@@ -11,6 +11,10 @@ object GpuDriverPolicy {
   fun isDimensity8300(vararg names: String): Boolean = names.any {
     val name = it.lowercase().replace(Regex("[^a-z0-9]"), "").removePrefix("mediatek")
     name == "mt6897" || name == "dimensity8300" || name == "dimensity8300ultra"
+  }
+
+  fun isRgVitaPro(vararg names: String): Boolean = names.any {
+    it.lowercase().replace(Regex("[^a-z0-9]"), "") == "rgvitapro"
   }
 
   /** Keep explicit system/custom choices; migrate an identical imported binary only once. */

@@ -67,7 +67,9 @@ fun GpuDriverScreen(onBack: () -> Unit, vm: GpuDriverViewModel = viewModel()) {
       }
       Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Hint(stringResource(R.string.gpu_driver_desc))
-        if (GpuDriverHelper.isMaliSX2Device()) Hint(stringResource(R.string.gpu_driver_malisx2))
+        if (GpuDriverHelper.isMaliSX2Device()) Hint(stringResource(
+          if (GpuDriverHelper.isRgVitaPro()) R.string.gpu_driver_malisx2_vita else R.string.gpu_driver_malisx2,
+        ))
         Section(stringResource(R.string.gpu_driver_section))
         DriverRow(
           title = stringResource(R.string.gpu_driver_system_choice),
