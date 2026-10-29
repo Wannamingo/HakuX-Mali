@@ -4,19 +4,27 @@
 
 <img src="android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="128" alt="HakuX for RG477M icon">
 
-A free, unofficial [hakuX](https://github.com/rfandango/hakuX) adaptation for **ANBERNIC RG477M / Mali-G615 MC6**, Android arm64 and **MaliSX2 0.2.3**. The current release is based on hakuX 1.2.0. Upstream credits and component licenses are preserved.
+A free, unofficial [hakuX](https://github.com/rfandango/hakuX) adaptation for **ANBERNIC RG477M / Mali-G615 MC6**, with experimental **ANBERNIC RG VITA Pro / RK3576 / Mali-G52** support, Android arm64 and **MaliSX2 0.2.3**. The current release is based on hakuX 1.2.0. Upstream credits and component licenses are preserved.
 
 **1.2.0-rg477m.2**: bundled MaliSX2, Dimensity 8300 detection, fork updates and a verified 4:3/16:9 switch. Installed and tested on RG477M. [Release notes](releases/1.2.0-rg477m.2.en.md).
+
+## ANBERNIC RG VITA Pro
+
+Added **experimental RG VITA Pro / RK3576 / Mali-G52 support** as a separate **1.2.0-rg477m.2-vita.2** build: system Vulkan 1.3 startup, bundled MaliSX2, and CPU/GPU/battery temperatures in the single-line HUD. Tested on Android 14 / GammaOS Next Lite.
+
+- [RG VITA Pro APK](https://github.com/Wannamingo/hakuX-for-RG477M/releases/download/v1.2.0-rg477m.2/hakuX-RG-Vita-Pro-1.2.0-rg477m.2-vita.2-release.apk) · [Build notes](releases/1.2.0-rg477m.2-vita.2.en.md) · [Tests and recommended settings](docs/RG-VITA-PRO-PERFORMANCE.en.md).
+- Most Wanted, one saved race scene: System 1x - **30 FPS**, System 1x + FXAA - **30 FPS**, System 2x - **29.9 FPS**, MaliSX2 2x - **21.4 FPS**. Start with **System driver / 1x**. 3x/4x yielded approximately 18/10 FPS.
+- The older 31-startup list belongs to RG477M; compatibility of that entire list on Vita Pro is not claimed. The five-minute run includes standings after elimination; the report explains the stages and temperatures.
 
 ## Download
 
 **[1.2.0-rg477m.2 — APK, sources and checksums](https://github.com/Wannamingo/hakuX-for-RG477M/releases/tag/v1.2.0-rg477m.2)**
 
-The published APK is identical to the version installed and tested on RG477M. It is an optimized, non-debuggable arm64-v8a release build. The `com.rfandango.haku_x.debug` package ID is retained to update our earlier installation; the suffix does not enable debugging.
+The APK named `RG477M` is identical to the version installed and tested on RG477M; the separate `RG-Vita-Pro` APK was tested on Vita Pro. It is an optimized, non-debuggable arm64-v8a release build. The `com.rfandango.haku_x.debug` package ID is retained to update our earlier installation; the suffix does not enable debugging.
 
 ## Install
 
-1. Install the APK from Releases. Updating our earlier build retains data and settings.
+1. Choose the Releases APK for your console: `RG477M` or `RG-Vita-Pro`, then install it. Updating our earlier build retains data and settings.
 2. On a fresh installation, complete setup and select your own Xbox ISO/XISO folder.
 3. MaliSX2 0.2.3 is bundled and selected automatically on a fresh RG477M / supported MT6897 installation. Updates preserve an explicit system/other driver choice; the built-in package is available in Settings → GPU driver. Restart the game after changing drivers.
 4. The fresh-install default is **120 FPS**; existing saved values are retained. Change it in Settings → Frame rate limit. Games with an internal 30/60 FPS cap retain it.
@@ -43,7 +51,7 @@ The built-in update check now uses Releases from **Wannamingo/hakuX-for-RG477M**
 
 See the complete [release notes](releases/1.2.0-rg477m.2.en.md) and [technical details](android/RG477M.md).
 
-## Successfully launched games
+## Successfully launched games on RG477M
 
 **31 confirmed startups**: the owner confirmed 29 images on 2026-10-27, Syberia was checked earlier, and Call of Cthulhu gameplay was confirmed on .2 on 2026-10-28. This does not establish complete playthroughs or defect-free graphics; the earlier 30 games were not all rechecked on .2. [Test scope and confirmation sources](docs/COMPATIBILITY.en.md).
 

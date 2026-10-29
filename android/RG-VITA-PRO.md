@@ -5,8 +5,9 @@ Mali-G52, Android 14 / GammaOS Next Lite, kernel 6.1.141, arm64.
 The vendor model identifies the console even though the system model is
 `GammaOS Next Lite`. Games are in the SD card's `ROMs/xbox` SAF tree.
 
-This local adaptation is based on the published `v1.2.0-rg477m.2` source.
-It is not a published RG477M release and does not change that release's APK.
+This adaptation is based on the published `v1.2.0-rg477m.2` source.
+The separate `1.2.0-rg477m.2-vita.2` APK is published as an additional asset
+on that release page; the original RG477M APK and tag are retained.
 
 ## Vulkan startup
 
@@ -68,3 +69,11 @@ bound and fork update feed remain. Native sources under FEX are unchanged.
 The test build uses the same application ID/signing certificate for in-place
 installation, and the release label `hakuX RG Vita Pro` is selected by the
 `hakuxAppName` Gradle property. Other builds keep the existing label.
+
+## Published benchmark
+
+See the [English test report](../docs/RG-VITA-PRO-PERFORMANCE.en.md) or
+[Russian report](../docs/RG-VITA-PRO-PERFORMANCE.ru.md) for seven Most Wanted
+configurations, the mixed five-minute warm-up, temperature limits and
+recommended System-driver profiles. These results do not establish a
+broad Vita Pro compatibility list.
