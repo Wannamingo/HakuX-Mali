@@ -23,6 +23,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 internal fun experienceLabel(field: ExperienceSetting): Int = when (field) {
+  ExperienceSetting.AUTO_PERFORMANCE -> R.string.exp_auto_performance
   ExperienceSetting.VOLUME -> R.string.exp_volume
   ExperienceSetting.MUTE -> R.string.exp_mute
   ExperienceSetting.AUDIO_BUFFER -> R.string.exp_audio_buffer
@@ -43,6 +44,7 @@ internal fun experienceLabel(field: ExperienceSetting): Int = when (field) {
 }
 
 internal fun experienceCategory(field: ExperienceSetting) = when (field) {
+  ExperienceSetting.AUTO_PERFORMANCE -> SettingsCategory.GRAPHICS
   ExperienceSetting.VOLUME, ExperienceSetting.MUTE, ExperienceSetting.AUDIO_BUFFER, ExperienceSetting.HRTF -> SettingsCategory.AUDIO
   ExperienceSetting.AUTO_SAVE, ExperienceSetting.OFFER_RESUME -> SettingsCategory.GAMES
   else -> SettingsCategory.DISPLAY
@@ -54,7 +56,7 @@ internal val ExperienceIndex = ExperienceSetting.entries.map {
   SettingsEntry(R.string.exp_profiles, SettingsCategory.APP, "profile export import copy профиль экспорт импорт копировать"))
 
 @Composable
-internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, gameKey: String? = null) {
+internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, gameKey: String? = null, autoOnly: Boolean = false) {
   val context = LocalContext.current
   val store = remember { ExperienceStore(context) }
   var revision by remember { mutableIntStateOf(0) }
@@ -65,14 +67,20 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
     runCatching { store.set(field, value, gameKey) }.onSuccess { revision++ }
       .onFailure { Toast.makeText(context, R.string.extra_save_failed, Toast.LENGTH_LONG).show() }
   }
-  val fields = ExperienceSetting.entries.filter { experienceCategory(it) == category }
+  val fields = ExperienceSetting.entries.filter { experienceCategory(it) == category &&
+    (if (autoOnly) it == ExperienceSetting.AUTO_PERFORMANCE else it != ExperienceSetting.AUTO_PERFORMANCE) }
   if (fields.isNotEmpty()) SettingsGroup(true) {
     Section(stringResource(when (category) {
       SettingsCategory.AUDIO -> R.string.exp_audio
+      SettingsCategory.GRAPHICS -> R.string.exp_auto_heading
       SettingsCategory.GAMES -> R.string.exp_states
       else -> R.string.exp_framing
     }))
-    Hint(stringResource(if (category == SettingsCategory.AUDIO) R.string.exp_audio_desc else R.string.exp_runtime_desc))
+    Hint(stringResource(when (category) {
+      SettingsCategory.AUDIO -> R.string.exp_audio_desc
+      SettingsCategory.GRAPHICS -> R.string.exp_auto_performance_desc
+      else -> R.string.exp_runtime_desc
+    }))
     if (category == SettingsCategory.DISPLAY) TextButton(onClick = {
       for (field in fields.take(7)) update(field, if (gameKey != null) null else field.default)
     }) { Text(stringResource(R.string.exp_reset_framing)) }
@@ -88,9 +96,10 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
                 if (field == ExperienceSetting.AUDIO_BUFFER) stringResource(bufferLabel(value))
                 else if (value == 0) stringResource(R.string.exp_auto) else "$value Hz"
             ) }, modifier = Modifier.clickable { choosing = field })
-          ExperienceSetting.MUTE, ExperienceSetting.HRTF, ExperienceSetting.AUTO_SAVE,
+          ExperienceSetting.AUTO_PERFORMANCE, ExperienceSetting.MUTE, ExperienceSetting.HRTF, ExperienceSetting.AUTO_SAVE,
           ExperienceSetting.OFFER_RESUME, ExperienceSetting.THERMAL_WARNING -> SwitchItem(title,
             when (field) {
+              ExperienceSetting.AUTO_PERFORMANCE -> stringResource(R.string.settings_applies_next_start)
               ExperienceSetting.AUTO_SAVE -> stringResource(R.string.exp_autosave_desc)
               ExperienceSetting.OFFER_RESUME -> stringResource(R.string.exp_resume_desc)
               ExperienceSetting.THERMAL_WARNING -> stringResource(R.string.exp_thermal_desc)
@@ -109,8 +118,8 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
       }
     }
   }
-  if (category == SettingsCategory.CONTROLS && gameKey == null) HotkeysSection(store)
-  if (category == SettingsCategory.APP || (gameKey != null && category == SettingsCategory.GRAPHICS)) {
+  if (!autoOnly && category == SettingsCategory.CONTROLS && gameKey == null) HotkeysSection(store)
+  if (!autoOnly && (category == SettingsCategory.APP || (gameKey != null && category == SettingsCategory.GRAPHICS))) {
     SettingsGroup(true) { SettingsProfilesSection(gameKey) { revision++ } }
   }
   choosing?.let { field ->

@@ -239,8 +239,11 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     }
     /* The app's settings, under this game's overrides. */
     val settings = RunSettings(AppPrefs(this), gameOverrides())
-    args += "fpslimit=${settings.frameRateLimit}"
     val extra = com.rfandango.haku_x.data.ExperienceStore(this).effective(gameKey())
+    val automatic = if (extra.enabled(com.rfandango.haku_x.data.ExperienceSetting.AUTO_PERFORMANCE))
+      com.rfandango.haku_x.data.AutomaticPerformance.forDevice(this) else null
+    args += "fpslimit=${automatic?.fpsLimit ?: settings.frameRateLimit}"
+    if (automatic != null) Log.i(TAG, "automatic performance: scale=1 FXAA=off Bilinear fps=${automatic.fpsLimit}; manual settings retained")
     args += extra.audioArgument()
     args += extra.framingArgument()
     /* Every frame presented at once, no vblank wait: on by default. */
@@ -248,13 +251,13 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
       args += "uncap"
     }
     /* The HLE GPU's render scale, 1-4x the title's resolution. */
-    args += "scale=${settings.renderScale}"
+    args += "scale=${automatic?.scale ?: settings.renderScale}"
     /* The picture's shape: auto (the game's), 4:3, 16:9 or stretch. */
     args += "aspect=${settings.aspectRatio}"
     /* Anti-aliasing: FXAA over each frame, and how a picture smaller than
      * the screen is scaled up (a larger one is averaged down). */
-    args += "fxaa=${if (settings.fxaa) 1 else 0}"
-    args += "upscale=${settings.upscaleFilter}"
+    args += "fxaa=${if (automatic?.fxaa ?: settings.fxaa) 1 else 0}"
+    args += "upscale=${automatic?.upscale ?: settings.upscaleFilter}"
     args += "picture=" + com.rfandango.haku_x.data.PictureControl.entries.joinToString(",") { settings.picture(it).toString() }
     /* The console's video settings (widescreen, 480p/720p/1080i, the cable)
      * and its language. */

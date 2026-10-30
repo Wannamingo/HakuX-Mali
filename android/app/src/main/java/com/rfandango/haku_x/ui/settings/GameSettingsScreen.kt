@@ -105,6 +105,9 @@ fun GameSettingsScreen(gameKey: String, title: String, onBack: () -> Unit, onOpe
       ) { Text(stringResource(R.string.game_settings_reset)) }
     },
   ) { selected ->
+    if (selected == SettingsCategory.GRAPHICS) androidx.compose.runtime.key(experienceRevision) {
+      ExperienceSettingsSection(selected, gameKey, autoOnly = true)
+    }
     Hint(stringResource(R.string.game_settings_desc))
     SettingsGroup(selected == SettingsCategory.GRAPHICS) {
       GraphicsProfileRow(GraphicsOptions(

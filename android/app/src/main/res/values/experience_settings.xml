@@ -1,4 +1,7 @@
 <resources>
+  <string name="exp_auto_performance">Automatic settings</string>
+  <string name="exp_auto_heading">Automatic performance</string>
+  <string name="exp_auto_performance_desc">FPS-first starting profile: 1×, FXAA off, bilinear filtering and a frame limit based on the display, up to 120 FPS. Manual graphics values below are kept and apply again when this is off. This is a starting policy, not a game benchmark.</string>
   <string name="exp_auto_failed">The automatic state could not be saved. The previous state is kept. Leave the game without saving?</string><string name="exp_exit_without_save">Leave without saving</string>
   <string name="exp_economy">Economy</string><string name="exp_economy_desc">1×, FXAA off, bilinear, 30 FPS. Apply at the next game start.</string>
   <string name="exp_audio">Audio</string>

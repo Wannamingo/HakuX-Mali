@@ -10,6 +10,16 @@ class ExperienceOptionsTest {
     assertEquals("framing=0,0,0,0,100,0,0", value.framingArgument())
     assertFalse(value.enabled(ExperienceSetting.AUTO_SAVE))
     assertFalse(value.enabled(ExperienceSetting.THERMAL_WARNING))
+    assertFalse(value.enabled(ExperienceSetting.AUTO_PERFORMANCE))
+  }
+  @Test fun automaticPolicyUsesTheDeviceDisplayWithinTheAppCeiling() {
+    assertEquals(GraphicsOptions(1,false,"bilinear",120), AutomaticPerformance.choose(listOf(60f,120f,240f)))
+    assertEquals(60,AutomaticPerformance.choose(listOf(59.94f)).fpsLimit)
+    assertEquals(90,AutomaticPerformance.choose(listOf(60f,90f)).fpsLimit)
+  }
+  @Test fun automaticPolicyHasASafeFallbackForMissingDisplayData() {
+    assertEquals(60,AutomaticPerformance.choose(emptyList()).fpsLimit)
+    assertEquals(60,AutomaticPerformance.choose(listOf(Float.NaN,Float.POSITIVE_INFINITY)).fpsLimit)
   }
   @Test fun invalidValuesAreBounded() {
     val value = ExperienceOptions(mapOf(ExperienceSetting.VOLUME to -1, ExperienceSetting.ZOOM to Int.MAX_VALUE,

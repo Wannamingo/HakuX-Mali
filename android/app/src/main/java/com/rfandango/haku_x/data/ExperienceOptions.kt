@@ -2,6 +2,7 @@ package com.rfandango.haku_x.data
 
 /** Output/input conveniences; defaults preserve the existing emulator behaviour. */
 enum class ExperienceSetting(val key: String, val default: Int, val minimum: Int, val maximum: Int) {
+  AUTO_PERFORMANCE("auto_performance", 0, 0, 1),
   VOLUME("volume", 100, 0, 100), MUTE("mute", 0, 0, 1),
   AUDIO_BUFFER("audio_buffer", 1, 0, 2), HRTF("hrtf", 1, 0, 1),
   CROP_LEFT("crop_left", 0, 0, 15), CROP_RIGHT("crop_right", 0, 0, 15),

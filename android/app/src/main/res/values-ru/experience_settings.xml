@@ -1,4 +1,7 @@
 <resources>
+  <string name="exp_auto_performance">Автоматический подбор</string>
+  <string name="exp_auto_heading">Автонастройка производительности</string>
+  <string name="exp_auto_performance_desc">Стартовый профиль с приоритетом FPS: 1×, без FXAA, билинейный фильтр и лимит по частоте дисплея, до 120 FPS. Ручные графические значения ниже сохраняются и снова действуют после отключения. Это стартовый профиль, а не результат тестирования игры.</string>
   <string name="exp_auto_failed">Не удалось записать автосохранение. Предыдущее состояние сохранено. Выйти из игры без сохранения?</string><string name="exp_exit_without_save">Выйти без сохранения</string>
   <string name="exp_economy">Экономичный</string><string name="exp_economy_desc">1×, без FXAA, билинейный фильтр, 30 FPS. Применяется при следующем запуске.</string>
   <string name="exp_audio">Звук</string>

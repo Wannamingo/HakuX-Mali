@@ -142,6 +142,7 @@ fun SettingsScreen(
     entries = GlobalSettingsIndex,
     otherScopeLabel = stringResource(R.string.ui_scope_game), onOtherScope = onGameSettings,
   ) { category ->
+    if (category == SettingsCategory.GRAPHICS) ExperienceSettingsSection(category, autoOnly = true)
     SettingsGroup(category == SettingsCategory.APP) {
       Section(stringResource(R.string.ui_category_app))
       SettingsTarget(R.string.ui_app_language) {

@@ -31,7 +31,9 @@ class GameExperience(private val activity: NativeCoreActivity, private val captu
       ExperienceSetting.SHIFT_X, ExperienceSetting.SHIFT_Y).map { options[it] }.toIntArray())
     @Suppress("DEPRECATION") val display = activity.windowManager.defaultDisplay
     val current = display.mode
-    val hz = options[ExperienceSetting.REFRESH_RATE]
+    val requested = options[ExperienceSetting.REFRESH_RATE]
+    val hz = if (requested == 0 && options.enabled(ExperienceSetting.AUTO_PERFORMANCE))
+      AutomaticPerformance.forDevice(activity).fpsLimit else requested
     val selected = display.supportedModes.filter { it.physicalWidth == current.physicalWidth && it.physicalHeight == current.physicalHeight }
       .firstOrNull { kotlin.math.abs(it.refreshRate - hz) < 1f }
     activity.window.attributes = activity.window.attributes.apply {
