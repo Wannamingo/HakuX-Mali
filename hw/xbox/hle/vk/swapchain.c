@@ -42,7 +42,7 @@
 #define PS_FRAMES 3             /* the presenter's submits in flight */
 #define PS_IMAGES 8             /* swapchain images at most */
 #define PS_RAMP 1024            /* a frame's share of the ramp buffer (768 used) */
-#define PS_PUSH_BYTES (20 * sizeof(float))
+#define PS_PUSH_BYTES (24 * sizeof(float))
 
 enum { P_BILINEAR, P_AREA, P_SGSR, P_FXAA, P_COUNT };
 
@@ -108,6 +108,17 @@ static struct {
 
 /* Kept outside the surface's lifetime. Neutral values retain the old gamma/SGSR path exactly. */
 static float g_picture[5] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+static float g_uv[4] = {0.0f, 0.0f, 1.0f, 1.0f};
+static float g_zoom = 1.0f, g_shift_x, g_shift_y;
+
+void hle_present_set_framing(int left, int right, int top, int bottom, int zoom, int shift_x, int shift_y)
+{
+    g_uv[0] = left / 100.0f; g_uv[1] = top / 100.0f;
+    g_uv[2] = 1.0f - right / 100.0f; g_uv[3] = 1.0f - bottom / 100.0f;
+    g_zoom = zoom / 100.0f;
+    g_shift_x = shift_x / 50.0f; g_shift_y = shift_y / 50.0f;
+    g_ps.shown = false;
+}
 
 void hle_present_set_picture(int brightness, int contrast, int saturation, int gamma, int sharpness)
 {
@@ -126,11 +137,11 @@ void hle_present_set_picture(int brightness, int contrast, int saturation, int g
  * rot.y y, y' = rot.z x + rot.w y */
 static const char k_vs[] =
     "#version 450\n"
-    "layout(push_constant) uniform P { vec4 rect; vec4 extra; vec4 rot; vec4 picture; vec4 tune; } pc;\n"
+    "layout(push_constant) uniform P { vec4 rect; vec4 extra; vec4 rot; vec4 picture; vec4 tune; vec4 uv; } pc;\n"
     "layout(location = 0) out vec2 v_uv;\n"
     "void main() {\n"
     "  vec2 c = vec2(gl_VertexIndex & 1, gl_VertexIndex >> 1);\n"
-    "  v_uv = c;\n"
+    "  v_uv = mix(pc.uv.xy, pc.uv.zw, c);\n"
     "  vec2 p = mix(pc.rect.xy, pc.rect.zw, c);\n"
     "  gl_Position = vec4(pc.rot.x * p.x + pc.rot.y * p.y, pc.rot.z * p.x + pc.rot.w * p.y, 0.0, 1.0);\n"
     "}\n";
@@ -138,7 +149,7 @@ static const char k_vs[] =
  * a channel's 256 after another's, as gamma.c's) */
 static const char k_fs_head[] =
     "#version 450\n"
-    "layout(push_constant) uniform P { vec4 rect; vec4 extra; vec4 rot; vec4 picture; vec4 tune; } pc;\n"
+    "layout(push_constant) uniform P { vec4 rect; vec4 extra; vec4 rot; vec4 picture; vec4 tune; vec4 uv; } pc;\n"
     "layout(set = 0, binding = 0) uniform sampler2D u_tex;\n"
     "layout(set = 0, binding = 1, std140) uniform G { uvec4 w[48]; } g;\n"
     "layout(location = 0) in vec2 v_uv;\n"
@@ -871,7 +882,7 @@ static void barrier(VkCommandBuffer cb, VkImage img, VkImageLayout from, VkImage
 
 /* A quad of pipeline p over rect (clip space) into the rendering open. */
 static void quad(VkCommandBuffer cb, PsFrame *f, unsigned set, VkPipeline p, VkImageView src,
-                 const float pc[20], uint32_t w, uint32_t h)
+                 const float pc[24], uint32_t w, uint32_t h)
 {
     VkDescriptorImageInfo ii = { g_ps.smp, src, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
     VkDescriptorBufferInfo bi = { g_ps.ubo, (VkDeviceSize)(f - g_ps.fr) * PS_RAMP, 768 };
@@ -964,8 +975,8 @@ void hle_present_end(float sx, float sy, bool fxaa, int upscale, bool average, u
                         VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, 0,
                         VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
                 rendering(cb, g_ps.fx_view, g_ps.f.w, g_ps.f.h, false);
-                static const float whole[20] = { -1.0f, -1.0f, 1.0f, 1.0f, 0, 0, 0, 0, 1.0f, 0, 0, 1.0f,
-                                                  1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 0, 0 };
+                static const float whole[24] = { -1.0f, -1.0f, 1.0f, 1.0f, 0, 0, 0, 0, 1.0f, 0, 0, 1.0f,
+                                                  1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 0, 0, 0, 0, 1.0f, 1.0f };
                 quad(cb, f, 1, g_ps.pipe[P_FXAA], g_ps.f.view, whole, g_ps.f.w, g_ps.f.h);
                 T.vkCmdEndRendering(cb);
                 barrier(cb, g_ps.fx_img, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -986,11 +997,15 @@ void hle_present_end(float sx, float sy, bool fxaa, int upscale, bool average, u
     if (g_ps.have) {
         /* the frame's pixels per window pixel: over 1 (either axis) averaged
          * down, under 1 scaled up as chosen */
+        sx *= g_zoom; sy *= g_zoom;
         const float vw = sx * (float)ww, vh = sy * (float)wh;
-        const float rx = (float)g_ps.f.w / vw, ry = (float)g_ps.f.h / vh;
+        const float rx = (float)g_ps.f.w * (g_uv[2] - g_uv[0]) / vw;
+        const float ry = (float)g_ps.f.h * (g_uv[3] - g_uv[1]) / vh;
         unsigned p = P_BILINEAR;
-        float pc[20] = { -sx, -sy, sx, sy, 0.0f, 0.0f, 0.0f, 0.0f, g_ps.rot[0], g_ps.rot[1], g_ps.rot[2], g_ps.rot[3],
-                         g_picture[0], g_picture[1], g_picture[2], g_picture[3], g_picture[4], 0, 0, 0 };
+        float pc[24] = { -sx + g_shift_x, -sy + g_shift_y, sx + g_shift_x, sy + g_shift_y,
+                         0.0f, 0.0f, 0.0f, 0.0f, g_ps.rot[0], g_ps.rot[1], g_ps.rot[2], g_ps.rot[3],
+                         g_picture[0], g_picture[1], g_picture[2], g_picture[3], g_picture[4], 0, 0, 0,
+                         g_uv[0], g_uv[1], g_uv[2], g_uv[3] };
         if ((rx > 1.01f || ry > 1.01f) && average && g_ps.pipe[P_AREA]) {
             p = P_AREA;
             pc[4] = rx;

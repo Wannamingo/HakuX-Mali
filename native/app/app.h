@@ -32,6 +32,9 @@ enum { NC_UPSCALE_BILINEAR, NC_UPSCALE_SGSR };   /* swapchain.h HLE_UPSCALE_*'s 
 void nc_present_set_upscale(int mode);
 /* User picture controls in percent; 100 preserves the existing output. On the window thread. */
 void nc_present_set_picture(int brightness, int contrast, int saturation, int gamma, int sharpness);
+/* Thread-safe pending output framing, applied on the presenter thread. Crop percentages per edge. */
+void nc_present_set_framing(int left, int right, int top, int bottom, int zoom, int shift_x, int shift_y);
+void nc_audio_set_volume(int percent, bool muted);
 /* Frames the title presented per second over the last half second, their
  * average interval, and the last one's (ms). */
 void nc_present_stats(float *fps, float *avg_ms, float *last_ms);

@@ -78,6 +78,7 @@ fun GameSettingsScreen(gameKey: String, title: String, onBack: () -> Unit, onOpe
   }
   var editing by remember { mutableStateOf<Overridable?>(null) }
   var resetting by remember { mutableStateOf(false) }
+  var experienceRevision by remember { androidx.compose.runtime.mutableIntStateOf(0) }
   fun category(section: Int) = when (section) {
     R.string.settings_section_display -> SettingsCategory.DISPLAY
     R.string.settings_section_graphics -> SettingsCategory.GRAPHICS
@@ -90,14 +91,17 @@ fun GameSettingsScreen(gameKey: String, title: String, onBack: () -> Unit, onOpe
     onBack = onBack,
     entries = SECTIONS.flatMap { (section, items) -> items.map { item ->
       SettingsEntry(item.title, category(section), GlobalSettingsIndex.firstOrNull { it.title == item.title }?.aliases.orEmpty())
-    } } + GlobalSettingsIndex.filter { it.title == R.string.extra_profile || it.title in PictureControl.entries.map { pictureLabel(it) } },
-    categories = listOf(SettingsCategory.GRAPHICS, SettingsCategory.DISPLAY, SettingsCategory.SYSTEM),
+    } } + GlobalSettingsIndex.filter { it.title == R.string.extra_profile || it.title in PictureControl.entries.map { pictureLabel(it) } } +
+      ExperienceIndex.filter { it.category != SettingsCategory.CONTROLS }.map {
+        if (it.category == SettingsCategory.APP) it.copy(category = SettingsCategory.GRAPHICS) else it
+      },
+    categories = listOf(SettingsCategory.GRAPHICS, SettingsCategory.DISPLAY, SettingsCategory.AUDIO, SettingsCategory.SYSTEM, SettingsCategory.GAMES),
     scopeLabel = stringResource(R.string.ui_scope_game),
     otherScopeLabel = stringResource(R.string.ui_scope_global), onOtherScope = onOpenGlobal,
     actions = {
       TextButton(
         onClick = { resetting = true },
-        enabled = values.values.any { it != null },
+        enabled = true,
       ) { Text(stringResource(R.string.game_settings_reset)) }
     },
   ) { selected ->
@@ -142,12 +146,14 @@ fun GameSettingsScreen(gameKey: String, title: String, onBack: () -> Unit, onOpe
         overrides[setting] = value; values[setting] = value
       }
     }
+    androidx.compose.runtime.key(experienceRevision) { ExperienceSettingsSection(selected, gameKey) }
   }
 
   if (resetting) ConfirmDialog(
     title = stringResource(R.string.ui_reset_game_title), text = stringResource(R.string.ui_reset_game_desc),
     confirm = stringResource(R.string.game_settings_reset),
-    onConfirm = { overrides.clear(); GameSetting.entries.forEach { values[it] = null }; resetting = false },
+    onConfirm = { overrides.clear(); com.rfandango.haku_x.data.ExperienceStore(context).clear(gameKey)
+      experienceRevision++; GameSetting.entries.forEach { values[it] = null }; resetting = false },
     onDismiss = { resetting = false },
   )
 

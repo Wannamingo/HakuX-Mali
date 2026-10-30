@@ -253,6 +253,19 @@ fun ControllerMappingScreen(deviceId: Int, onBack: () -> Unit) {
         }
 
         Section(stringResource(R.string.controllers_sticks))
+        LabeledSlider(stringResource(R.string.exp_sensitivity_l), profile.sensitivityL, .25f..2f) {
+          store(profile.copy(sensitivityL = it))
+        }
+        LabeledSlider(stringResource(R.string.exp_sensitivity_r), profile.sensitivityR, .25f..2f) {
+          store(profile.copy(sensitivityR = it))
+        }
+        SwitchItem(stringResource(R.string.exp_invert_lx), null, profile.invertLX) { store(profile.copy(invertLX = it)) }
+        SwitchItem(stringResource(R.string.exp_invert_ly), null, profile.invertLY) { store(profile.copy(invertLY = it)) }
+        SwitchItem(stringResource(R.string.exp_invert_rx), null, profile.invertRX) { store(profile.copy(invertRX = it)) }
+        SwitchItem(stringResource(R.string.exp_invert_ry), null, profile.invertRY) { store(profile.copy(invertRY = it)) }
+        LabeledSlider(stringResource(R.string.exp_rumble), profile.rumbleStrength, 0f..1f) {
+          store(profile.copy(rumbleStrength = it))
+        }
         LabeledSlider(stringResource(R.string.controllers_deadzone_l), profile.deadzoneL, 0f..0.5f) {
           store(profile.copy(deadzoneL = it))
         }

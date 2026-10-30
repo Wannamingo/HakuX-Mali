@@ -1,0 +1,31 @@
+<resources>
+  <string name="exp_economy">Экономичный</string><string name="exp_economy_desc">1×, без FXAA, билинейный фильтр, 30 FPS. Применяется при следующем запуске.</string>
+  <string name="exp_audio">Звук</string>
+  <string name="exp_volume">Громкость игры</string><string name="exp_mute">Отключить звук игры</string>
+  <string name="exp_audio_buffer">Буферизация звука</string><string name="exp_hrtf">Объёмный звук (HRTF)</string>
+  <string name="exp_audio_low">Низкая задержка</string><string name="exp_audio_balanced">Баланс (исходный)</string><string name="exp_audio_stable">Стабильность</string>
+  <string name="exp_audio_desc">Громкость и отключение звука применяются при возврате в игру. Буферизация и HRTF — при следующем запуске. Маленький буфер может давать треск при высокой нагрузке.</string>
+  <string name="exp_framing">Границы изображения и дисплей</string><string name="exp_crop_left">Обрезка слева</string><string name="exp_crop_right">Обрезка справа</string>
+  <string name="exp_crop_top">Обрезка сверху</string><string name="exp_crop_bottom">Обрезка снизу</string><string name="exp_zoom">Увеличение изображения</string>
+  <string name="exp_shift_x">Смещение по горизонтали</string><string name="exp_shift_y">Смещение по вертикали</string>
+  <string name="exp_reset_framing">Сбросить границы изображения</string><string name="exp_runtime_desc">Границы изображения и параметры дисплея применяются при возврате в игру. Обрезка меняет видимую область, а не разрешение отрисовки игры.</string>
+  <string name="exp_refresh">Частота обновления дисплея</string><string name="exp_auto">Как в системе</string><string name="exp_inherited">Общая настройка.</string>
+  <string name="exp_states">Автосохранение</string><string name="exp_autosave">Сохранять состояние при выходе из игры</string>
+  <string name="exp_autosave_desc">При штатном выходе создаётся отдельный автоматический слот. Ручные слоты сохраняются. После сбоя или принудительной остановки автосохранение не выполняется.</string>
+  <string name="exp_resume">Предлагать продолжить автосохранение</string><string name="exp_resume_desc">При запуске из библиотеки предлагать имеющийся автоматический слот перед началом новой сессии.</string>
+  <string name="exp_thermal">Предупреждение о температуре</string><string name="exp_soc_limit">Порог предупреждения CPU / SoC</string><string name="exp_battery_limit">Порог предупреждения батареи</string>
+  <string name="exp_thermal_desc">Предупреждать при выбранной температуре. Датчики CPU/SoC и батареи учитываются отдельно. Системные частоты не меняются.</string>
+  <string name="exp_thermal_toast">Достигнут порог температуры: %1$s. Можно снизить масштаб разрешения или лимит FPS.</string>
+  <string name="exp_hotkeys">Сочетания кнопок геймпада</string><string name="exp_hotkeys_desc">Удерживайте Select и нажмите назначенную кнопку. У каждого сочетания одно действие. Быстрый и автоматический слоты отделены от ручных.</string>
+  <string name="exp_unassigned">Не назначено</string><string name="exp_key_menu">Меню паузы</string><string name="exp_key_screenshot">Снимок экрана</string>
+  <string name="exp_key_save">Быстрое сохранение</string><string name="exp_key_load">Быстрая загрузка</string>
+  <string name="exp_auto_slot">Автосохранение</string><string name="exp_quick_slot">Быстрое сохранение</string><string name="exp_quick_empty">Для этой игры ещё нет быстрого сохранения.</string>
+  <string name="exp_state_saved">Состояние сохранено: %1$s</string><string name="exp_state_saving">Сохранение: %1$s…</string>
+  <string name="exp_resume_title">Продолжить игру?</string><string name="exp_resume_message">Есть автоматическое сохранение состояния. Продолжить его или запустить игру заново?</string>
+  <string name="exp_continue">Продолжить</string><string name="exp_start_normally">Запустить заново</string>
+  <string name="exp_screenshot_saved">Снимок сохранён в Pictures/HakuX-Mali</string><string name="exp_screenshot_failed">Не удалось сохранить снимок экрана.</string>
+  <string name="exp_profiles">Профили настроек</string><string name="exp_profiles_desc">Экспортируйте настройки этой области для переноса в другую игру или на другое устройство. Импорт заменяет настройки этой области; игры, драйверы, управление и сохранения не включаются. После импорта заново откройте этот экран.</string>
+  <string name="exp_export">Экспортировать настройки</string><string name="exp_import">Импортировать настройки</string><string name="exp_profile_done">Профиль настроек сохранён.</string><string name="exp_profile_failed">Не удалось прочитать или записать этот профиль настроек.</string>
+  <string name="exp_sensitivity_l">Чувствительность левого стика</string><string name="exp_sensitivity_r">Чувствительность правого стика</string>
+  <string name="exp_invert_lx">Инверсия левого X</string><string name="exp_invert_ly">Инверсия левого Y</string><string name="exp_invert_rx">Инверсия правого X</string><string name="exp_invert_ry">Инверсия правого Y</string><string name="exp_rumble">Сила вибрации</string>
+</resources>

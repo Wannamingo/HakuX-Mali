@@ -42,7 +42,7 @@ def check(glslc, output):
             subprocess.run([str(glslc), '--target-env=vulkan' + version, '-Werror', '-S', str(path),
                             '-o', str(assembly)], check=True)
             layout = assembly.read_text(encoding='utf-8')
-            for index, offset in [(3, 48), (4, 64)]:
+            for index, offset in [(3, 48), (4, 64), (5, 80)]:
                 if not re.search(r'OpMemberDecorate %\w+ ' + str(index) + r' Offset ' + str(offset) + r'\b', layout):
                     raise RuntimeError(f'{name}: incorrect push-constant offset for member {index}')
         print(name + ': Vulkan 1.1 / 1.3 and picture push-constant layout OK')

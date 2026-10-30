@@ -1,0 +1,31 @@
+<resources>
+  <string name="exp_economy">Economy</string><string name="exp_economy_desc">1×, FXAA off, bilinear, 30 FPS. Apply at the next game start.</string>
+  <string name="exp_audio">Audio</string>
+  <string name="exp_volume">Game volume</string><string name="exp_mute">Mute game audio</string>
+  <string name="exp_audio_buffer">Audio buffering</string><string name="exp_hrtf">Spatial audio (HRTF)</string>
+  <string name="exp_audio_low">Low latency</string><string name="exp_audio_balanced">Balanced (original)</string><string name="exp_audio_stable">Stability</string>
+  <string name="exp_audio_desc">Volume and mute apply on resume. Buffering and HRTF apply at the next game start. Smaller buffers can crackle when the device is busy.</string>
+  <string name="exp_framing">Framing and display</string><string name="exp_crop_left">Crop left</string><string name="exp_crop_right">Crop right</string>
+  <string name="exp_crop_top">Crop top</string><string name="exp_crop_bottom">Crop bottom</string><string name="exp_zoom">Image zoom</string>
+  <string name="exp_shift_x">Horizontal position</string><string name="exp_shift_y">Vertical position</string>
+  <string name="exp_reset_framing">Reset framing</string><string name="exp_runtime_desc">Framing and display options apply when returning to the game. Cropping changes the visible picture, not the game’s rendering resolution.</string>
+  <string name="exp_refresh">Display refresh rate</string><string name="exp_auto">System default</string><string name="exp_inherited">Global setting.</string>
+  <string name="exp_states">Automatic saves</string><string name="exp_autosave">Save state when leaving the game</string>
+  <string name="exp_autosave_desc">Creates a separate automatic slot on normal exit. Manual slots are kept. Does not run after a crash or forced stop.</string>
+  <string name="exp_resume">Offer to resume automatic state</string><string name="exp_resume_desc">When launching from the library, offer the existing automatic slot before starting a new session.</string>
+  <string name="exp_thermal">Temperature warning</string><string name="exp_soc_limit">CPU / SoC warning threshold</string><string name="exp_battery_limit">Battery warning threshold</string>
+  <string name="exp_thermal_desc">Warns at your chosen thresholds. CPU/SoC and battery sensors are separate. Does not change system clocks.</string>
+  <string name="exp_thermal_toast">Temperature threshold reached: %1$s. Consider a lower render scale or FPS limit.</string>
+  <string name="exp_hotkeys">Controller shortcuts</string><string name="exp_hotkeys_desc">Hold Select, then press the assigned button. Each combination has one action. Quick and automatic slots are separate from manual slots.</string>
+  <string name="exp_unassigned">Not assigned</string><string name="exp_key_menu">Pause menu</string><string name="exp_key_screenshot">Screenshot</string>
+  <string name="exp_key_save">Quick save</string><string name="exp_key_load">Quick load</string>
+  <string name="exp_auto_slot">Automatic state</string><string name="exp_quick_slot">Quick state</string><string name="exp_quick_empty">No quick state has been saved for this game.</string>
+  <string name="exp_state_saved">State saved: %1$s</string><string name="exp_state_saving">Saving %1$s…</string>
+  <string name="exp_resume_title">Resume the game?</string><string name="exp_resume_message">An automatic state is available. Resume it or start the game normally?</string>
+  <string name="exp_continue">Resume</string><string name="exp_start_normally">Start normally</string>
+  <string name="exp_screenshot_saved">Screenshot saved to Pictures/HakuX-Mali</string><string name="exp_screenshot_failed">Could not save the screenshot.</string>
+  <string name="exp_profiles">Settings profiles</string><string name="exp_profiles_desc">Export this scope to copy its settings to another game or device. Import replaces settings in this scope; games, drivers, controls and saves are not included. Reopen this screen after importing.</string>
+  <string name="exp_export">Export settings</string><string name="exp_import">Import settings</string><string name="exp_profile_done">Settings profile saved.</string><string name="exp_profile_failed">Could not read or write this settings profile.</string>
+  <string name="exp_sensitivity_l">Left stick sensitivity</string><string name="exp_sensitivity_r">Right stick sensitivity</string>
+  <string name="exp_invert_lx">Invert left X</string><string name="exp_invert_ly">Invert left Y</string><string name="exp_invert_rx">Invert right X</string><string name="exp_invert_ry">Invert right Y</string><string name="exp_rumble">Vibration strength</string>
+</resources>

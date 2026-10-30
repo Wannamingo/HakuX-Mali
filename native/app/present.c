@@ -16,12 +16,43 @@
 #include <sys/system_properties.h>
 #include "hw/xbox/hle/prop.h"
 #include <time.h>
+#include <pthread.h>
 
 static int g_aspect = NC_ASPECT_AUTO;
 static bool g_widescreen;
 static bool g_fxaa;
 static int g_upscale = NC_UPSCALE_BILINEAR;
 static bool g_shown;
+static pthread_mutex_t g_framing_lock = PTHREAD_MUTEX_INITIALIZER;
+static int g_pending_framing[7] = {0, 0, 0, 0, 100, 0, 0};
+static int g_framing[7] = {0, 0, 0, 0, 100, 0, 0};
+static unsigned g_framing_generation, g_applied_framing;
+
+void nc_present_set_framing(int left, int right, int top, int bottom, int zoom, int shift_x, int shift_y)
+{
+    int v[7] = {left, right, top, bottom, zoom, shift_x, shift_y};
+    for (int i = 0; i < 4; i++) v[i] = v[i] < 0 ? 0 : v[i] > 15 ? 15 : v[i];
+    v[4] = zoom < 100 ? 100 : zoom > 200 ? 200 : zoom;
+    for (int i = 5; i < 7; i++) v[i] = v[i] < -20 ? -20 : v[i] > 20 ? 20 : v[i];
+    pthread_mutex_lock(&g_framing_lock);
+    if (memcmp(g_pending_framing, v, sizeof(v))) {
+        memcpy(g_pending_framing, v, sizeof(v));
+        __atomic_add_fetch(&g_framing_generation, 1, __ATOMIC_RELEASE);
+    }
+    pthread_mutex_unlock(&g_framing_lock);
+}
+
+static void apply_framing(void)
+{
+    if (__atomic_load_n(&g_framing_generation, __ATOMIC_ACQUIRE) == g_applied_framing) return;
+    pthread_mutex_lock(&g_framing_lock);
+    memcpy(g_framing, g_pending_framing, sizeof(g_framing));
+    g_applied_framing = __atomic_load_n(&g_framing_generation, __ATOMIC_RELAXED);
+    pthread_mutex_unlock(&g_framing_lock);
+    hle_present_set_framing(g_framing[0], g_framing[1], g_framing[2], g_framing[3], g_framing[4], g_framing[5], g_framing[6]);
+    nc_log("hakuX-app", "framing: crop %d,%d,%d,%d%% zoom %d%% shift %d,%d%%", g_framing[0], g_framing[1],
+           g_framing[2], g_framing[3], g_framing[4], g_framing[5], g_framing[6]);
+}
 
 /* Frame rate from the HLE GPU's presented frames. */
 static uint64_t g_win_presented, g_win_start_ns, g_last_present_ns, g_seen_presented;
@@ -153,6 +184,7 @@ static void place(uint32_t fw, uint32_t fh, uint32_t ww, uint32_t wh, float *sx,
         }
         break;
     }
+    fa *= (100.0f - g_framing[0] - g_framing[1]) / (100.0f - g_framing[2] - g_framing[3]);
     *sx = *sy = 1.0f;
     if (wa > fa) {
         *sx = fa / wa;
@@ -190,6 +222,7 @@ static void wait_next_vsync(void)
 
 bool nc_present_frame(struct ANativeWindow *win)
 {
+    apply_framing();
     count_frames();
     debug_poll();
     const bool fxaa = g_dbg.fxaa < 0 ? g_fxaa : g_dbg.fxaa != 0;

@@ -7,6 +7,7 @@ internal fun effectiveFpsLimit(override: String?, global: Int): Int =
   override?.toIntOrNull()?.takeIf { it in 0..240 } ?: global.coerceIn(0, 240)
 
 enum class GraphicsProfile(val options: GraphicsOptions) {
+  ECONOMY(GraphicsOptions(1, false, "bilinear", 30)),
   PERFORMANCE(GraphicsOptions(1, false, "bilinear", 60)),
   BALANCED(GraphicsOptions(1, false, "sgsr", 120)),
   QUALITY(GraphicsOptions(2, true, "sgsr", 120));

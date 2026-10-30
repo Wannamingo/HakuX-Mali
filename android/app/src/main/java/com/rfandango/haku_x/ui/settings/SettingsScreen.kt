@@ -475,6 +475,7 @@ fun SettingsScreen(
         )
       }
     }
+    ExperienceSettingsSection(category)
   }
 
   if (uiLanguageDialog) {

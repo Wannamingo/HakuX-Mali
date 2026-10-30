@@ -18,6 +18,14 @@
 #define OUT_FRAME_BYTES 4   /* a stereo sample: two 16-bit channels */
 #define REOPEN_NS 1000000000LL  /* a failed open is tried again after this */
 
+/* Output gain only: muted audio still drains the ring and preserves APU timing. */
+static int g_output_volume = 100;
+void nc_audio_set_volume(int percent, bool muted)
+{
+    percent = MAX(0, MIN(percent, 100));
+    __atomic_store_n(&g_output_volume, muted ? 0 : percent, __ATOMIC_RELAXED);
+}
+
 static struct {
     uint8_t *buf;
     uint32_t cap;
@@ -81,6 +89,13 @@ static void fill(uint8_t *stream, int bytes)
     if (n < bytes) {
         apu_inc(&g_out.short_callbacks);
         memset(stream + n, 0, (size_t)(bytes - n));
+    }
+    const int gain = __atomic_load_n(&g_output_volume, __ATOMIC_RELAXED);
+    if (gain != 100) {
+        int16_t *samples = (int16_t *)stream;
+        for (int i = 0; i < n / (int)sizeof(*samples); i++) {
+            samples[i] = (int16_t)((int32_t)samples[i] * gain / 100);
+        }
     }
     pthread_cond_broadcast(g_out.wake);
 }

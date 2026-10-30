@@ -16,6 +16,7 @@ enum { HLE_UPSCALE_BILINEAR, HLE_UPSCALE_SGSR };
 
 /* Window thread only. Percentages: 100 is neutral/original SGSR strength; no extra pass. */
 void hle_present_set_picture(int brightness, int contrast, int saturation, int gamma, int sharpness);
+void hle_present_set_framing(int left, int right, int top, int bottom, int zoom, int shift_x, int shift_y);
 
 /* This refresh would put up what win already shows (the same front frame,
  * gamma ramp, window and swapchain, and key: the caller's placement and

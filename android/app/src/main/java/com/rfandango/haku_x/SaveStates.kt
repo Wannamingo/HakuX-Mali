@@ -67,11 +67,11 @@ class SaveStates(
     }
   }
 
-  fun save(slot: Int) {
+  fun save(slot: Int, onComplete: ((Boolean) -> Unit)? = null) {
     store.prepare()
     val progress = showDialog(
       AlertDialog.Builder(activity)
-        .setView(BusyView(activity, activity.getString(R.string.state_saving, slot)).view)
+        .setView(BusyView(activity, activity.getString(R.string.exp_state_saving, SaveStateStore.label(activity, slot))).view)
         .setCancelable(false)
     )
     Thread {
@@ -79,6 +79,7 @@ class SaveStates(
       activity.runOnUiThread {
         if (err != null) {
           progress.dismiss()
+          onComplete?.invoke(false)
           showDialog(
             AlertDialog.Builder(activity)
               .setTitle(R.string.state_save_failed_title)
@@ -92,10 +93,12 @@ class SaveStates(
           Thread {
             if (frame != null) {
               runCatching { store.thumb(slot).outputStream().use { frame.compress(Bitmap.CompressFormat.JPEG, 90, it) } }
+              frame.recycle()
             }
             activity.runOnUiThread {
               progress.dismiss()
-              Toast.makeText(activity, activity.getString(R.string.state_saved, slot), Toast.LENGTH_SHORT).show()
+              Toast.makeText(activity, activity.getString(R.string.exp_state_saved, SaveStateStore.label(activity, slot)), Toast.LENGTH_SHORT).show()
+              onComplete?.invoke(true)
             }
           }.start()
         }
@@ -172,7 +175,7 @@ class SaveStates(
         layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
         setPadding(dp(16), 0, 0, 0)
         setTextSize(TypedValue.COMPLEX_UNIT_SP, 16f)
-        text = activity.getString(R.string.state_slot, slot) + "\n" +
+        text = SaveStateStore.label(activity, slot) + "\n" +
           if (file.exists()) format.format(Date(file.lastModified())) else activity.getString(R.string.state_empty)
       }
       row.addView(image)

@@ -123,7 +123,8 @@ class PadRouter(
     }
     for ((id, p) in assignment) {
       val raw = rumbleOf(p)
-      val r = level(raw ushr 16) shl 8 or level(raw and 0xFFFF)
+      val strength = InputDevice.getDevice(id)?.let { profile(it).rumbleStrength }?.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 1f
+      val r = level(((raw ushr 16) * strength).toInt()) shl 8 or level(((raw and 0xFFFF) * strength).toInt())
       val last = rumble[id] ?: 0
       if (r == last && (r == 0 || now - (rumbleAt[id] ?: 0) < 900)) continue
       rumble[id] = r

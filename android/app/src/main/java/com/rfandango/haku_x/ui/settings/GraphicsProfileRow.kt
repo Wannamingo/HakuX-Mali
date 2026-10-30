@@ -30,6 +30,7 @@ internal fun GraphicsProfileRow(options: GraphicsOptions, onApply: (GraphicsProf
 }
 
 private fun profileLabel(profile: GraphicsProfile?) = when (profile) {
+  GraphicsProfile.ECONOMY -> R.string.exp_economy,
   GraphicsProfile.PERFORMANCE -> R.string.extra_profile_performance
   GraphicsProfile.BALANCED -> R.string.extra_profile_balanced
   GraphicsProfile.QUALITY -> R.string.extra_profile_quality
@@ -37,6 +38,7 @@ private fun profileLabel(profile: GraphicsProfile?) = when (profile) {
 }
 
 private fun profileDescription(profile: GraphicsProfile) = when (profile) {
+  GraphicsProfile.ECONOMY -> R.string.exp_economy_desc,
   GraphicsProfile.PERFORMANCE -> R.string.extra_profile_performance_desc
   GraphicsProfile.BALANCED -> R.string.extra_profile_balanced_desc
   GraphicsProfile.QUALITY -> R.string.extra_profile_quality_desc

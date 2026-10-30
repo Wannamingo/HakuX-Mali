@@ -27,7 +27,7 @@ class SaveStateStore(context: Context, gameKey: String, discUri: String? = null)
   fun thumb(slot: Int) = File(dir, "slot$slot.jpg")
 
   /** The slots holding a state. */
-  fun saved(): List<Int> = (1..SLOTS).filter { state(it).isFile }
+  fun saved(): List<Int> = (listOf(AUTO_SLOT, QUICK_SLOT) + (1..SLOTS)).filter { state(it).isFile }
 
   /** Where a slot's files go (made on first use). */
   fun prepare() {
@@ -64,6 +64,13 @@ class SaveStateStore(context: Context, gameKey: String, discUri: String? = null)
 
   companion object {
     const val SLOTS = 10
+    const val AUTO_SLOT = 0
+    const val QUICK_SLOT = 11
+    fun label(context: Context, slot: Int) = when (slot) {
+      AUTO_SLOT -> context.getString(com.rfandango.haku_x.R.string.exp_auto_slot)
+      QUICK_SLOT -> context.getString(com.rfandango.haku_x.R.string.exp_quick_slot)
+      else -> context.getString(com.rfandango.haku_x.R.string.state_slot, slot)
+    }
     private const val TAG = "hakuX-library"
 
     /** The slot a state file is (state's slot<N>.hxs), or null. */

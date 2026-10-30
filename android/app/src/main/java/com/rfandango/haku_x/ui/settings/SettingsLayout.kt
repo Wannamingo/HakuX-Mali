@@ -41,6 +41,7 @@ import com.rfandango.haku_x.ui.common.SubScreen
 
 enum class SettingsCategory(val label: Int) {
   GRAPHICS(R.string.ui_category_graphics), DISPLAY(R.string.ui_category_display),
+  AUDIO(R.string.exp_audio),
   CONTROLS(R.string.ui_category_controls), GAMES(R.string.ui_category_games),
   SYSTEM(R.string.ui_category_system), APP(R.string.ui_category_app),
 }

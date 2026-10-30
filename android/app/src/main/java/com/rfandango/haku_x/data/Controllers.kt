@@ -52,11 +52,18 @@ data class PadProfile(
   val deadzoneL: Float = 0f,
   val deadzoneR: Float = 0f,
   val threshold: Float = 0.5f,
+  val sensitivityL: Float = 1f, val sensitivityR: Float = 1f,
+  val invertLX: Boolean = false, val invertLY: Boolean = false,
+  val invertRX: Boolean = false, val invertRY: Boolean = false,
+  val rumbleStrength: Float = 1f,
 ) {
   fun toJson(): JSONObject = JSONObject().apply {
     put("deadzoneL", deadzoneL.toDouble())
     put("deadzoneR", deadzoneR.toDouble())
     put("threshold", threshold.toDouble())
+    put("sensitivityL", sensitivityL.toDouble()); put("sensitivityR", sensitivityR.toDouble())
+    put("invertLX", invertLX); put("invertLY", invertLY); put("invertRX", invertRX); put("invertRY", invertRY)
+    put("rumbleStrength", rumbleStrength.toDouble())
     put("bind", JSONObject().apply {
       for ((input, list) in bind) put(input.name, JSONArray(list.map { it.encode() }))
     })
@@ -89,6 +96,10 @@ data class PadProfile(
         o.optDouble("deadzoneL", 0.0).toFloat(),
         o.optDouble("deadzoneR", 0.0).toFloat(),
         o.optDouble("threshold", 0.5).toFloat(),
+        o.optDouble("sensitivityL", 1.0).toFloat().coerceIn(.25f, 2f),
+        o.optDouble("sensitivityR", 1.0).toFloat().coerceIn(.25f, 2f),
+        o.optBoolean("invertLX"), o.optBoolean("invertLY"), o.optBoolean("invertRX"), o.optBoolean("invertRY"),
+        o.optDouble("rumbleStrength", 1.0).toFloat().coerceIn(0f, 1f),
       )
     }
   }
@@ -177,8 +188,12 @@ class PadState {
           if (kotlin.math.abs(x) > kotlin.math.abs(v)) v = x
         }
         val dz = if (input == XInput.LS_X || input == XInput.LS_Y) p.deadzoneL else p.deadzoneR
-        val m = kotlin.math.abs(v)
-        v = if (m <= dz) 0f else kotlin.math.sign(v) * (m - dz) / (1f - dz)
+        val left = input == XInput.LS_X || input == XInput.LS_Y
+        val invert = when (input) {
+          XInput.LS_X -> p.invertLX; XInput.LS_Y -> p.invertLY
+          XInput.RS_X -> p.invertRX; else -> p.invertRY
+        }
+        v = StickTransform.apply(v, dz, if (left) p.sensitivityL else p.sensitivityR, invert)
         val s = (v.coerceIn(-1f, 1f) * 32767f).toInt()
         when (input) {
           XInput.LS_X -> out.lx = s

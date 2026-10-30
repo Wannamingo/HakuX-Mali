@@ -72,6 +72,8 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   private var hitchesOn = false
   private val temperatures by lazy { HudTemperatureMonitor(applicationContext) }
   private val fpsHandler = Handler(Looper.getMainLooper())
+  private val experience by lazy { GameExperience(this, ::captureFrame, ::runHotkey) }
+  private var exitSaving = false
   /** The overlays' redraws and the game's GPU work (the controls' and the lines below). */
   private val overlayPacer = OverlayPacer({ nativeGpuBusyMs() }, { nativeGpuGap() })
   /** The FPS and stutter lines' update waiting on overlayPacer since (uptime ms), 0: none. */
@@ -86,6 +88,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
         return
       }
       linesWantedSince = 0L
+      experience.checkTemperature(temperatures.readings)
       val s = nativeGetFrameStats()
       if (fpsOn && s != null && s.size >= 3) {
         var text = getString(R.string.ui_hud_format, s[0], s[1], s[2])
@@ -237,6 +240,9 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     /* The app's settings, under this game's overrides. */
     val settings = RunSettings(AppPrefs(this), gameOverrides())
     args += "fpslimit=${settings.frameRateLimit}"
+    val extra = com.rfandango.haku_x.data.ExperienceStore(this).effective(gameKey())
+    args += extra.audioArgument()
+    args += extra.framingArgument()
     /* Every frame presented at once, no vblank wait: on by default. */
     if (settings.uncapped) {
       args += "uncap"
@@ -428,6 +434,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   override fun onResume() {
     com.rfandango.haku_x.data.UiLanguage.refresh(this)
     super.onResume()
+    experience.reload(gameKey())
     activityPaused = false
     syncPause() /* where it stopped (onPause), unless the menu is open */
     hideSystemBars()
@@ -435,12 +442,13 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     hudOptions = com.rfandango.haku_x.data.HudPreferences(this).read(prefs.getBoolean("show_fps", true))
     fpsOn = hudOptions.enabled
     applyHudStyle()
-    if (fpsOn && hudOptions.temperatures) temperatures.start() else temperatures.stop()
+    val thermalWarning = experience.options.enabled(com.rfandango.haku_x.data.ExperienceSetting.THERMAL_WARNING)
+    if ((fpsOn && hudOptions.temperatures) || thermalWarning) temperatures.start() else temperatures.stop()
     hitchesOn = BuildConfig.DEBUG && prefs.getBoolean(PREF_SHOW_HITCHES, false)
     fpsView?.visibility = if (fpsOn) View.VISIBLE else View.GONE
     if (!hitchesOn) hitchView?.visibility = View.GONE
     fpsHandler.removeCallbacks(fpsRunnable)
-    if (fpsOn || hitchesOn) {
+    if (fpsOn || hitchesOn || thermalWarning) {
       fpsHandler.postDelayed(fpsRunnable, FPS_INTERVAL_MS)
     }
     fpsHandler.removeCallbacks(fatalRunnable)
@@ -482,6 +490,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   }
 
   override fun onPause() {
+    experience.clearKeys { router?.onKey(it) }
     temperatures.stop()
     fpsHandler.removeCallbacks(fpsRunnable)
     fpsHandler.removeCallbacks(fatalRunnable)
@@ -778,7 +787,8 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
       items += getString(R.string.overlay_menu_cheats) to ::showCheats
     }
     val exit = if (launchedExternally) R.string.overlay_menu_exit_frontend else R.string.overlay_menu_exit
-    items += getString(exit) to ::exitGame
+    items += getString(R.string.exp_key_screenshot) to { experience.screenshot() }
+    items += getString(exit) to ::requestExitGame
     val title = getSharedPreferences(AppPrefs.NAME, MODE_PRIVATE).getString("current_game_title", null)
     val panel = com.rfandango.haku_x.ui.PauseMenu(this, title, items)
     val dialog = showMenuDialog(AlertDialog.Builder(this).setView(panel.view))
@@ -883,6 +893,29 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
    * The core keeps its state in this process for one run, so the process
    * goes with the game.
    */
+  private fun requestExitGame() {
+    if (exitSaving) return
+    val options = com.rfandango.haku_x.data.ExperienceStore(this).effective(gameKey())
+    if (!fatalShown && nativeStatesAvailable() && options.enabled(com.rfandango.haku_x.data.ExperienceSetting.AUTO_SAVE)) {
+      exitSaving = true
+      saveStates.save(SaveStateStore.AUTO_SLOT) { saved -> if (saved) exitGame() else exitSaving = false }
+    } else exitGame()
+  }
+
+  private fun runHotkey(action: com.rfandango.haku_x.data.HotkeyAction) {
+    when (action) {
+      com.rfandango.haku_x.data.HotkeyAction.MENU -> showMenu()
+      com.rfandango.haku_x.data.HotkeyAction.SCREENSHOT -> experience.screenshot()
+      com.rfandango.haku_x.data.HotkeyAction.QUICK_SAVE -> if (nativeStatesAvailable()) saveStates.save(SaveStateStore.QUICK_SLOT)
+      com.rfandango.haku_x.data.HotkeyAction.QUICK_LOAD -> if (nativeStatesAvailable()) {
+        if (saveStates.state(SaveStateStore.QUICK_SLOT).isFile) saveStates.load(SaveStateStore.QUICK_SLOT)
+        else Toast.makeText(this, R.string.exp_quick_empty, Toast.LENGTH_SHORT).show()
+      }
+      com.rfandango.haku_x.data.HotkeyAction.SAVE_MENU -> if (nativeStatesAvailable()) saveStates.showSlots(save = true)
+      com.rfandango.haku_x.data.HotkeyAction.LOAD_MENU -> if (nativeStatesAvailable()) saveStates.showSlots(save = false)
+    }
+  }
+
   private fun exitGame() {
     if (!launchedExternally) {
       startActivity(
@@ -1032,6 +1065,8 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
    * it: Controllers.defaults).
    */
   override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    if (editorBar == null && menuDialogs == 0 && Controllers.isGameController(event.device) &&
+      experience.onKey(event) { router?.onKey(it) }) return true
     if (event.keyCode == KeyEvent.KEYCODE_BACK && router?.bindsKey(event) != true) {
       if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
         onBack()
@@ -1244,6 +1279,9 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     /** The emulation paused (onPause) or resumed (onResume). */
     @JvmStatic
     external fun nativeSetPaused(paused: Boolean)
+
+    @JvmStatic external fun nativeSetOutputVolume(volume: Int, muted: Boolean)
+    @JvmStatic external fun nativeSetFraming(values: IntArray)
 
     /** Saves the running game to path (not on the UI thread): null, or why it couldn't. */
     @JvmStatic

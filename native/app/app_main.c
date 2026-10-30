@@ -148,6 +148,22 @@ EXPORT JNIEXPORT void JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nati
 /* native/dev/apu/out.c: the output stream paused with the emulation */
 void nc_audio_set_paused(bool on);
 
+EXPORT JNIEXPORT void JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeSetOutputVolume(JNIEnv *env,
+                                                                                  jclass cls, jint volume, jboolean muted)
+{
+    nc_audio_set_volume(volume, muted != JNI_FALSE);
+}
+
+EXPORT JNIEXPORT void JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeSetFraming(JNIEnv *env,
+                                                                                       jclass cls, jintArray values)
+{
+    if (!values || (*env)->GetArrayLength(env, values) != 7) return;
+    jint v[7];
+    (*env)->GetIntArrayRegion(env, values, 0, 7, v);
+    if ((*env)->ExceptionCheck(env)) return;
+    nc_present_set_framing(v[0], v[1], v[2], v[3], v[4], v[5], v[6]);
+}
+
 /* NativeCoreActivity: the emulation pauses while the activity is paused (the
  * device suspends, another app in front) or its menu is open, and resumes
  * where it stopped, its sound output with it. */
@@ -556,6 +572,25 @@ EXPORT int SDL_main(int argc, char *argv[])
         }
         if (!strcmp(argv[i], "padinput=sdl")) {
             g_sdl_pads = true;
+        }
+        if (!strncmp(argv[i], "audio=", 6)) {
+            int volume, muted, preset, hrtf;
+            char tail;
+            if (sscanf(argv[i] + 6, "%d,%d,%d,%d%c", &volume, &muted, &preset, &hrtf, &tail) == 4 && preset >= 0 && preset <= 2) {
+                nc_audio_set_volume(volume, muted != 0);
+                const char *samples[] = { "256", "512", "1024" };
+                const char *fifo[] = { "12", "48", "64" };
+                setenv("NC_APU_SAMPLES", samples[preset], 1);
+                setenv("NC_APU_FIFO_FRAMES", fifo[preset], 1);
+                setenv("NC_APU_HRTF", hrtf ? "1" : "0", 1);
+                nc_log("hakuX-app", "audio: volume %d%%, mute %d, buffer %s samples, HRTF %d", volume, !!muted, samples[preset], !!hrtf);
+            }
+        }
+        if (!strncmp(argv[i], "framing=", 8)) {
+            int l, r, t, b, z, x, y;
+            char tail;
+            if (sscanf(argv[i] + 8, "%d,%d,%d,%d,%d,%d,%d%c", &l, &r, &t, &b, &z, &x, &y, &tail) == 7)
+                nc_present_set_framing(l, r, t, b, z, x, y);
         }
         if (!strncmp(argv[i], "aspect=", 7)) {
             const char *a = argv[i] + 7;

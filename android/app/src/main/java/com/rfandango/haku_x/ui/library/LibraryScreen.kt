@@ -286,7 +286,17 @@ private fun GameList(
   var menuFor by remember { mutableStateOf<Uri?>(null) }
   // The game whose savestates are listed (the menu's Load state), with its store.
   var statesFor by remember { mutableStateOf<Pair<Game, SaveStateStore>?>(null) }
+  var resumeFor by remember { mutableStateOf<Pair<Game, SaveStateStore>?>(null) }
   val context = LocalContext.current
+  fun launchGame(game: Game) {
+    val disc = info[game.uri]
+    val key = GameOverrides.gameKey(disc?.titleId ?: 0L, disc?.version ?: 0L, game.relativePath)
+    val store = SaveStateStore(context, key, game.uri.toString())
+    if (com.rfandango.haku_x.data.ExperienceStore(context).effective(key)
+        .enabled(com.rfandango.haku_x.data.ExperienceSetting.OFFER_RESUME) && store.state(SaveStateStore.AUTO_SLOT).isFile) {
+      resumeFor = game to store
+    } else onLaunch(game)
+  }
   val haptics = LocalHapticFeedback.current
   // One column in portrait, two side by side in landscape.
   val landscape = LocalConfiguration.current.orientation == Configuration.ORIENTATION_LANDSCAPE
@@ -310,7 +320,7 @@ private fun GameList(
             var focused by remember { mutableStateOf(false) }
             Column(Modifier.width(112.dp).clip(shape)
               .border(if (focused) 2.dp else 1.dp, if (focused) colors.primary else colors.outlineVariant, shape)
-              .onFocusChanged { focused = it.isFocused }.combinedClickable(onClick = { onLaunch(game) }).padding(6.dp)) {
+              .onFocusChanged { focused = it.isFocused }.combinedClickable(onClick = { launchGame(game) }).padding(6.dp)) {
               GameCover(game, info[game.uri], icons[game.uri], presentation, coverRevision, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
               Text(game.title, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.padding(top = 6.dp))
@@ -338,7 +348,7 @@ private fun GameList(
               true
             }
             .combinedClickable(
-              onClick = { onLaunch(game) },
+              onClick = { launchGame(game) },
               onLongClick = {
                 haptics.performHapticFeedback(HapticFeedbackType.LongPress)
                 menuFor = game.uri
@@ -418,6 +428,12 @@ private fun GameList(
         }
       }
     }
+  }
+  resumeFor?.let { (game, store) ->
+    androidx.compose.material3.AlertDialog(onDismissRequest = { resumeFor = null },
+      title = { Text(stringResource(R.string.exp_resume_title)) }, text = { Text(stringResource(R.string.exp_resume_message)) },
+      confirmButton = { TextButton(onClick = { resumeFor = null; onLoadState(game, store, SaveStateStore.AUTO_SLOT) }) { Text(stringResource(R.string.exp_continue)) } },
+      dismissButton = { TextButton(onClick = { resumeFor = null; onLaunch(game) }) { Text(stringResource(R.string.exp_start_normally)) } })
   }
   statesFor?.let { (game, store) ->
     LoadStatesDialog(

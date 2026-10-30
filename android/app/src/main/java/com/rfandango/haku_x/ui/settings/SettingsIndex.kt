@@ -37,4 +37,4 @@ internal val GlobalSettingsIndex = listOf(
   SettingsEntry(R.string.ui_app_language, SettingsCategory.APP, "english russian language interface язык интерфейса русский английский"),
   SettingsEntry(R.string.settings_update_check, SettingsCategory.APP, "update github version apk обновление версия"),
   SettingsEntry(R.string.settings_export_logs, SettingsCategory.APP, "logs report diagnostics журнал отчет диагностика"),
-)
+) + ExperienceIndex

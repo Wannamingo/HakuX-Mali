@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import com.rfandango.haku_x.R
 import com.rfandango.haku_x.data.SaveStateStore
@@ -55,6 +56,7 @@ fun LoadStatesDialog(
   onLoad: (slot: Int) -> Unit,
   onDismiss: () -> Unit,
 ) {
+  val context = LocalContext.current
   var slots by remember { mutableStateOf(store.saved()) }
   var deleting by remember { mutableStateOf<Int?>(null) }
   val format = remember { DateFormat.getDateTimeInstance(DateFormat.MEDIUM, DateFormat.SHORT) }
@@ -80,7 +82,7 @@ fun LoadStatesDialog(
             ) {
               Thumbnail(store, slot)
               Column(Modifier.weight(1f).padding(start = 12.dp)) {
-                Text(stringResource(R.string.state_slot, slot), style = MaterialTheme.typography.titleSmall)
+                Text(SaveStateStore.label(context, slot), style = MaterialTheme.typography.titleSmall)
                 Text(
                   format.format(Date(store.state(slot).lastModified())),
                   style = MaterialTheme.typography.bodySmall,
