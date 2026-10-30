@@ -71,7 +71,10 @@ class PauseMenu(private val context: Context, gameTitle: String?, actions: List<
     dialog.setOnKeyListener { _, key, event ->
       when (key) {
         KeyEvent.KEYCODE_BUTTON_A, KeyEvent.KEYCODE_BUTTON_START -> {
-          if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) dialog.currentFocus?.performClick()
+          if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) {
+            val clicked = dialog.currentFocus?.takeIf { it in buttons }?.performClick() ?: false
+            if (!clicked) buttons.firstOrNull()?.performClick()
+          }
           true
         }
         KeyEvent.KEYCODE_BUTTON_B -> { if (event.action == KeyEvent.ACTION_UP && !event.isCanceled) dialog.dismiss(); true }

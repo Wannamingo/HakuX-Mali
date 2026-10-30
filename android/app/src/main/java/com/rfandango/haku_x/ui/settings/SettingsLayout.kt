@@ -1,6 +1,7 @@
 package com.rfandango.haku_x.ui.settings
 
 import android.view.KeyEvent
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -14,6 +15,8 @@ import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Close
@@ -29,6 +32,10 @@ import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import com.rfandango.haku_x.R
 import com.rfandango.haku_x.ui.common.SubScreen
@@ -67,48 +74,55 @@ fun SettingsLayout(
   val searchFocus = remember { FocusRequester() }
   LaunchedEffect(searching) { if (searching) searchFocus.requestFocus() }
   val holder = rememberSaveableStateHolder()
-  fun select(value: SettingsCategory) { selected = value.name; query = ""; searching = false; jump = null }
+  val keyboard = LocalSoftwareKeyboardController.current
+  val focus = LocalFocusManager.current
+  fun closeSearch() { searching = false; query = ""; keyboard?.hide(); focus.clearFocus() }
+  fun toggleSearch() { if (searching) closeSearch() else { searching = true; query = "" } }
+  fun select(value: SettingsCategory) { selected = value.name; if (searching) closeSearch(); jump = null }
   val translated = entries.map { it to stringResource(it.title) }
-  val matches = translated.filter { (entry, label) -> SettingsSearch.matches(query, label, entry.aliases) }
-  val back = { if (searching) { searching = false; query = "" } else onBack() }
+  val matches = translated.filter { (entry, label) -> query.isBlank() || SettingsSearch.matches(query, label, entry.aliases) }
+  val back = { if (searching) closeSearch() else onBack() }
+  BackHandler(enabled = searching) { back() }
 
   SubScreen(title, back, subtitle, snackbar, actions = {
     actions()
-    IconButton(onClick = { searching = !searching; query = "" }) {
+    IconButton(onClick = ::toggleSearch) {
       Icon(if (searching) Icons.Default.Close else Icons.Default.Search,
         stringResource(if (searching) R.string.ui_search_close else R.string.ui_search_settings))
     }
   }) { padding ->
-    Column(Modifier.fillMaxSize().padding(padding).onPreviewKeyEvent { event ->
+    Column(Modifier.fillMaxSize().padding(padding).imePadding().onPreviewKeyEvent { event ->
       if (event.type != KeyEventType.KeyDown) false else when (event.nativeKeyEvent.keyCode) {
         KeyEvent.KEYCODE_BUTTON_L1, KeyEvent.KEYCODE_BUTTON_R1 -> {
           val direction = if (event.nativeKeyEvent.keyCode == KeyEvent.KEYCODE_BUTTON_L1) -1 else 1
           select(categories[(categories.indexOf(category) + direction + categories.size) % categories.size]); true
         }
-        KeyEvent.KEYCODE_BUTTON_Y -> { searching = !searching; query = ""; true }
+        KeyEvent.KEYCODE_BUTTON_Y -> { toggleSearch(); true }
         KeyEvent.KEYCODE_BUTTON_B -> { back(); true }
         else -> false
       }
     }) {
-      Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
+      if (!searching) Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp), horizontalArrangement = Arrangement.SpaceBetween) {
         Text(scopeLabel, style = MaterialTheme.typography.labelLarge, color = MaterialTheme.colorScheme.primary,
           modifier = Modifier.padding(vertical = 12.dp))
         if (onOtherScope != null && otherScopeLabel != null) TextButton(onClick = onOtherScope) { Text(otherScopeLabel) }
       }
       if (searching) OutlinedTextField(query, { query = it }, singleLine = true,
         label = { Text(stringResource(R.string.ui_search_settings)) },
+        keyboardOptions = KeyboardOptions(autoCorrectEnabled = false, imeAction = ImeAction.Search),
+        keyboardActions = KeyboardActions(onSearch = { keyboard?.hide(); focus.clearFocus() }),
         modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp).focusRequester(searchFocus))
-      Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+      if (!searching) Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         for (tab in categories) FilterChip(category == tab, onClick = { select(tab) }, label = { Text(stringResource(tab.label)) })
       }
-      if (searching && query.isNotBlank()) {
+      if (searching) {
         LazyColumn(Modifier.weight(1f).fillMaxWidth(), contentPadding = PaddingValues(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
           if (matches.isEmpty()) item { Text(stringResource(R.string.ui_search_empty), Modifier.padding(16.dp)) }
           items(matches, key = { it.first.title }) { (entry, label) ->
             Surface(shape = RoundedCornerShape(18.dp), color = MaterialTheme.colorScheme.surfaceContainerLow) {
               ListItem(headlineContent = { Text(label) }, supportingContent = { Text(stringResource(entry.category.label)) },
                 modifier = Modifier.clickable {
-                  selected = entry.category.name; query = ""; searching = false
+                  selected = entry.category.name; closeSearch()
                   generation++; jump = SettingsJump(entry.title, generation)
                 })
             }
@@ -144,8 +158,9 @@ fun SettingsTarget(title: Int, content: @Composable () -> Unit) {
   val jump = LocalSettingsJump.current
   val selected = jump?.title == title
   val requester = remember { BringIntoViewRequester() }
-  LaunchedEffect(selected, jump?.generation) {
-    if (selected) { withFrameNanos { }; requester.bringIntoView() }
+  val keyboardOpen = WindowInsets.ime.getBottom(LocalDensity.current) > 0
+  LaunchedEffect(selected, jump?.generation, keyboardOpen) {
+    if (selected && !keyboardOpen) { withFrameNanos { }; requester.bringIntoView() }
   }
   val shape = RoundedCornerShape(16.dp)
   Box(Modifier.fillMaxWidth().bringIntoViewRequester(requester).clip(shape)

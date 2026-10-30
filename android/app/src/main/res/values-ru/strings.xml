@@ -136,7 +136,7 @@
   <string name="settings_upscale">Фильтр увеличения изображения</string>
   <string name="settings_upscale_desc">Для изображения с разрешением ниже экрана.</string>
   <string name="settings_upscale_bilinear">Билинейный</string>
-  <string name="settings_upscale_sgsr">Snapdragon GSR (более чёткие края)</string>
+  <string name="settings_upscale_sgsr">GSR — повышение чёткости</string>
   <string name="settings_section_console">Консоль</string>
   <string name="settings_language">Язык Xbox</string>
   <string name="settings_language_desc">Язык текста и озвучки в поддерживающих его играх. Применяется при следующем запуске игры.</string>
