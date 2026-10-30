@@ -59,6 +59,9 @@ import org.libsdl.app.SDLActivity
  * through SDL3.
  */
 class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
+  override fun attachBaseContext(base: Context) {
+    super.attachBaseContext(com.rfandango.haku_x.data.UiLanguage.wrap(base))
+  }
   private var discArg = ""
   private var onScreenController: OnScreenController? = null
   private var fpsView: TextView? = null
@@ -84,7 +87,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
       linesWantedSince = 0L
       val s = nativeGetFrameStats()
       if (fpsOn && s != null && s.size >= 3) {
-        var text = "FPS: %.0f  |  %.1fms avg  /  %.1fms last".format(s[0], s[1], s[2])
+        var text = getString(R.string.ui_hud_format, s[0], s[1], s[2])
         if (s[1] > 0f && s[2] > 2f * s[1]) {
           text += " *" /* the last frame took over twice the average */
         }
@@ -421,6 +424,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   }
 
   override fun onResume() {
+    com.rfandango.haku_x.data.UiLanguage.refresh(this)
     super.onResume()
     activityPaused = false
     syncPause() /* where it stopped (onPause), unless the menu is open */
@@ -727,6 +731,14 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     /* savestates: push-buffer mode only (native/state) */
     val states = nativeStatesAvailable()
     val items = mutableListOf<Pair<String, () -> Unit>>(
+      getString(R.string.overlay_menu_resume) to {},
+      getString(R.string.ui_pause_settings) to {
+        val title = getSharedPreferences(AppPrefs.NAME, MODE_PRIVATE).getString("current_game_title", null)
+        startActivity(Intent(this, LauncherActivity::class.java).apply {
+          putExtra(LauncherActivity.EXTRA_SETTINGS_GAME_KEY, gameKey())
+          putExtra(LauncherActivity.EXTRA_SETTINGS_GAME_TITLE, title)
+        })
+      },
       getString(R.string.overlay_menu_edit) to ::editControls,
       getString(if (shown) R.string.overlay_menu_hide else R.string.overlay_menu_show) to {
         controlsShown = !shown
@@ -743,11 +755,11 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     }
     val exit = if (launchedExternally) R.string.overlay_menu_exit_frontend else R.string.overlay_menu_exit
     items += getString(exit) to ::exitGame
-    showMenuDialog(
-      AlertDialog.Builder(this)
-        .setItems(items.map { it.first }.toTypedArray()) { _, which -> items[which].second() }
-        .setNegativeButton(R.string.overlay_menu_resume, null)
-    )
+    val title = getSharedPreferences(AppPrefs.NAME, MODE_PRIVATE).getString("current_game_title", null)
+    val panel = com.rfandango.haku_x.ui.PauseMenu(this, title, items)
+    val dialog = showMenuDialog(AlertDialog.Builder(this).setView(panel.view))
+    panel.onAction = { action -> action(); dialog.dismiss() }
+    panel.attach(dialog)
   }
 
   /** The players the core has a controller plugged in for (bit n: player n + 1). */

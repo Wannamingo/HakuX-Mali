@@ -92,9 +92,9 @@
   <string name="native_incompatible_title">This game isn\'t compatible yet</string>
   <string name="native_incompatible">HakuX-Mali doesn\'t support this game yet, so it can\'t run.</string>
 
-  <string name="settings_show_fps">Show FPS counter</string>
+  <string name="settings_show_fps">Show FPS and temperatures</string>
 
-  <string name="settings_show_fps_desc">Frame rate and frame time overlay while playing.</string>
+  <string name="settings_show_fps_desc">Single-line HUD: frame rate, frame time and available CPU/GPU/battery temperatures.</string>
   <string name="settings_show_hitches">Show stutter monitor</string>
   <string name="settings_show_hitches_desc">Debug builds: stutters, hangs and dropped frames with their causes, under the FPS counter.</string>
 
@@ -148,7 +148,7 @@
   <string name="settings_upscale_bilinear">Bilinear</string>
   <string name="settings_upscale_sgsr">Snapdragon GSR (sharper edges)</string>
   <string name="settings_section_console">Console</string>
-  <string name="settings_language">Language</string>
+  <string name="settings_language">Xbox language</string>
   <string name="settings_language_desc">Games show their text and speech in it where they have it; the others keep their own. Takes effect at the next game start.</string>
   <string name="settings_language_auto">Auto: the phone\'s (%1$s)</string>
   <string name="settings_section_updates">Updates</string>

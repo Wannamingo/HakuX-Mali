@@ -1,0 +1,39 @@
+<resources>
+  <string name="ui_category_graphics">Graphics</string>
+  <string name="ui_category_display">Display and HUD</string>
+  <string name="ui_category_controls">Controls</string>
+  <string name="ui_category_games">Games and data</string>
+  <string name="ui_category_system">Xbox system</string>
+  <string name="ui_category_app">Application</string>
+  <string name="ui_scope_global">Global settings</string>
+  <string name="ui_scope_game">This game</string>
+  <string name="ui_search_settings">Search settings</string>
+  <string name="ui_search_close">Close search</string>
+  <string name="ui_search_empty">No matching settings</string>
+  <string name="ui_app_language">Interface language</string>
+  <string name="ui_app_language_desc">Changes the menus. The Xbox game language is configured separately.</string>
+  <string name="ui_language_system">System language</string>
+  <string name="ui_language_en">English</string>
+  <string name="ui_language_ru">Русский</string>
+  <string name="ui_reset_game_title">Reset this game’s settings?</string>
+  <string name="ui_reset_game_desc">This game will use the global settings again. Saves and game files are kept.</string>
+  <string name="ui_library_title">Library</string>
+  <plurals name="ui_library_count">
+    <item quantity="one">%1$d game</item>
+    <item quantity="other">%1$d games</item>
+  </plurals>
+  <string name="ui_library_recent">Recently played</string>
+  <string name="ui_library_all">All games</string>
+  <string name="ui_library_covers">Cover grid</string>
+  <string name="ui_library_list">Compact list</string>
+  <string name="ui_library_cover_size">Cover size</string>
+  <string name="ui_library_cover_small">Small</string>
+  <string name="ui_library_cover_medium">Medium</string>
+  <string name="ui_library_cover_large">Large</string>
+  <string name="ui_library_set_cover">Choose cover</string>
+  <string name="ui_library_remove_cover">Remove custom cover</string>
+  <string name="ui_library_cover_error">Could not read this cover image</string>
+  <string name="ui_pause_title">Game paused</string>
+  <string name="ui_pause_settings">Game settings</string>
+  <string name="ui_hud_format">FPS: %1$.0f  |  %2$.1fms avg  /  %3$.1fms last</string>
+</resources>

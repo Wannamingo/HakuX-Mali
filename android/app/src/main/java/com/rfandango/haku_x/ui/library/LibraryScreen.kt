@@ -2,6 +2,9 @@ package com.rfandango.haku_x.ui.library
 
 import android.content.res.Configuration
 import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import android.text.format.Formatter
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.Image
@@ -9,6 +12,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items as rowItems
+import androidx.compose.foundation.lazy.grid.GridItemSpan
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -49,6 +56,8 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -58,6 +67,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -83,6 +93,7 @@ import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -104,6 +115,10 @@ import com.rfandango.haku_x.R
 import com.rfandango.haku_x.data.DiscInfo
 import com.rfandango.haku_x.data.Game
 import com.rfandango.haku_x.data.GameOverrides
+import com.rfandango.haku_x.data.LibraryPresentation
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import com.rfandango.haku_x.data.ModCatalog
 import com.rfandango.haku_x.data.SaveStateStore
 import com.rfandango.haku_x.data.Updates
@@ -128,6 +143,32 @@ fun LibraryScreen(
   vm: LibraryViewModel = viewModel(),
 ) {
   val state by vm.state.collectAsStateWithLifecycle()
+  val context = LocalContext.current
+  val presentation = remember { LibraryPresentation(context) }
+  var covers by remember { mutableStateOf(presentation.covers) }
+  var coverSize by remember { mutableIntStateOf(presentation.coverSize) }
+  var coverRevision by remember { mutableIntStateOf(0) }
+  var showCoverSize by remember { mutableStateOf(false) }
+  var coverForUri by rememberSaveable { mutableStateOf<String?>(null) }
+  val coverScope = rememberCoroutineScope()
+  val pickCover = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
+    val game = state.games.firstOrNull { it.uri.toString() == coverForUri }
+    coverForUri = null
+    if (uri != null && game != null) coverScope.launch {
+      val result = withContext(Dispatchers.IO) { runCatching { presentation.importCover(game, state.info[game.uri], uri) } }
+      if (result.isSuccess) coverRevision++
+      else Toast.makeText(context, R.string.ui_library_cover_error, Toast.LENGTH_LONG).show()
+    }
+  }
+  if (showCoverSize) com.rfandango.haku_x.ui.common.ChoiceDialog(
+    title = stringResource(R.string.ui_library_cover_size),
+    options = listOf(0 to stringResource(R.string.ui_library_cover_small),
+      1 to stringResource(R.string.ui_library_cover_medium), 2 to stringResource(R.string.ui_library_cover_large)),
+    current = coverSize,
+    onPick = { coverSize = it; presentation.coverSize = it; showCoverSize = false },
+    onDismiss = { showCoverSize = false },
+  )
+
   val update by Updates.available.collectAsStateWithLifecycle()
   var updateDialog by remember { mutableStateOf(false) }
   LifecycleResumeEffect(Unit) {
@@ -137,7 +178,20 @@ fun LibraryScreen(
 
   Scaffold { padding ->
     Column(Modifier.padding(padding).fillMaxSize()) {
-      // No title bar: the search field and the settings button share the top row.
+      Row(Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+        // Compose painterResource accepts bitmap/vector resources, not adaptive launcher XML.
+        Image(painterResource(R.mipmap.ic_launcher_foreground), null, Modifier.size(44.dp).clip(RoundedCornerShape(12.dp)))
+        Column(Modifier.weight(1f).padding(start = 12.dp)) {
+          Text(stringResource(R.string.ui_library_title), style = MaterialTheme.typography.titleLarge)
+          Text(pluralStringResource(R.plurals.ui_library_count, state.visibleGames.size, state.visibleGames.size), style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        IconButton(onClick = { covers = !covers; presentation.covers = covers }, modifier = Modifier.semantics {
+          contentDescription = context.getString(if (covers) R.string.ui_library_list else R.string.ui_library_covers)
+        }) { Text(if (covers) "☰" else "▦", style = MaterialTheme.typography.titleLarge) }
+        if (covers) TextButton(onClick = { showCoverSize = true }) { Text(stringResource(R.string.ui_library_cover_size)) }
+      }
+
       Row(
         Modifier.fillMaxWidth().padding(start = 16.dp, end = 4.dp, top = 8.dp),
         verticalAlignment = Alignment.CenterVertically,
@@ -175,7 +229,14 @@ fun LibraryScreen(
             TextButton(onClick = onOpenSettings) { Text(stringResource(R.string.settings_games_folder_title)) }
           }
           games.isEmpty() -> Message(stringResource(R.string.library_empty_games))
-          else -> GameList(games, state.info, state.icons, onLaunch, onGameSettings, onLoadState, onMods, vm::askConvert)
+          else -> GameList(games, state.info, state.icons, onLaunch, onGameSettings, onLoadState, onMods, vm::askConvert,
+            covers, coverSize, presentation, coverRevision,
+            if (state.query.isBlank()) presentation.recent.mapNotNull { uri -> games.firstOrNull { it.uri.toString() == uri } } else emptyList(),
+            onPickCover = { game -> coverForUri = game.uri.toString(); pickCover.launch(arrayOf("image/*")) },
+            onRemoveCover = { game -> coverScope.launch {
+              withContext(Dispatchers.IO) { presentation.coverFile(game, state.info[game.uri]).delete() }; coverRevision++
+            } },
+          )
         }
       }
     }
@@ -213,6 +274,13 @@ private fun GameList(
   onLoadState: (Game, SaveStateStore, Int) -> Unit,
   onMods: (Game, DiscInfo) -> Unit,
   onConvert: (Game) -> Unit,
+  covers: Boolean,
+  coverSize: Int,
+  presentation: LibraryPresentation,
+  coverRevision: Int,
+  recent: List<Game>,
+  onPickCover: (Game) -> Unit,
+  onRemoveCover: (Game) -> Unit,
 ) {
   // The game whose long-press menu is open.
   var menuFor by remember { mutableStateOf<Uri?>(null) }
@@ -228,17 +296,35 @@ private fun GameList(
   val titleStyle = MaterialTheme.typography.titleMedium.copy(color = colors.onSurface)
   val idStyle = SMALL_PRINT.copy(fontFamily = FontFamily.Monospace, color = colors.onSurfaceVariant)
   LazyVerticalGrid(
-    columns = GridCells.Fixed(if (landscape) 2 else 1),
+    columns = if (covers) GridCells.Adaptive(listOf(112, 144, 184)[coverSize].dp) else GridCells.Fixed(if (landscape) 2 else 1),
     modifier = Modifier.fillMaxSize(),
     contentPadding = PaddingValues(start = 16.dp, end = 16.dp, bottom = 16.dp),
     horizontalArrangement = Arrangement.spacedBy(8.dp),
     verticalArrangement = Arrangement.spacedBy(6.dp),
   ) {
+    if (recent.isNotEmpty()) item(span = { GridItemSpan(maxLineSpan) }, key = "recent") {
+      Column(Modifier.padding(bottom = 12.dp)) {
+        Text(stringResource(R.string.ui_library_recent), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(vertical = 8.dp))
+        LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+          rowItems(recent, key = { it.uri.toString() }) { game ->
+            var focused by remember { mutableStateOf(false) }
+            Column(Modifier.width(112.dp).clip(shape)
+              .border(if (focused) 2.dp else 1.dp, if (focused) colors.primary else colors.outlineVariant, shape)
+              .onFocusChanged { focused = it.isFocused }.combinedClickable(onClick = { onLaunch(game) }).padding(6.dp)) {
+              GameCover(game, info[game.uri], icons[game.uri], presentation, coverRevision, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+              Text(game.title, style = MaterialTheme.typography.labelMedium, maxLines = 2, overflow = TextOverflow.Ellipsis,
+                modifier = Modifier.padding(top = 6.dp))
+            }
+          }
+        }
+        Text(stringResource(R.string.ui_library_all), style = MaterialTheme.typography.titleMedium, modifier = Modifier.padding(top = 16.dp))
+      }
+    }
     items(games, key = { it.uri.toString() }) { game ->
       val disc = info[game.uri]
       var focused by remember { mutableStateOf(false) }
       Box {
-        Row(
+        Column(
           Modifier
             .fillMaxWidth()
             .clip(shape)
@@ -258,27 +344,19 @@ private fun GameList(
                 menuFor = game.uri
               },
             )
-            .padding(start = 8.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
-          verticalAlignment = Alignment.CenterVertically,
+            .padding(start = 8.dp, end = 12.dp, top = 8.dp, bottom = 8.dp)
         ) {
-          TitleIcon(game, icons[game.uri], iconShape, colors.surfaceVariant, colors.onSurfaceVariant)
-          Column(Modifier.weight(1f).padding(start = 12.dp, end = 8.dp)) {
-            // Landscape's two columns are narrow: one line, cut to fit.
-            Text(
-              game.title,
-              style = titleStyle,
-              maxLines = if (landscape) 1 else Int.MAX_VALUE,
-              overflow = TextOverflow.Ellipsis,
-            )
-            if (disc != null && disc.titleId != 0L) {
-              IdLine(disc, idStyle)
-            }
-            if (game.kind == com.rfandango.haku_x.data.GameKind.FOLDER) {
-              Text(
-                stringResource(R.string.game_format_folder),
-                style = idStyle,
-                color = colors.onSurfaceVariant,
-              )
+          if (covers) {
+            GameCover(game, disc, icons[game.uri], presentation, coverRevision, Modifier.fillMaxWidth().aspectRatio(2f / 3f))
+            Spacer(Modifier.height(8.dp))
+          }
+          Row(verticalAlignment = Alignment.CenterVertically) {
+            if (!covers) TitleIcon(game, icons[game.uri], iconShape, colors.surfaceVariant, colors.onSurfaceVariant)
+            Column(Modifier.weight(1f).padding(start = if (covers) 0.dp else 12.dp, end = 4.dp)) {
+              Text(game.title, style = titleStyle, maxLines = if (covers) 2 else if (landscape) 1 else 3, overflow = TextOverflow.Ellipsis)
+              if (disc != null && disc.titleId != 0L) IdLine(disc, idStyle)
+              Text(if (game.kind == com.rfandango.haku_x.data.GameKind.FOLDER) stringResource(R.string.game_format_folder)
+                else game.relativePath.substringAfterLast('.', "ISO").uppercase(java.util.Locale.ROOT), style = idStyle)
             }
           }
         }
@@ -290,6 +368,12 @@ private fun GameList(
           val store = remember(key) { SaveStateStore(context, key, game.uri.toString()) }
           val hasStates = remember(store) { store.saved().isNotEmpty() }
           DropdownMenu(expanded = true, onDismissRequest = { menuFor = null }) {
+            DropdownMenuItem(text = { Text(stringResource(R.string.ui_library_set_cover)) },
+              onClick = { menuFor = null; onPickCover(game) })
+            if (presentation.coverFile(game, disc).isFile) DropdownMenuItem(
+              text = { Text(stringResource(R.string.ui_library_remove_cover)) },
+              onClick = { menuFor = null; onRemoveCover(game) })
+
             DropdownMenuItem(
               text = { Text(stringResource(R.string.library_menu_settings)) },
               leadingIcon = { Icon(Icons.Filled.Settings, contentDescription = null) },

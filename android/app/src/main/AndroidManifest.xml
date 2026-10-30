@@ -14,6 +14,7 @@
   <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
 
   <application
+    android:localeConfig="@xml/locales_config"
     android:name=".HakuXApplication"
     android:label="@string/app_name"
     android:icon="@mipmap/ic_launcher"
@@ -55,7 +56,7 @@
       android:name=".RelaunchActivity"
       android:theme="@style/Theme.HakuX.Game"
       android:screenOrientation="sensorLandscape"
-      android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+      android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|locale|layoutDirection"
       android:excludeFromRecents="true"
       android:noHistory="true"
       android:exported="false" />
@@ -70,7 +71,7 @@
       android:name=".NativeCoreActivity"
       android:theme="@style/Theme.HakuX.Game"
       android:screenOrientation="sensorLandscape"
-      android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode"
+      android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|locale|layoutDirection"
       android:hardwareAccelerated="true"
       android:process=":native"
       android:exported="false">

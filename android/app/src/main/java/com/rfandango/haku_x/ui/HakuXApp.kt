@@ -8,6 +8,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
 import androidx.navigation.NavType
@@ -68,6 +69,9 @@ private object Routes {
  */
 @Composable
 fun HakuXApp(
+  initialSettingsGameKey: String? = null,
+  initialSettingsGameTitle: String? = null,
+  onClose: () -> Unit = {},
   needsMigration: Boolean,
   needsSetup: Boolean,
   onLaunchGame: (Game) -> Unit,
@@ -75,6 +79,19 @@ fun HakuXApp(
   onLaunchState: (Game, SaveStateStore, Int) -> Unit,
 ) {
   val nav = rememberNavController()
+  var settingsGameKey by rememberSaveable { mutableStateOf("") }
+  var settingsGameTitle by rememberSaveable { mutableStateOf("") }
+  var initialSettingsOpened by rememberSaveable { mutableStateOf(false) }
+  LaunchedEffect(initialSettingsGameKey) {
+    if (!initialSettingsOpened && !initialSettingsGameKey.isNullOrBlank()) {
+      initialSettingsOpened = true
+      settingsGameKey = initialSettingsGameKey
+      settingsGameTitle = initialSettingsGameTitle.orEmpty()
+      nav.navigate(Routes.game(settingsGameKey, settingsGameTitle)) {
+        popUpTo(Routes.LIBRARY) { inclusive = true }
+      }
+    }
+  }
   // A newer release on GitHub, looked for once as the app's screens start: told in a toast, the
   // library's update button then shows it (Updates).
   val context = LocalContext.current
@@ -128,6 +145,8 @@ fun HakuXApp(
         onOpenSettings = { nav.navigate(Routes.SETTINGS) },
         onGameSettings = { game, disc ->
           val key = GameOverrides.gameKey(disc?.titleId ?: 0L, disc?.version ?: 0L, game.relativePath)
+          settingsGameKey = key
+          settingsGameTitle = game.title
           nav.navigate(Routes.game(key, game.title))
         },
         onMods = { game, disc ->
@@ -151,12 +170,16 @@ fun HakuXApp(
     }
     composable(Routes.SETTINGS) {
       SettingsScreen(
-        onBack = { nav.popBackStack() },
+        onBack = { if (!nav.popBackStack()) onClose() },
         onEditControls = { nav.navigate(Routes.CONTROLS) },
         onControllers = { nav.navigate(Routes.CONTROLLERS) },
         onHardDisk = { nav.navigate(Routes.HDD) },
         onGpuDriver = { nav.navigate(Routes.GPU_DRIVER) },
         onMigrate = { nav.navigate(Routes.MIGRATE_AGAIN) },
+        onGameSettings = if (settingsGameKey.isBlank()) null else ({
+          val route = Routes.game(settingsGameKey, settingsGameTitle)
+          if (!nav.popBackStack(route, inclusive = false)) nav.navigate(route) { launchSingleTop = true }
+        }),
       )
     }
     composable(Routes.GPU_DRIVER) {
@@ -187,7 +210,10 @@ fun HakuXApp(
       GameSettingsScreen(
         gameKey = entry.arguments?.getString("key").orEmpty(),
         title = entry.arguments?.getString("title").orEmpty(),
-        onBack = { nav.popBackStack() },
+        onBack = { if (!nav.popBackStack()) onClose() },
+        onOpenGlobal = {
+          if (!nav.popBackStack(Routes.SETTINGS, inclusive = false)) nav.navigate(Routes.SETTINGS) { launchSingleTop = true }
+        },
       )
     }
   }

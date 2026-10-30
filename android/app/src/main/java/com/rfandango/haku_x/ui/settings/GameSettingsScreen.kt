@@ -1,11 +1,6 @@
 package com.rfandango.haku_x.ui.settings
 
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -24,9 +19,9 @@ import com.rfandango.haku_x.data.AppPrefs
 import com.rfandango.haku_x.data.GameOverrides
 import com.rfandango.haku_x.data.GameSetting
 import com.rfandango.haku_x.ui.common.ChoiceDialog
+import com.rfandango.haku_x.ui.common.ConfirmDialog
 import com.rfandango.haku_x.ui.common.Hint
 import com.rfandango.haku_x.ui.common.Section
-import com.rfandango.haku_x.ui.common.SubScreen
 
 /** A setting a game can override: its values (as stored) and how they read. */
 private class Overridable(
@@ -70,7 +65,7 @@ private val SECTIONS: List<Pair<Int, List<Overridable>>> = listOf(
 
 /** One game's settings: each follows the app's until the game overrides it. */
 @Composable
-fun GameSettingsScreen(gameKey: String, title: String, onBack: () -> Unit) {
+fun GameSettingsScreen(gameKey: String, title: String, onBack: () -> Unit, onOpenGlobal: (() -> Unit)? = null) {
   val context = LocalContext.current
   val prefs = remember { AppPrefs(context) }
   val overrides = remember(gameKey) { GameOverrides(context, gameKey) }
@@ -78,45 +73,63 @@ fun GameSettingsScreen(gameKey: String, title: String, onBack: () -> Unit) {
     mutableStateMapOf<GameSetting, String?>().apply { GameSetting.entries.forEach { put(it, overrides[it]) } }
   }
   var editing by remember { mutableStateOf<Overridable?>(null) }
+  var resetting by remember { mutableStateOf(false) }
+  fun category(section: Int) = when (section) {
+    R.string.settings_section_display -> SettingsCategory.DISPLAY
+    R.string.settings_section_graphics -> SettingsCategory.GRAPHICS
+    else -> SettingsCategory.SYSTEM
+  }
 
-  SubScreen(
+  SettingsLayout(
     title = stringResource(R.string.game_settings_title),
     subtitle = title,
     onBack = onBack,
+    entries = SECTIONS.flatMap { (section, items) -> items.map { item ->
+      SettingsEntry(item.title, category(section), GlobalSettingsIndex.firstOrNull { it.title == item.title }?.aliases.orEmpty())
+    } },
+    categories = listOf(SettingsCategory.GRAPHICS, SettingsCategory.DISPLAY, SettingsCategory.SYSTEM),
+    scopeLabel = stringResource(R.string.ui_scope_game),
+    otherScopeLabel = stringResource(R.string.ui_scope_global), onOtherScope = onOpenGlobal,
     actions = {
       TextButton(
-        onClick = {
-          overrides.clear()
-          GameSetting.entries.forEach { values[it] = null }
-        },
+        onClick = { resetting = true },
         enabled = values.values.any { it != null },
       ) { Text(stringResource(R.string.game_settings_reset)) }
     },
-  ) { padding ->
-    Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
-      Hint(stringResource(R.string.game_settings_desc))
-      for ((section, items) in SECTIONS) {
+  ) { selected ->
+    Hint(stringResource(R.string.game_settings_desc))
+    for ((section, items) in SECTIONS) {
+      SettingsGroup(selected == category(section)) {
         Section(stringResource(section))
         for (item in items) {
           val own = values[item.setting]
-          ListItem(
-            headlineContent = { Text(stringResource(item.title)) },
-            supportingContent = {
-              if (own != null) {
-                Text(
-                  stringResource(R.string.game_settings_this_game, item.label(own)),
-                  color = MaterialTheme.colorScheme.primary,
-                )
-              } else {
-                Text(stringResource(R.string.game_settings_global, item.label(item.global(prefs))))
-              }
-            },
-            modifier = Modifier.clickable { editing = item },
-          )
+          SettingsTarget(item.title) {
+            ListItem(
+              headlineContent = { Text(stringResource(item.title)) },
+              supportingContent = {
+                if (own != null) {
+                  Text(
+                    stringResource(R.string.game_settings_this_game, item.label(own)),
+                    color = MaterialTheme.colorScheme.primary,
+                  )
+                } else {
+                  Text(stringResource(R.string.game_settings_global, item.label(item.global(prefs))))
+                }
+              },
+              modifier = Modifier.clickable { editing = item },
+            )
+          }
         }
       }
     }
   }
+
+  if (resetting) ConfirmDialog(
+    title = stringResource(R.string.ui_reset_game_title), text = stringResource(R.string.ui_reset_game_desc),
+    confirm = stringResource(R.string.game_settings_reset),
+    onConfirm = { overrides.clear(); GameSetting.entries.forEach { values[it] = null }; resetting = false },
+    onDismiss = { resetting = false },
+  )
 
   editing?.let { item ->
     val useGlobal = stringResource(R.string.game_settings_use_global, item.label(item.global(prefs)))

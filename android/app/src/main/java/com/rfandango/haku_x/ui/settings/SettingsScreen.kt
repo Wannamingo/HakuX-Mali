@@ -9,11 +9,6 @@ import android.text.format.DateUtils
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material3.ListItem
@@ -46,7 +41,6 @@ import com.rfandango.haku_x.ui.common.ConfirmDialog
 import com.rfandango.haku_x.ui.common.DeleteButton
 import com.rfandango.haku_x.ui.common.Hint
 import com.rfandango.haku_x.ui.common.Section
-import com.rfandango.haku_x.ui.common.SubScreen
 import com.rfandango.haku_x.ui.common.SwitchItem
 import com.rfandango.haku_x.ui.common.notify
 import com.rfandango.haku_x.ui.theme.AppTheme
@@ -68,6 +62,7 @@ fun SettingsScreen(
   onGpuDriver: () -> Unit,
   /** The first-start screen again: the xemu-based release's data brought over. */
   onMigrate: () -> Unit,
+  onGameSettings: (() -> Unit)? = null,
 ) {
   val context = LocalContext.current
   val prefs = remember { AppPrefs(context) }
@@ -109,6 +104,8 @@ fun SettingsScreen(
   var scaleDialog by remember { mutableStateOf(false) }
   val theme by AppTheme.mode.collectAsState()
   var themeDialog by remember { mutableStateOf(false) }
+  var uiLanguageDialog by remember { mutableStateOf(false) }
+  var uiLanguage by remember { mutableStateOf(com.rfandango.haku_x.data.UiLanguage.current(context)) }
   val dark = appInDarkTheme()
 
   val pickFolder = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri: Uri? ->
@@ -138,244 +135,342 @@ fun SettingsScreen(
       }
     }
   }
-  SubScreen(title = stringResource(R.string.settings_title), onBack = onBack, snackbar = snackbar) { padding ->
-    Column(Modifier.padding(padding).fillMaxSize().verticalScroll(rememberScrollState())) {
+  SettingsLayout(
+    title = stringResource(R.string.settings_title), onBack = onBack, snackbar = snackbar,
+    entries = GlobalSettingsIndex,
+    otherScopeLabel = stringResource(R.string.ui_scope_game), onOtherScope = onGameSettings,
+  ) { category ->
+    SettingsGroup(category == SettingsCategory.APP) {
+      Section(stringResource(R.string.ui_category_app))
+      SettingsTarget(R.string.ui_app_language) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.ui_app_language)) },
+          supportingContent = { Text(stringResource(when (uiLanguage) {
+            "ru" -> R.string.ui_language_ru
+            "en" -> R.string.ui_language_en
+            else -> R.string.ui_language_system
+          }) + ". " + stringResource(R.string.ui_app_language_desc)) },
+          modifier = Modifier.clickable { uiLanguageDialog = true },
+        )
+      }
+    }
+    SettingsGroup(category == SettingsCategory.GAMES) {
       Section(stringResource(R.string.settings_section_games))
       for (f in folders) {
-        ListItem(
-          headlineContent = { Text(Storage.folderLabel(context, f)) },
-          supportingContent = { Text(Storage.folderPlace(context, f)) },
-          trailingContent = if (folders.size > 1) {
-            { DeleteButton(onClick = { removing = f }, description = stringResource(R.string.settings_games_folder_remove)) }
-          } else {
-            null
-          },
-          modifier = Modifier.clickable {
-            replacing = f
-            pickFolder.launch(f)
-          },
-        )
-      }
-      ActionItem(
-        title = stringResource(R.string.settings_games_folder_add),
-        summary = stringResource(R.string.settings_games_folder_add_desc),
-        icon = Icons.Filled.Add,
-      ) {
-        replacing = null
-        pickFolder.launch(folders.lastOrNull())
-      }
-
-      Section(stringResource(R.string.settings_section_controls))
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_overlay)) },
-        supportingContent = { Text(stringResource(R.string.settings_overlay_desc)) },
-        modifier = Modifier.clickable(onClick = onEditControls),
-      )
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.controllers_title)) },
-        supportingContent = { Text(stringResource(R.string.controllers_settings_desc)) },
-        modifier = Modifier.clickable(onClick = onControllers),
-      )
-
-      Section(stringResource(R.string.settings_section_display))
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_theme)) },
-        supportingContent = { Text(stringResource(themeLabel(theme))) },
-        modifier = Modifier.clickable { themeDialog = true },
-      )
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_fps_limit)) },
-        supportingContent = {
-          Text((if (frameRateLimit == 0) stringResource(R.string.settings_fps_no_limit)
-                else stringResource(R.string.settings_fps_value, frameRateLimit)) + ". " +
-            stringResource(R.string.settings_applies_next_start))
-        },
-        modifier = Modifier.clickable { frameRateDialog = true },
-      )
-      SwitchItem(
-        title = stringResource(R.string.settings_uncap),
-        summary = stringResource(R.string.settings_uncap_desc) + " " +
-          stringResource(R.string.settings_applies_next_start),
-        checked = uncapped,
-        onChange = { uncapped = it; prefs.uncapped = it },
-      )
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_aspect)) },
-        supportingContent = {
-          Text(stringResource(aspectLabel(aspect)) + ". " + stringResource(R.string.settings_applies_next_start))
-        },
-        modifier = Modifier.clickable { aspectDialog = true },
-      )
-      SwitchItem(
-        title = stringResource(R.string.settings_show_fps),
-        summary = stringResource(R.string.settings_show_fps_desc),
-        checked = showFps,
-        onChange = { showFps = it; prefs.showFps = it },
-      )
-      if (BuildConfig.DEBUG) {
-        SwitchItem(
-          title = stringResource(R.string.settings_show_hitches),
-          summary = stringResource(R.string.settings_show_hitches_desc),
-          checked = showHitches,
-          onChange = { showHitches = it; prefs.showHitches = it },
-        )
-      }
-
-      Section(stringResource(R.string.settings_section_console))
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.hdd_title)) },
-        supportingContent = { Text(stringResource(R.string.hdd_settings_desc)) },
-        modifier = Modifier.clickable(onClick = onHardDisk),
-      )
-      if (previous) {
-        ListItem(
-          headlineContent = { Text(stringResource(R.string.settings_migrate)) },
-          supportingContent = { Text(stringResource(R.string.settings_migrate_desc)) },
-          modifier = Modifier.clickable(onClick = onMigrate),
-        )
-      }
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_language)) },
-        supportingContent = {
-          Text(
-            languageLabel(language) + ". " + stringResource(R.string.settings_language_desc)
+        SettingsTarget(R.string.settings_games_folder_remove) {
+          ListItem(
+            headlineContent = { Text(Storage.folderLabel(context, f)) },
+            supportingContent = { Text(Storage.folderPlace(context, f)) },
+            trailingContent = if (folders.size > 1) {
+              { DeleteButton(onClick = { removing = f }, description = stringResource(R.string.settings_games_folder_remove)) }
+            } else {
+              null
+            },
+            modifier = Modifier.clickable {
+              replacing = f
+              pickFolder.launch(f)
+            },
           )
-        },
-        modifier = Modifier.clickable { languageDialog = true },
-      )
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_clock)) },
-        supportingContent = { Text(clockLabel(clockOffset) + ". " + stringResource(R.string.settings_clock_desc)) },
-        modifier = Modifier.clickable { clockDialog = true },
-      )
+        }
+      }
+      SettingsTarget(R.string.settings_games_folder_add) {
+        ActionItem(
+          title = stringResource(R.string.settings_games_folder_add),
+          summary = stringResource(R.string.settings_games_folder_add_desc),
+          icon = Icons.Filled.Add,
+        ) {
+          replacing = null
+          pickFolder.launch(folders.lastOrNull())
+        }
+      }
 
-      NetworkSettings(prefs)
+    }
+    SettingsGroup(category == SettingsCategory.CONTROLS) {
+      Section(stringResource(R.string.settings_section_controls))
+      SettingsTarget(R.string.settings_overlay) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_overlay)) },
+          supportingContent = { Text(stringResource(R.string.settings_overlay_desc)) },
+          modifier = Modifier.clickable(onClick = onEditControls),
+        )
+      }
+      SettingsTarget(R.string.controllers_title) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.controllers_title)) },
+          supportingContent = { Text(stringResource(R.string.controllers_settings_desc)) },
+          modifier = Modifier.clickable(onClick = onControllers),
+        )
+      }
 
+    }
+    SettingsGroup(category == SettingsCategory.DISPLAY) {
+      Section(stringResource(R.string.settings_section_display))
+      SettingsTarget(R.string.settings_theme) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_theme)) },
+          supportingContent = { Text(stringResource(themeLabel(theme))) },
+          modifier = Modifier.clickable { themeDialog = true },
+        )
+      }
+      SettingsTarget(R.string.settings_fps_limit) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_fps_limit)) },
+          supportingContent = {
+            Text((if (frameRateLimit == 0) stringResource(R.string.settings_fps_no_limit)
+                  else stringResource(R.string.settings_fps_value, frameRateLimit)) + ". " +
+              stringResource(R.string.settings_applies_next_start))
+          },
+          modifier = Modifier.clickable { frameRateDialog = true },
+        )
+      }
+      SettingsTarget(R.string.settings_uncap) {
+        SwitchItem(
+          title = stringResource(R.string.settings_uncap),
+          summary = stringResource(R.string.settings_uncap_desc) + " " +
+            stringResource(R.string.settings_applies_next_start),
+          checked = uncapped,
+          onChange = { uncapped = it; prefs.uncapped = it },
+        )
+      }
+      SettingsTarget(R.string.settings_aspect) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_aspect)) },
+          supportingContent = {
+            Text(stringResource(aspectLabel(aspect)) + ". " + stringResource(R.string.settings_applies_next_start))
+          },
+          modifier = Modifier.clickable { aspectDialog = true },
+        )
+      }
+      SettingsTarget(R.string.settings_show_fps) {
+        SwitchItem(
+          title = stringResource(R.string.settings_show_fps),
+          summary = stringResource(R.string.settings_show_fps_desc),
+          checked = showFps,
+          onChange = { showFps = it; prefs.showFps = it },
+        )
+      }
+      if (BuildConfig.DEBUG) {
+        SettingsTarget(R.string.settings_show_hitches) {
+          SwitchItem(
+            title = stringResource(R.string.settings_show_hitches),
+            summary = stringResource(R.string.settings_show_hitches_desc),
+            checked = showHitches,
+            onChange = { showHitches = it; prefs.showHitches = it },
+          )
+        }
+      }
+
+    }
+    SettingsGroup(category == SettingsCategory.SYSTEM) {
+      Section(stringResource(R.string.settings_section_console))
+      SettingsTarget(R.string.hdd_title) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.hdd_title)) },
+          supportingContent = { Text(stringResource(R.string.hdd_settings_desc)) },
+          modifier = Modifier.clickable(onClick = onHardDisk),
+        )
+      }
+      if (previous) {
+        SettingsTarget(R.string.settings_migrate) {
+          ListItem(
+            headlineContent = { Text(stringResource(R.string.settings_migrate)) },
+            supportingContent = { Text(stringResource(R.string.settings_migrate_desc)) },
+            modifier = Modifier.clickable(onClick = onMigrate),
+          )
+        }
+      }
+      SettingsTarget(R.string.settings_language) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_language)) },
+          supportingContent = {
+            Text(
+              languageLabel(language) + ". " + stringResource(R.string.settings_language_desc)
+            )
+          },
+          modifier = Modifier.clickable { languageDialog = true },
+        )
+      }
+      SettingsTarget(R.string.settings_clock) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_clock)) },
+          supportingContent = { Text(clockLabel(clockOffset) + ". " + stringResource(R.string.settings_clock_desc)) },
+          modifier = Modifier.clickable { clockDialog = true },
+        )
+      }
+
+      SettingsTarget(R.string.settings_network_mode) { NetworkSettings(prefs) }
+
+    }
+    SettingsGroup(category == SettingsCategory.SYSTEM) {
       Section(stringResource(R.string.settings_section_console_video))
       Hint(stringResource(R.string.settings_console_video_desc))
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_screen_format)) },
-        supportingContent = { Text(stringResource(formatLabel(format))) },
-        modifier = Modifier.clickable { formatDialog = true },
-      )
-      SwitchItem(
-        title = stringResource(R.string.settings_480p),
-        summary = stringResource(R.string.settings_480p_desc),
-        checked = p480,
-        onChange = { p480 = it; prefs.video480p = it },
-      )
-      SwitchItem(
-        title = stringResource(R.string.settings_720p),
-        summary = stringResource(R.string.settings_720p_desc),
-        checked = p720,
-        onChange = { p720 = it; prefs.video720p = it },
-      )
-      SwitchItem(
-        title = stringResource(R.string.settings_1080i),
-        summary = stringResource(R.string.settings_1080i_desc),
-        checked = i1080,
-        onChange = { i1080 = it; prefs.video1080i = it },
-      )
-      SwitchItem(
-        title = stringResource(R.string.settings_pal60),
-        summary = stringResource(R.string.settings_pal60_desc),
-        checked = pal60,
-        onChange = { pal60 = it; prefs.pal60 = it },
-      )
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_av_cable)) },
-        supportingContent = { Text(stringResource(cableLabel(avPack))) },
-        modifier = Modifier.clickable { cableDialog = true },
-      )
+      SettingsTarget(R.string.settings_screen_format) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_screen_format)) },
+          supportingContent = { Text(stringResource(formatLabel(format))) },
+          modifier = Modifier.clickable { formatDialog = true },
+        )
+      }
+      SettingsTarget(R.string.settings_480p) {
+        SwitchItem(
+          title = stringResource(R.string.settings_480p),
+          summary = stringResource(R.string.settings_480p_desc),
+          checked = p480,
+          onChange = { p480 = it; prefs.video480p = it },
+        )
+      }
+      SettingsTarget(R.string.settings_720p) {
+        SwitchItem(
+          title = stringResource(R.string.settings_720p),
+          summary = stringResource(R.string.settings_720p_desc),
+          checked = p720,
+          onChange = { p720 = it; prefs.video720p = it },
+        )
+      }
+      SettingsTarget(R.string.settings_1080i) {
+        SwitchItem(
+          title = stringResource(R.string.settings_1080i),
+          summary = stringResource(R.string.settings_1080i_desc),
+          checked = i1080,
+          onChange = { i1080 = it; prefs.video1080i = it },
+        )
+      }
+      SettingsTarget(R.string.settings_pal60) {
+        SwitchItem(
+          title = stringResource(R.string.settings_pal60),
+          summary = stringResource(R.string.settings_pal60_desc),
+          checked = pal60,
+          onChange = { pal60 = it; prefs.pal60 = it },
+        )
+      }
+      SettingsTarget(R.string.settings_av_cable) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_av_cable)) },
+          supportingContent = { Text(stringResource(cableLabel(avPack))) },
+          modifier = Modifier.clickable { cableDialog = true },
+        )
+      }
 
+    }
+    SettingsGroup(category == SettingsCategory.GRAPHICS) {
       Section(stringResource(R.string.settings_section_graphics))
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_scale)) },
-        supportingContent = {
-          Text(
-            stringResource(R.string.settings_scale_value, scale) + ". " +
-              stringResource(R.string.settings_applies_next_start)
-          )
-        },
-        modifier = Modifier.clickable { scaleDialog = true },
-      )
-      SwitchItem(
-        title = stringResource(R.string.settings_fxaa),
-        summary = stringResource(R.string.settings_fxaa_desc) + " " +
-          stringResource(R.string.settings_applies_next_start),
-        checked = fxaa,
-        onChange = { fxaa = it; prefs.fxaa = it },
-      )
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_upscale)) },
-        supportingContent = {
-          Text(
-            stringResource(upscaleLabel(upscale)) + ". " + stringResource(R.string.settings_upscale_desc) + " " +
-              stringResource(R.string.settings_applies_next_start)
-          )
-        },
-        modifier = Modifier.clickable { upscaleDialog = true },
-      )
-      SwitchItem(
-        title = stringResource(R.string.settings_async_shaders),
-        summary = stringResource(R.string.settings_async_shaders_desc) + " " +
-          stringResource(R.string.settings_applies_next_start),
-        checked = asyncShaders,
-        onChange = { asyncShaders = it; prefs.asyncShaders = it },
-      )
-      SwitchItem(
-        title = stringResource(R.string.settings_prebuild_shaders),
-        summary = stringResource(R.string.settings_prebuild_shaders_desc) + " " +
-          stringResource(R.string.settings_applies_next_start),
-        checked = prebuildShaders,
-        onChange = { prebuildShaders = it; prefs.prebuildShaders = it },
-      )
+      SettingsTarget(R.string.settings_scale) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_scale)) },
+          supportingContent = {
+            Text(
+              stringResource(R.string.settings_scale_value, scale) + ". " +
+                stringResource(R.string.settings_applies_next_start)
+            )
+          },
+          modifier = Modifier.clickable { scaleDialog = true },
+        )
+      }
+      SettingsTarget(R.string.settings_fxaa) {
+        SwitchItem(
+          title = stringResource(R.string.settings_fxaa),
+          summary = stringResource(R.string.settings_fxaa_desc) + " " +
+            stringResource(R.string.settings_applies_next_start),
+          checked = fxaa,
+          onChange = { fxaa = it; prefs.fxaa = it },
+        )
+      }
+      SettingsTarget(R.string.settings_upscale) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_upscale)) },
+          supportingContent = {
+            Text(
+              stringResource(upscaleLabel(upscale)) + ". " + stringResource(R.string.settings_upscale_desc) + " " +
+                stringResource(R.string.settings_applies_next_start)
+            )
+          },
+          modifier = Modifier.clickable { upscaleDialog = true },
+        )
+      }
+      SettingsTarget(R.string.settings_async_shaders) {
+        SwitchItem(
+          title = stringResource(R.string.settings_async_shaders),
+          summary = stringResource(R.string.settings_async_shaders_desc) + " " +
+            stringResource(R.string.settings_applies_next_start),
+          checked = asyncShaders,
+          onChange = { asyncShaders = it; prefs.asyncShaders = it },
+        )
+      }
+      SettingsTarget(R.string.settings_prebuild_shaders) {
+        SwitchItem(
+          title = stringResource(R.string.settings_prebuild_shaders),
+          summary = stringResource(R.string.settings_prebuild_shaders_desc) + " " +
+            stringResource(R.string.settings_applies_next_start),
+          checked = prebuildShaders,
+          onChange = { prebuildShaders = it; prefs.prebuildShaders = it },
+        )
+      }
       // Turnip on Adreno and MaliSX2 on RG477M use the isolated Android Vulkan loader.
       val customDrivers = remember { GpuDriverHelper.supportsCustomDriverLoading() }
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_gpu_driver_title)) },
-        supportingContent = { Text(driver) },
-        modifier = Modifier.clickable(enabled = customDrivers, onClick = onGpuDriver),
-      )
+      SettingsTarget(R.string.settings_gpu_driver_title) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_gpu_driver_title)) },
+          supportingContent = { Text(driver) },
+          modifier = Modifier.clickable(enabled = customDrivers, onClick = onGpuDriver),
+        )
+      }
 
+    }
+    SettingsGroup(category == SettingsCategory.APP) {
       Section(stringResource(R.string.settings_section_updates))
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_update_check)) },
-        supportingContent = {
-          Text(
-            if (updateChecking) stringResource(R.string.settings_update_checking)
-            else stringResource(R.string.settings_update_check_desc, Updates.installedVersion(context))
-          )
-        },
-        modifier = Modifier.clickable(enabled = !updateChecking) {
-          updateChecking = true
-          scope.launch {
-            val found = runCatching { Updates.check(context) }
-            updateChecking = false
-            found.onSuccess { release ->
-              if (release != null) {
-                updateRelease = release
-              } else {
-                snackbar.notify(scope, context.getString(R.string.update_none, Updates.installedVersion(context)))
+      SettingsTarget(R.string.settings_update_check) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_update_check)) },
+          supportingContent = {
+            Text(
+              if (updateChecking) stringResource(R.string.settings_update_checking)
+              else stringResource(R.string.settings_update_check_desc, Updates.installedVersion(context))
+            )
+          },
+          modifier = Modifier.clickable(enabled = !updateChecking) {
+            updateChecking = true
+            scope.launch {
+              val found = runCatching { Updates.check(context) }
+              updateChecking = false
+              found.onSuccess { release ->
+                if (release != null) {
+                  updateRelease = release
+                } else {
+                  snackbar.notify(scope, context.getString(R.string.update_none, Updates.installedVersion(context)))
+                }
+              }.onFailure {
+                snackbar.notify(
+                  scope, context.getString(R.string.update_check_failed, it.message ?: it.javaClass.simpleName),
+                )
               }
-            }.onFailure {
-              snackbar.notify(
-                scope, context.getString(R.string.update_check_failed, it.message ?: it.javaClass.simpleName),
-              )
             }
-          }
-        },
-      )
+          },
+        )
+      }
 
+    }
+    SettingsGroup(category == SettingsCategory.APP) {
       Section(stringResource(R.string.settings_section_logs))
-      ListItem(
-        headlineContent = { Text(stringResource(R.string.settings_export_logs)) },
-        supportingContent = { Text(stringResource(R.string.settings_export_logs_desc)) },
-        modifier = Modifier.clickable { pickLogsFolder.launch(null) },
-      )
+      SettingsTarget(R.string.settings_export_logs) {
+        ListItem(
+          headlineContent = { Text(stringResource(R.string.settings_export_logs)) },
+          supportingContent = { Text(stringResource(R.string.settings_export_logs_desc)) },
+          modifier = Modifier.clickable { pickLogsFolder.launch(null) },
+        )
+      }
     }
   }
 
+  if (uiLanguageDialog) {
+    ChoiceDialog(
+      title = stringResource(R.string.ui_app_language),
+      options = listOf("system" to stringResource(R.string.ui_language_system),
+        "en" to "English", "ru" to "Русский"),
+      current = uiLanguage,
+      onPick = { uiLanguageDialog = false; uiLanguage = it; com.rfandango.haku_x.data.UiLanguage.set(context, it) },
+      onDismiss = { uiLanguageDialog = false },
+    )
+  }
   if (frameRateDialog) {
     ChoiceDialog(
       title = stringResource(R.string.settings_fps_limit),

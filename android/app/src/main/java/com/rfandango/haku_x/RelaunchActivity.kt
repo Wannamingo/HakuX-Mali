@@ -31,6 +31,9 @@ import java.io.File
  * from its start (EXTRA_RESTART: a new console identity).
  */
 class RelaunchActivity : Activity() {
+  override fun attachBaseContext(base: Context) {
+    super.attachBaseContext(com.rfandango.haku_x.data.UiLanguage.wrap(base))
+  }
   private val handler = Handler(Looper.getMainLooper())
   private var loading: LoadingDialog? = null
 

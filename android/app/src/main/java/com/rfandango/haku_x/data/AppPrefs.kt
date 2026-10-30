@@ -260,7 +260,8 @@ class AppPrefs(context: Context) {
 
     /** The language auto stands for: the phone's, or English when the Xbox lacks it. */
     fun autoLanguage(): String =
-      Locale.getDefault().language.takeIf { it in XBOX_LANGUAGES } ?: XBOX_LANGUAGES[0]
+      android.content.res.Resources.getSystem().configuration.locales[0].language
+        .takeIf { it in XBOX_LANGUAGES } ?: XBOX_LANGUAGES[0]
 
     /** The EEPROM's language (XC_LANGUAGE: 1 English ... 9 Portuguese) for a language setting. */
     fun xboxLanguage(language: String): Int {

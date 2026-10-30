@@ -1,0 +1,41 @@
+<resources>
+  <string name="ui_category_graphics">Графика</string>
+  <string name="ui_category_display">Экран и HUD</string>
+  <string name="ui_category_controls">Управление</string>
+  <string name="ui_category_games">Игры и данные</string>
+  <string name="ui_category_system">Система Xbox</string>
+  <string name="ui_category_app">Приложение</string>
+  <string name="ui_scope_global">Общие настройки</string>
+  <string name="ui_scope_game">Эта игра</string>
+  <string name="ui_search_settings">Поиск настроек</string>
+  <string name="ui_search_close">Закрыть поиск</string>
+  <string name="ui_search_empty">Настройки не найдены</string>
+  <string name="ui_app_language">Язык интерфейса</string>
+  <string name="ui_app_language_desc">Язык меню приложения. Язык игр Xbox задаётся отдельно.</string>
+  <string name="ui_language_system">Как в системе</string>
+  <string name="ui_language_en">English</string>
+  <string name="ui_language_ru">Русский</string>
+  <string name="ui_reset_game_title">Сбросить настройки этой игры?</string>
+  <string name="ui_reset_game_desc">Игра снова будет использовать общие настройки. Сохранения и файлы игры останутся.</string>
+  <string name="ui_library_title">Библиотека</string>
+  <plurals name="ui_library_count">
+    <item quantity="one">%1$d игра</item>
+    <item quantity="few">%1$d игры</item>
+    <item quantity="many">%1$d игр</item>
+    <item quantity="other">%1$d игры</item>
+  </plurals>
+  <string name="ui_library_recent">Недавно играли</string>
+  <string name="ui_library_all">Все игры</string>
+  <string name="ui_library_covers">Обложки</string>
+  <string name="ui_library_list">Компактный список</string>
+  <string name="ui_library_cover_size">Размер обложек</string>
+  <string name="ui_library_cover_small">Маленькие</string>
+  <string name="ui_library_cover_medium">Средние</string>
+  <string name="ui_library_cover_large">Крупные</string>
+  <string name="ui_library_set_cover">Выбрать обложку</string>
+  <string name="ui_library_remove_cover">Убрать свою обложку</string>
+  <string name="ui_library_cover_error">Не удалось прочитать изображение обложки</string>
+  <string name="ui_pause_title">Игра приостановлена</string>
+  <string name="ui_pause_settings">Настройки игры</string>
+  <string name="ui_hud_format">FPS: %1$.0f  |  %2$.1fмс ср.  /  %3$.1fмс посл.</string>
+</resources>

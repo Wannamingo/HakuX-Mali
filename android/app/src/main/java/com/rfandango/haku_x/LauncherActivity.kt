@@ -59,6 +59,9 @@ import android.os.Looper
  * image, or a rom_path extra): those go straight to the core.
  */
 class LauncherActivity : ComponentActivity() {
+  override fun attachBaseContext(base: android.content.Context) {
+    super.attachBaseContext(com.rfandango.haku_x.data.UiLanguage.wrap(base))
+  }
   private data class Launch(val uri: Uri, val path: String?, val title: String?, val external: Boolean, val state: String? = null)
   private var preparing by mutableStateOf<GameSources.Progress?>(null)
   private var choices by mutableStateOf<List<GameSources.Choice>?>(null)
@@ -132,6 +135,9 @@ class LauncherActivity : ComponentActivity() {
       }
       HakuXTheme(dark) {
         HakuXApp(
+          initialSettingsGameKey = intent.getStringExtra(EXTRA_SETTINGS_GAME_KEY),
+          initialSettingsGameTitle = intent.getStringExtra(EXTRA_SETTINGS_GAME_TITLE),
+          onClose = { finish() },
           needsMigration = needsMigration,
           needsSetup = !folderReady,
           onLaunchGame = { game: Game ->
@@ -203,6 +209,7 @@ class LauncherActivity : ComponentActivity() {
     state: String? = null,
   ) {
     AppPrefs(this).rememberLaunch(uri, relativePath, title)
+    com.rfandango.haku_x.data.LibraryPresentation(this).record(uri.toString())
     startActivity(Intent(this, NativeCoreActivity::class.java).apply {
       putExtra(NativeCoreActivity.EXTRA_DVD_URI, uri.toString())
       putExtra(EXTRA_LAUNCHED_EXTERNALLY, launchedExternally)
@@ -247,6 +254,8 @@ class LauncherActivity : ComponentActivity() {
     InputCapture.dispatch(event) || super.dispatchGenericMotionEvent(event)
 
   companion object {
+    const val EXTRA_SETTINGS_GAME_KEY = "settings_game_key"
+    const val EXTRA_SETTINGS_GAME_TITLE = "settings_game_title"
     private const val TAG = "hakuX-library"
     /** The dark theme's background (ui/theme Theme.kt), behind Compose. */
     private const val DARK_WINDOW = 0xFF121212.toInt()

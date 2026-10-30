@@ -1,0 +1,33 @@
+package com.rfandango.haku_x.ui.settings
+
+import com.rfandango.haku_x.R
+
+internal val GlobalSettingsIndex = listOf(
+  SettingsEntry(R.string.settings_games_folder_add, SettingsCategory.GAMES, "games folder iso xiso default.xbe папка игры образы"),
+  SettingsEntry(R.string.settings_overlay, SettingsCategory.CONTROLS, "touch controls overlay экранные кнопки"),
+  SettingsEntry(R.string.controllers_title, SettingsCategory.CONTROLS, "gamepad controller mapping геймпад кнопки управление"),
+  SettingsEntry(R.string.settings_theme, SettingsCategory.DISPLAY, "dark light theme тема темная светлая"),
+  SettingsEntry(R.string.settings_fps_limit, SettingsCategory.DISPLAY, "fps 30 60 90 120 limit фпс кадры ограничение"),
+  SettingsEntry(R.string.settings_uncap, SettingsCategory.DISPLAY, "uncapped vsync frame rate вертикальная синхронизация"),
+  SettingsEntry(R.string.settings_aspect, SettingsCategory.DISPLAY, "4:3 16:9 stretch aspect ratio экран пропорции растянуть"),
+  SettingsEntry(R.string.settings_show_fps, SettingsCategory.DISPLAY, "hud fps temperature cpu gpu battery температура батарея"),
+  SettingsEntry(R.string.hdd_title, SettingsCategory.SYSTEM, "hdd saves data backup диск сохранения данные копия"),
+  SettingsEntry(R.string.settings_language, SettingsCategory.SYSTEM, "xbox game language язык игры консоли"),
+  SettingsEntry(R.string.settings_clock, SettingsCategory.SYSTEM, "clock date time часы дата время"),
+  SettingsEntry(R.string.settings_network_mode, SettingsCategory.SYSTEM, "network lan system link xlink kai vpn сеть"),
+  SettingsEntry(R.string.settings_screen_format, SettingsCategory.SYSTEM, "xbox widescreen letterbox формат видео"),
+  SettingsEntry(R.string.settings_480p, SettingsCategory.SYSTEM, "480p video видео"),
+  SettingsEntry(R.string.settings_720p, SettingsCategory.SYSTEM, "720p video видео"),
+  SettingsEntry(R.string.settings_1080i, SettingsCategory.SYSTEM, "1080i video видео"),
+  SettingsEntry(R.string.settings_pal60, SettingsCategory.SYSTEM, "pal 60 video видео"),
+  SettingsEntry(R.string.settings_av_cable, SettingsCategory.SYSTEM, "av cable hdtv кабель видео"),
+  SettingsEntry(R.string.settings_scale, SettingsCategory.GRAPHICS, "resolution scale 1x 2x 3x 4x разрешение масштаб"),
+  SettingsEntry(R.string.settings_fxaa, SettingsCategory.GRAPHICS, "fxaa antialiasing сглаживание"),
+  SettingsEntry(R.string.settings_upscale, SettingsCategory.GRAPHICS, "filter bilinear sgsr upscaling фильтр четкость"),
+  SettingsEntry(R.string.settings_async_shaders, SettingsCategory.GRAPHICS, "async shader compilation шейдеры асинхронная компиляция"),
+  SettingsEntry(R.string.settings_prebuild_shaders, SettingsCategory.GRAPHICS, "cached shaders prebuild кэш шейдеров"),
+  SettingsEntry(R.string.settings_gpu_driver_title, SettingsCategory.GRAPHICS, "mali malisx2 vulkan system turnip gpu driver драйвер"),
+  SettingsEntry(R.string.ui_app_language, SettingsCategory.APP, "english russian language interface язык интерфейса русский английский"),
+  SettingsEntry(R.string.settings_update_check, SettingsCategory.APP, "update github version apk обновление версия"),
+  SettingsEntry(R.string.settings_export_logs, SettingsCategory.APP, "logs report diagnostics журнал отчет диагностика"),
+)

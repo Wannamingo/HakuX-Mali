@@ -5,6 +5,9 @@ import com.rfandango.haku_x.data.Logs
 import java.io.File
 
 class HakuXApplication : Application() {
+  override fun attachBaseContext(base: android.content.Context) {
+    super.attachBaseContext(com.rfandango.haku_x.data.UiLanguage.wrap(base))
+  }
 
   override fun onCreate() {
     super.onCreate()
