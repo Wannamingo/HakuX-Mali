@@ -1,0 +1,158 @@
+{
+  "app": "HakuX-Mali",
+  "version": "1.2",
+  "versionCode": 20,
+  "date": "2026-10-30",
+  "package": "com.rfandango.haku_x.debug",
+  "apk_sha256": "4bcb0dbc87d96ad5b22df0bfe5971b7154d5142ec05b13b4b560cb5951f050d9",
+  "build": "release/R8, non-debuggable, arm64-v8a",
+  "tested_base_commit": "b703e00991a07b5b6f009062fec0262af84fe3d6",
+  "release_code_change": "versionName 1.0 -> 1.2; versionCode 19 -> 20; release documentation and unedited screenshots",
+  "jvm_tests": {
+    "tests": 46,
+    "suites": 15,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "checks": [
+    "assembleRelease",
+    "testReleaseUnitTest",
+    "lintVitalRelease",
+    "APK v3 signature",
+    "16 KiB ZIP and ELF alignment"
+  ],
+  "full_lint_release": "Not a clean full-lint baseline: pre-existing SDL/onBackPressed/dispatchKeyEvent issues; lintVitalRelease passes.",
+  "shader_checks_carried_from_tested_base": "All five embedded shaders compiled for Vulkan 1.1 and 1.3; no shader change in release20.",
+  "signature_v3": true,
+  "certificate_sha256": "1cdd12b743a90c5e1224b11d46ca79189662bd023b2c63686dacfdd5530a590e",
+  "native_libraries": {
+    "lib/arm64-v8a/libSDL3.so": "2381748377b32a732575de079ea9b36250a10948c54d9d0bc2a5435f9b835a41",
+    "lib/arm64-v8a/libandroidx.graphics.path.so": "41e9a793c43a0f4fddb19e33f346bace464f30f888ba7b9eaf96294ea115bfb6",
+    "lib/arm64-v8a/libfile_redirect_hook.so": "cad4a9c3206a327b080c21579b2d26805179798cefb1a856acdf6aa427305fce",
+    "lib/arm64-v8a/libgsl_alloc_hook.so": "4a8ffea1b44941a0855a2edf06f46501f4f323d1a7e5476876576bcb08aeac87",
+    "lib/arm64-v8a/libhakuxcore.so": "e1ddd2bd10476f1c4df9a7d65d7106bf272ece0fe9d9505249d1935724c8b7a7",
+    "lib/arm64-v8a/libhook_impl.so": "0010606f8621a649e81ad27764e4a150fd312e2103682fe07c36a6cfc1b79b6c",
+    "lib/arm64-v8a/libkgsl_context_hook.so": "7eea3099264796b9704bbf4820ae19b1db052643b70ba3caee9c581682353856",
+    "lib/arm64-v8a/libmain_hook.so": "21700f6fceebca30e1420c317a57506d35a2c43f83c33fa94d16bf6fcccf7d00"
+  },
+  "native_libraries_unchanged_from_tested_code19": true,
+  "bundled_assets_preserved": 27,
+  "icon_images_preserved": true,
+  "device": "ANBERNIC RG477M, Android 14 / GammaOS",
+  "installed_apk_matches_release": true,
+  "existing_savestate_files_preserved": 93,
+  "preferences_preserved": true,
+  "hud_preferences_preserved": true,
+  "device_ui_validation_carried_from_code19": [
+    "All six global and three game categories",
+    "Search with IME and target highlight",
+    "RU/EN/System without native process restart",
+    "Profiles and per-game FPS inheritance",
+    "Picture control extremes and GSR 0/50/100",
+    "HUD appearance and independent sensors",
+    "D-pad, A/B/Start navigation",
+    "Syberia gameplay and menu refresh"
+  ],
+  "final_1_2_device_checks": [
+    "Installed APK checksum and version",
+    "All existing savestate files retained",
+    "Settings and HUD retained",
+    "Syberia slot2 loaded",
+    "Global and game settings, pause sidebar captured"
+  ],
+  "serious_sam": {
+    "checked_on": "UI build code19",
+    "result": "Direct eng.xbe startup reached gameplay; added menu/trainer bypassed",
+    "apk_code_changed_for_workaround": false,
+    "russian_localization_preservation_confirmed": false,
+    "instructions": "SERIOUS-SAM.ru.md"
+  },
+  "vita_pro": "Experimental support retained; no new 1.2 hardware benchmark. Earlier measurements remain historical.",
+  "screenshots": [
+    {
+      "file": "docs/screenshots/1.2/01-library.png",
+      "sha256": "edb0529f99914d88b3bbbf3248627e9c9341c4ba4de415e687ca69ebf6c43063",
+      "size": 186621,
+      "unedited": true,
+      "resolution": "1280x960"
+    },
+    {
+      "file": "docs/screenshots/1.2/02-pause-menu.png",
+      "sha256": "de39d0c90149302d23cfe939efea004932721136777ed54125d491f8d40eaef5",
+      "size": 531100,
+      "unedited": true,
+      "resolution": "1280x960"
+    },
+    {
+      "file": "docs/screenshots/1.2/03-graphics.png",
+      "sha256": "720f65145ce2193703cf65d86369654848342e049786ecc12e2fcfbe869a49cd",
+      "size": 120064,
+      "unedited": true,
+      "resolution": "1280x960"
+    },
+    {
+      "file": "docs/screenshots/1.2/04-display-hud.png",
+      "sha256": "480adb99f46cf08284a40cca177536b7c31a6350309d3f11289ed4815ded6a05",
+      "size": 64253,
+      "unedited": true,
+      "resolution": "1280x960"
+    },
+    {
+      "file": "docs/screenshots/1.2/05-application.png",
+      "sha256": "db55550b16442cf6790fa09bb5ad758f52cf16a71c1cb3231618beb073757ad8",
+      "size": 86889,
+      "unedited": true,
+      "resolution": "1280x960"
+    },
+    {
+      "file": "docs/screenshots/1.2/06-game-settings.png",
+      "sha256": "26066e6317f0d956eea2eff9d7520076abe72dbba28d160aa493c2d25a776b99",
+      "size": 98416,
+      "unedited": true,
+      "resolution": "1280x960"
+    },
+    {
+      "file": "docs/screenshots/1.2/07-display-fps.png",
+      "sha256": "6f19a2cc9736d955143383738e4a2b5ec1f9f4eaf9b76de5bfd3f7b8a01b7ce6",
+      "size": 99714,
+      "unedited": true,
+      "resolution": "1280x960"
+    },
+    {
+      "file": "docs/screenshots/1.2/08-temperatures.png",
+      "sha256": "29c464ddd810622562a48dfcfff39e31e87a16f49e94127141bc1d3965939720",
+      "size": 57255,
+      "unedited": true,
+      "resolution": "1280x960"
+    },
+    {
+      "file": "docs/screenshots/1.2/09-language-options.png",
+      "sha256": "5937ed146ae066e7bdfcf2d984e032f37421e68840805cbb107e4894c7f7ee17",
+      "size": 92974,
+      "unedited": true,
+      "resolution": "1280x960"
+    },
+    {
+      "file": "docs/screenshots/1.2/10-profiles.png",
+      "sha256": "33d6e1e6699e65d4222ef4e089f9ba3abeeed90016f76ede011d99d3e41512c7",
+      "size": 132676,
+      "unedited": true,
+      "resolution": "1280x960"
+    },
+    {
+      "file": "docs/screenshots/1.2/11-picture.png",
+      "sha256": "66197b24fd83ba5e7b49066730d9cf340043db9b45a4c0c4812d6b80e6cc93c0",
+      "size": 68700,
+      "unedited": true,
+      "resolution": "1280x960"
+    }
+  ],
+  "known_limits": [
+    "Not all 31 historical games retested",
+    "Call of Cthulhu intro texture issue retained",
+    "All Ultimate Spider-Man comic scenes and Conker not fully checked",
+    "Earlier Vita Pro device-lost/out-of-memory not declared fixed",
+    "No end-to-end ES-DE test"
+  ]
+}

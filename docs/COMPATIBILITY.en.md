@@ -2,6 +2,9 @@
 
 [Русский](COMPATIBILITY.md) | [English](COMPATIBILITY.en.md)
 
+
+Addendum for the **1.2** line (2026-10-30): saved Syberia scenes were checked for 3D rendering, scene changes and menu refresh; the owner confirmed working behavior. A Serious Sam folder with an extra menu reached gameplay after the [launcher workaround](SERIOUS-SAM.en.md). These are repeat checks of listed titles; the historical total remains **31**. Not all 31 games were re-tested on 1.2.
+
 HakuX-Mali 1.0 check on RG477M, 2026-10-30: Manhunt launched directly from a 969-file folder and reached gameplay at approximately 50 FPS (PAL). This rechecks an existing entry; the total remains 31 confirmed titles.
 
 Addition on 2026-10-28, build **1.2.0-rg477m.2**: the owner confirmed **Call of Cthulhu: Dark Corners of the Earth** gameplay. Missing textures in its introductory cinematic remain unresolved. There are now 31 confirmed startups with the stated limits. The folder contains 31 games after two additions; Conker: Live & Reloaded gameplay is not yet confirmed. The 30-game list below records the confirmations from 2026-10-27 and earlier.

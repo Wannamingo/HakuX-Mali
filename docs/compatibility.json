@@ -209,5 +209,23 @@
       "source": "Folder containing default.xbe, 969 files",
       "result": "Reached gameplay, approximately 50 FPS (PAL); not a full playthrough"
     }
-  ]
+  ],
+  "release_1_2_recheck": {
+    "date": "2026-10-30",
+    "build_line": "HakuX-Mali 1.2 / tested UI build code19",
+    "device": "ANBERNIC RG477M",
+    "games": [
+      {
+        "title": "Syberia",
+        "result": "Saved gameplay scenes and menu refresh checked; owner confirmed working behavior."
+      },
+      {
+        "title": "Serious Sam",
+        "result": "T-Rus Ryudo folder package reached gameplay by bypassing added launchers with eng.xbe. Russian localization preservation not confirmed.",
+        "instructions": "SERIOUS-SAM.en.md"
+      }
+    ],
+    "all_listed_games_retested": false,
+    "historical_total": 31
+  }
 }
