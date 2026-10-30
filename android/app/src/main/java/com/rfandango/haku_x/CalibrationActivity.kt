@@ -39,7 +39,7 @@ class CalibrationActivity:Activity() {
   override fun onSaveInstanceState(out:Bundle) { out.putBoolean("launched",launched);super.onSaveInstanceState(out) }
   override fun onResume() { super.onResume();foreground=true;waitAt=SystemClock.uptimeMillis();handler.post(poll) }
   override fun onPause() { foreground=false;handler.removeCallbacksAndMessages(null);super.onPause() }
-  private val poll=object:Runnable {
+  private val poll:Runnable=object:Runnable {
     override fun run() {
       if(!foreground)return
       val s=session?.id?.let(store::read)?:return

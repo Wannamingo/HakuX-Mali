@@ -76,6 +76,18 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   private var exitSaving = false
   private val calibration by lazy { GameCalibration(this) { updateControllerVisibility() } }
   private var calibrationRequested = false
+  private var calibrationPrompted = false
+  private val calibrationPrompt:Runnable=object:Runnable {
+    override fun run() {
+      if(calibrationPrompted || calibration.active || activityPaused || fatalShown) return
+      val enabled=com.rfandango.haku_x.data.ExperienceStore(this@NativeCoreActivity).effective(gameKey())
+        .enabled(com.rfandango.haku_x.data.ExperienceSetting.AUTO_PERFORMANCE)
+      if(!enabled) return
+      if(!nativeGetFrameShown()) { fpsHandler.postDelayed(this,1000);return }
+      calibrationPrompted=true
+      if(com.rfandango.haku_x.data.CalibrationStore(this@NativeCoreActivity).measured(gameKey())==null) beginCalibration()
+    }
+  }
   override fun onNewIntent(next: Intent) {
     val originalIntent=intent
     super.onNewIntent(next)
@@ -505,6 +517,8 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     val thermalWarning = experience.options.enabled(com.rfandango.haku_x.data.ExperienceSetting.THERMAL_WARNING)
     if ((fpsOn && hudOptions.temperatures) || thermalWarning) temperatures.start() else temperatures.stop()
     calibration.resume()
+    fpsHandler.removeCallbacks(calibrationPrompt)
+    if(!calibration.active) fpsHandler.postDelayed(calibrationPrompt,1000)
     if (calibrationRequested) { calibrationRequested=false;fpsHandler.postDelayed({ beginCalibration() },250) }
     hitchesOn = BuildConfig.DEBUG && prefs.getBoolean(PREF_SHOW_HITCHES, false)
     fpsView?.visibility = if (fpsOn) View.VISIBLE else View.GONE
@@ -552,6 +566,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   }
 
   override fun onPause() {
+    fpsHandler.removeCallbacks(calibrationPrompt)
     calibration.pause()
     experience.clearKeys { router?.onKey(it) }
     temperatures.stop()
