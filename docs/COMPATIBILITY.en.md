@@ -1,5 +1,7 @@
 # Successfully launched games
 
+1.4 addendum (2026-10-30): Syberia and direct Serious Sam startup were checked on RG Rotate. The owner confirmed preserved Russian Serious Sam voice audio after bypassing the launcher. The historical RG477M count remains 31; [release 1.4](../releases/1.4.en.md) documents the test scope.
+
 [Русский](COMPATIBILITY.md) | [English](COMPATIBILITY.en.md)
 
 

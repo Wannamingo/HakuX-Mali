@@ -2,49 +2,48 @@
 
 [Русский](README.md) | [English](README.en.md)
 
-<img src="assets/branding/hakux-mali-banner.png" width="100%" alt="HakuX-Mali — Console emulation, higher possibilities">
+![HakuX-Mali](assets/branding/hakux-mali-banner.png)
 
-A free, unofficial [hakuX](https://github.com/rfandango/hakuX) adaptation for **ANBERNIC RG477M / Mali-G615 MC6**, with experimental **ANBERNIC RG VITA Pro / RK3576 / Mali-G52** support, Android arm64 and **MaliSX2 0.2.3**. The current release is based on hakuX 1.2.0. Upstream credits and component licenses are preserved.
+An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **One 1.4/code22 release supports ANBERNIC RG477M, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
 
-**1.2**: refreshed library and menus, categorized settings and search, Russian/English UI, graphics profiles, picture and HUD controls, per-game FPS overrides, and Syberia fixes. **[Detailed release notes](releases/1.2.en.md) · [Menu and settings screenshots](docs/screenshots/1.2/README.md) · [Serious Sam launcher workaround](docs/SERIOUS-SAM.en.md).**
+**[Release 1.4: APK, source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.4)** · **[Detailed changes](releases/1.4.en.md)**
 
-## Menus and settings in 1.2
+## New in 1.4
 
-Global settings have six categories; individual games have overrides with visible inheritance. Russian/English search jumps to the matching row. Application settings choose the interface language independently of the Xbox language. Graphics provides Performance / Balanced / Quality profiles, brightness, contrast, saturation, gamma and GSR strength. Profiles and picture changes apply on the next game launch. GSR is an upscaling filter; MaliSX2 is the Vulkan driver.
+- Measured calibration: several configurations from one temporary checkpoint, actual FPS/P95, game-specific results and cancellation/crash recovery.
+- Automatic settings that preserve manual values, plus a 30 FPS Economy preset.
+- Game volume, mute, three audio-buffer choices and HRTF.
+- Edge cropping, zoom, positioning and display refresh selection; retained 4:3 / 16:9.
+- Optional normal-exit autosaves, resume prompts, a separate quick slot and Select + button shortcuts.
+- Stick sensitivity/inversion, rumble strength, settings export/import.
+- Temperature warnings and the retained single-row FPS/frametime/temperature HUD.
+- Extended Syberia menu-background fix for imported shared RAM on Rotate.
 
-The single-line HUD now has font, corner, background and independent CPU/SoC, GPU and battery controls. Fresh installations retain a 120 FPS limit; existing choices are preserved. **[Screenshots of the main screens](docs/screenshots/1.2/README.md).**
+## Supported handhelds
 
-![HakuX-Mali 1.2 library](docs/screenshots/1.2/01-library.png)
+| Handheld | Platform | Starting settings |
+|---|---|---|
+| RG477M | Dimensity 8300 / Mali-G615 | Bundled MaliSX2 0.2.3, 1×, Bilinear, FXAA Off |
+| RG Vita Pro | RK3576 / Mali-G52, Android 14 / GammaOS Next Lite | System driver, 1×, Bilinear, FXAA Off |
+| RG Rotate | T618 / Mali-G52, Android 12 | System driver / Vulkan 1.1, 1×, Bilinear, FXAA Off |
 
-![Graphics settings](docs/screenshots/1.2/03-graphics.png)
+A full 1.4 calibration cycle on RG477M measured about 60 FPS at 1× versus 48 at 2× in one Syberia scene. The 1.4 line reached Syberia gameplay on Rotate; the final APK passed Syberia menu checks and reached a Serious Sam level, around 60 FPS in captured frames. Vita Pro received 1.4 with verified data preservation before the Rotate extension; its Most Wanted benchmarks are from an earlier build: System 1× 30 FPS, System 2× 29.9 FPS. These checks are not one comparable cross-device benchmark.
 
-Syberia fixes address the checked 3D flicker, trails and menu background refresh. Certain Russian **Serious Sam** folder packages with an added menu/trainer have a **[separate workaround](docs/SERIOUS-SAM.en.md)**. It bypasses the launcher using `eng.xbe`; preservation of Russian localization was not confirmed.
+[Calibration method](docs/MEASURED-CALIBRATION.en.md) · [RG477M results](docs/CALIBRATION-RG477M-1.4.en.md) · [Vita Pro benchmarks/temperatures](docs/RG-VITA-PRO-PERFORMANCE.en.md) · [1.4 gallery](docs/screenshots/1.4/README.md)
 
-For ES-DE, use **Microsoft Xbox → HakuX-Mali (Standalone)** in [our configuration repository](https://github.com/Wannamingo/es-de-android-custom-systems). First grant the emulator access to the same games folder. See the release notes for details.
+## Installation
 
-## ANBERNIC RG VITA Pro
+1. Install **HakuX-Mali-1.4-release.apk** over our previous release. Package ID and signing identity are retained; do not uninstall to update.
+2. Select your own ISO/XISO directory or game folders containing `default.xbe`. Release source archives are for developers.
+3. MaliSX2 is bundled for RG477M; an explicit existing driver choice is retained on update. Rotate was checked with its system driver. Restart games after switching drivers.
+4. Auto is off by default. Use a stable gameplay scene and **Calibrate performance** in the pause menu to measure settings.
+5. A new installation defaults to a 120 FPS ceiling; existing manual limits are preserved. Games retain their own lower 30/60 FPS caps.
 
-Retained **experimental RG VITA Pro / RK3576 / Mali-G52 support** from **1.2.0-rg477m.2-vita.2**: system Vulkan 1.3 startup, bundled MaliSX2, and CPU/GPU/battery temperatures in the single-line HUD. Tested on Android 14 / GammaOS Next Lite.
+Built-in updates use **Wannamingo/HakuX-Mali**. ES-DE: Microsoft Xbox → HakuX-Mali (Standalone), [configurations](https://github.com/Wannamingo/es-de-android-custom-systems). First grant the emulator access to the same games directory.
 
-- [Current HakuX-Mali 1.2 APK](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.2/HakuX-Mali-1.2-release.apk) · [Earlier Vita Pro validation](releases/1.2.0-rg477m.2-vita.2.en.md) · [Tests and recommended settings](docs/RG-VITA-PRO-PERFORMANCE.en.md).
-- Most Wanted, one saved race scene: System 1x - **30 FPS**, System 1x + FXAA - **30 FPS**, System 2x - **29.9 FPS**, MaliSX2 2x - **21.4 FPS**. Start with **System driver / 1x**. 3x/4x yielded approximately 18/10 FPS.
-- The older 31-startup list belongs to RG477M; compatibility of that entire list on Vita Pro is not claimed. The five-minute run includes standings after elimination; the report explains the stages and temperatures.
+## Serious Sam and Russian voice audio
 
-## Download
-
-**[HakuX-Mali 1.2 — APK, sources and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.2)**
-
-A single Android arm64 APK, `HakuX-Mali-1.2-release.apk`, retains support for both handhelds. Version 1.2 was installed on RG477M with data-preservation checks. Vita Pro measurements belong to an earlier build; no new 1.2 benchmark was performed on that console. This is an optimized, non-debuggable release. The `com.rfandango.haku_x.debug` package ID and existing signing certificate are retained for in-place updates with data preserved.
-
-## Install
-
-1. Install `HakuX-Mali-1.2-release.apk` over our earlier build to retain data and settings.
-2. On a fresh installation, complete setup and select the directory containing your own Xbox ISO/XISO images or extracted game folders. Each game folder must contain `default.xbe` and the remaining game files.
-3. MaliSX2 0.2.3 is bundled and selected automatically on a fresh RG477M / supported MT6897 installation. Updates preserve an explicit system/other driver choice; the built-in package is available in Settings → Graphics → GPU driver. Restart the game after changing drivers.
-4. The fresh-install default is **120 FPS**; existing saved values are retained. Change it in Settings → Display & HUD → Frame rate limit. Games with an internal 30/60 FPS cap retain it.
-5. The single-line HUD shows FPS, average/last frame time and available CPU/GPU/battery temperatures.
-
-The built-in update check uses Releases from **Wannamingo/HakuX-Mali**. Install **1.2 manually once** when migrating from the old name: earlier builds use the old address and a different version scheme. Future HakuX-Mali updates are checked in the app; package ID and signature checks remain enabled.
+The T-Rus Ryudo folder package has a [launcher workaround](docs/SERIOUS-SAM.en.md): back up the original `default.xbe`, then copy `eng.xbe` as `default.xbe`. It reached gameplay on RG Rotate; **the owner confirmed preserved Russian voice audio**. Russian text was not separately verified. The emulator does not automatically rename game files.
 
 ## RG477M fixes
 
@@ -63,7 +62,7 @@ The built-in update check uses Releases from **Wannamingo/HakuX-Mali**. Install 
 - The supplied artwork is used for legacy, adaptive and monochrome icons across five densities, preserving its aspect ratio.
 - Updated to hakuX 1.2.0, retaining upstream audio, memory, thread-stack, controller and System Link changes. present_cpu_wait and rop_pass_split have distinct bits; fpslimit uses the shared parser, and the adrenotools hooks are built together.
 
-See the complete [release notes](releases/1.2.en.md) and [technical details](android/RG477M.md).
+See the complete [release notes](releases/1.4.en.md) and [technical details](android/RG477M.md).
 
 ## Successfully launched games on RG477M
 

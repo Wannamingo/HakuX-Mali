@@ -18,8 +18,8 @@ To undo the change, close the game, remove the copied `default.xbe` and restore 
 
 ## Validation and limits
 
-Direct startup of `eng.xbe` reached gameplay on the checked copy. This bypasses an incompatible launcher; it is not an automatic fix for every Russian-language release. The emulator does not rename game files automatically.
+Direct startup of `eng.xbe` reached gameplay on the checked copy on both RG477M and RG Rotate (2026-10-30). This bypasses an incompatible launcher; it is not an automatic fix for every Russian-language release. The emulator does not rename game files automatically.
 
-`eng.xbe` is the English executable. Preservation of Russian text or voices **was not confirmed** and depends on that package's resources. Use a compatible copy with the desired language resources where needed; this workaround does not promise localization repair. No game executables or data are included in the HakuX-Mali release.
+`eng.xbe` is the English executable. **On 2026-10-30, the owner confirmed that Russian voice audio was preserved on RG Rotate after this workaround in the same T-Rus Ryudo package.** Russian text was not separately verified; the outcome depends on the package’s resources. Use a compatible copy with the desired language resources where needed; this workaround does not promise localization repair. No game executables or data are included in the HakuX-Mali release.
 
 Technical detail: the checked intermediate `game.xbe` accessed `0xC0200088`, causing guest exception `0xC0000005`. The actual game's Title ID is `54540004`; this package's added launchers use `00000005` and `00000000`. Other layouts or failures need separate diagnosis.

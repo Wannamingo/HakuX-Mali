@@ -1,0 +1,81 @@
+{
+  "versionName": "1.4",
+  "versionCode": 22,
+  "package": "com.rfandango.haku_x.debug",
+  "sha256": "50ef1caac8a74bdcf6c7d91cd39b3a30b60235ec67b2b258d5eb836bb3cd0ef4",
+  "source_commit": "363f86cc84caf1a2976ce5b02af6ceeb1bc915a7",
+  "signature_v3": true,
+  "zip_alignment_16k": true,
+  "elf_load_alignments": {
+    "lib/arm64-v8a/libSDL3.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libandroidx.graphics.path.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libfile_redirect_hook.so": [
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libgsl_alloc_hook.so": [
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libhakuxcore.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libhook_impl.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libkgsl_context_hook.so": [
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libmain_hook.so": [
+      16384,
+      16384
+    ]
+  },
+  "image_assets_preserved": true,
+  "debuggable": false,
+  "apk_sha256": "50ef1caac8a74bdcf6c7d91cd39b3a30b60235ec67b2b258d5eb836bb3cd0ef4",
+  "apk_name": "HakuX-Mali-1.4-release.apk",
+  "unit_tests": {
+    "passed": 64,
+    "suites": 17,
+    "failures": 0
+  },
+  "native_build": true,
+  "assembleRelease": true,
+  "lintVitalRelease": true,
+  "devices": {
+    "RG477M": {
+      "measured_calibration_build": "10d0a64fadc939fcac2c187ec8c93e26e4c3f7f9",
+      "measured_cycle_verified": true
+    },
+    "RG Vita Pro": {
+      "build22_install_and_data_preservation_verified_before_rotate_extension": true,
+      "final_extension_not_retested": true,
+      "new_measured_cycle": false
+    },
+    "RG Rotate": {
+      "final_apk_installed_sha256_verified": true,
+      "system_driver": "Mali-G52 r34p0 / Vulkan 1.1.191",
+      "syberia_menu_options_return_verified": true,
+      "zero_copy": true,
+      "serious_sam_gameplay_verified": true,
+      "russian_voice_owner_confirmed": true,
+      "new_measured_cycle": false
+    }
+  },
+  "temporary_properties_required": false,
+  "full_playthroughs": false
+}
