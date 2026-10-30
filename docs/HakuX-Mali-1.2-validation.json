@@ -59,7 +59,9 @@
     "All existing savestate files retained",
     "Settings and HUD retained",
     "Syberia slot2 loaded",
-    "Global and game settings, pause sidebar captured"
+    "Global and game settings, pause sidebar captured",
+    "Loaded MaliSX2 library verified in native process maps",
+    "All existing savestate payloads and thumbnails unchanged after checks; runtime blob index updated normally"
   ],
   "serious_sam": {
     "checked_on": "UI build code19",
