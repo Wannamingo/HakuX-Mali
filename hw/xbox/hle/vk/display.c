@@ -162,6 +162,48 @@ VkImage hle_disp_image(int slot)
 
 /* Slot i (holding swap_id) becomes the front image; the front one before
  * and older frames not shown are let go. Under the lock. */
+#define MEASURE_SAMPLES 8192
+static struct {
+    bool active;
+    int64_t start, last;
+    uint64_t frames;
+    unsigned samples;
+    double ms[MEASURE_SAMPLES];
+} g_measure;
+
+void hle_disp_measure_start(void)
+{
+    hle_mutex_lock(&g_disp.lock);
+    memset(&g_measure, 0, sizeof(g_measure));
+    g_measure.active = true;
+    g_measure.start = hle_now_ns();
+    hle_mutex_unlock(&g_disp.lock);
+}
+
+static int compare_double(const void *a, const void *b)
+{
+    const double x = *(const double *)a, y = *(const double *)b;
+    return (x > y) - (x < y);
+}
+
+void hle_disp_measure_end(double out[6])
+{
+    double *samples = g_new(double, MEASURE_SAMPLES);
+    hle_mutex_lock(&g_disp.lock);
+    g_measure.active = false;
+    const unsigned n = MIN(g_measure.samples, MEASURE_SAMPLES);
+    memcpy(samples, g_measure.ms, n * sizeof(double));
+    out[0] = g_measure.start ? (hle_now_ns() - g_measure.start) / 1e9 : 0;
+    out[1] = (double)g_measure.frames;
+    out[2] = n;
+    hle_mutex_unlock(&g_disp.lock);
+    qsort(samples, n, sizeof(double), compare_double);
+    out[3] = n ? samples[(n - 1) / 2] : 0;
+    out[4] = n ? samples[(n - 1) * 95 / 100] : 0;
+    out[5] = n ? samples[n - 1] : 0;
+    g_free(samples);
+}
+
 static void to_front(int i, uint32_t swap_id)
 {
     for (int j = 0; j < HLE_DISP_SLOTS; j++) {
@@ -176,6 +218,13 @@ static void to_front(int i, uint32_t swap_id)
     }
     g_disp.s[i].state = SLOT_FRONT;
     g_disp.st.presented++;
+    if (g_measure.active) {
+        const int64_t now = hle_now_ns();
+        if (g_measure.last && g_measure.samples < MEASURE_SAMPLES)
+            g_measure.ms[g_measure.samples++] = (now - g_measure.last) / 1e6;
+        g_measure.last = now;
+        g_measure.frames++;
+    }
     hle_hitch_frame(swap_id, HLE_FR_FRONT);
 }
 

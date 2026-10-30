@@ -74,6 +74,54 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   private val fpsHandler = Handler(Looper.getMainLooper())
   private val experience by lazy { GameExperience(this, ::captureFrame, ::runHotkey) }
   private var exitSaving = false
+  private val calibration by lazy { GameCalibration(this) { updateControllerVisibility() } }
+  private var calibrationRequested = false
+  override fun onNewIntent(next: Intent) {
+    val originalIntent=intent
+    super.onNewIntent(next)
+    intent=originalIntent // A request must not replace the original disc/load-state intent.
+    if(next.getStringExtra(GameCalibration.EXTRA_REQUEST)==gameKey()) calibrationRequested=true
+  }
+
+  private fun beginCalibration() {
+    if(calibration.active || !nativeStatesAvailable() || !nativeGetFrameShown() || fatalShown) return
+    val store=com.rfandango.haku_x.data.CalibrationStore(this)
+    store.pending()?.takeIf { it.phase !in listOf("complete","discarded") }?.let { pending ->
+      showMenuDialog(AlertDialog.Builder(this).setTitle(R.string.cal_title).setMessage(R.string.cal_pending)
+        .setPositiveButton(R.string.cal_recover) { _,_ -> openCalibrationCoordinator(pending.id) }
+        .setNegativeButton(android.R.string.cancel,null));return
+    }
+    showMenuDialog(AlertDialog.Builder(this).setTitle(R.string.cal_title).setMessage(R.string.cal_explain)
+      .setPositiveButton(R.string.cal_start) { _,_ ->
+        val progress=showMenuDialog(AlertDialog.Builder(this).setMessage(R.string.cal_checkpoint).setCancelable(false))
+        val settings=RunSettings(AppPrefs(this),gameOverrides())
+        val extra=com.rfandango.haku_x.data.ExperienceStore(this).effective(gameKey())
+        val manual=com.rfandango.haku_x.data.GraphicsOptions(settings.renderScale,settings.fxaa,settings.upscaleFilter,settings.frameRateLimit)
+        val current=if(extra.enabled(com.rfandango.haku_x.data.ExperienceSetting.AUTO_PERFORMANCE))
+          store.measured(gameKey())?.options?:com.rfandango.haku_x.data.AutomaticPerformance.forDevice(this) else manual
+        val key=gameKey();val title=gameName();val disc=discUri?.toString()?:intent.getStringExtra(EXTRA_DVD_URI)?:""
+        val ceiling=com.rfandango.haku_x.data.AutomaticPerformance.forDevice(this).fpsLimit
+        Thread {
+          var session:com.rfandango.haku_x.data.CalibrationSession?=null
+          val error=runCatching {
+            session=store.create(key,title,disc,current,ceiling)
+            nativeSaveState(store.checkpoint(session!!.id).absolutePath)?.let { throw IllegalStateException(it) }
+          }.exceptionOrNull()
+          if(error!=null) session?.let { it.phase="discarded";store.write(it);store.cleanupCheckpoint(it.id) }
+          runOnUiThread {
+            if(error==null) openCalibrationCoordinator(session!!.id)
+            else { progress.dismiss();showMenuDialog(AlertDialog.Builder(this).setTitle(R.string.state_save_failed_title)
+              .setMessage(error.message).setPositiveButton(android.R.string.ok,null)) }
+          }
+        }.start()
+      }.setNegativeButton(android.R.string.cancel,null))
+  }
+
+  private fun openCalibrationCoordinator(id:String) {
+    startActivity(Intent(this,CalibrationActivity::class.java).putExtra(GameCalibration.EXTRA_SESSION,id)
+      .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK))
+    finish();android.os.Process.killProcess(android.os.Process.myPid())
+  }
   /** The overlays' redraws and the game's GPU work (the controls' and the lines below). */
   private val overlayPacer = OverlayPacer({ nativeGpuBusyMs() }, { nativeGpuGap() })
   /** The FPS and stutter lines' update waiting on overlayPacer since (uptime ms), 0: none. */
@@ -118,6 +166,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     override fun run() {
       val why = nativeGetFatal()
       if (why != null && !fatalShown) {
+        if (calibration.fatal(why)) return
         fatalShown = true
         val kind = nativeGetFatalKind()
         val driver = kind == FATAL_DRIVER
@@ -152,12 +201,14 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
        * Morrowind's New Game starts morrowind.xbe): the core lives for one
        * run, so it starts again in a new process with "relaunch". */
       if (nativeGetRelaunch()) {
+        if (calibration.fatal(getString(R.string.cal_scene_ended))) return
         relaunchCore()
         return
       }
       /* The title left (to the dashboard, a reboot, a shutdown): the game
        * closes, as on a console. */
       if (nativeGetQuit()) {
+        if (calibration.fatal(getString(R.string.cal_scene_ended))) return
         Log.i(TAG, "the title left: closing the game")
         exitGame()
         return
@@ -240,10 +291,11 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     /* The app's settings, under this game's overrides. */
     val settings = RunSettings(AppPrefs(this), gameOverrides())
     val extra = com.rfandango.haku_x.data.ExperienceStore(this).effective(gameKey())
-    val automatic = if (extra.enabled(com.rfandango.haku_x.data.ExperienceSetting.AUTO_PERFORMANCE))
-      com.rfandango.haku_x.data.AutomaticPerformance.forDevice(this) else null
+    val automatic = GameCalibration.options(this) ?: if (extra.enabled(com.rfandango.haku_x.data.ExperienceSetting.AUTO_PERFORMANCE))
+      com.rfandango.haku_x.data.CalibrationStore(this).measured(gameKey())?.options
+        ?: com.rfandango.haku_x.data.AutomaticPerformance.forDevice(this) else null
     args += "fpslimit=${automatic?.fpsLimit ?: settings.frameRateLimit}"
-    if (automatic != null) Log.i(TAG, "automatic performance: scale=1 FXAA=off Bilinear fps=${automatic.fpsLimit}; manual settings retained")
+    if (automatic != null) Log.i(TAG, "automatic performance: ${GameCalibration.describe(automatic)}; manual settings retained")
     args += extra.audioArgument()
     args += extra.framingArgument()
     /* Every frame presented at once, no vblank wait: on by default. */
@@ -322,6 +374,10 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
       multicastLock = Network.multicastLock(this)
     }
     setupOnScreenController()
+    mLayout?.addView(calibration.view, RelativeLayout.LayoutParams(ViewGroup.LayoutParams.WRAP_CONTENT,ViewGroup.LayoutParams.WRAP_CONTENT).apply {
+      addRule(RelativeLayout.ALIGN_PARENT_BOTTOM);addRule(RelativeLayout.CENTER_HORIZONTAL)
+    })
+    updateControllerVisibility()
     setupFpsOverlay()
     setupShaderBuildLine()
     if (intent.getBooleanExtra(EXTRA_RELAUNCH, false) || intent.hasExtra(EXTRA_LOADSTATE)) {
@@ -438,6 +494,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     com.rfandango.haku_x.data.UiLanguage.refresh(this)
     super.onResume()
     experience.reload(gameKey())
+    com.rfandango.haku_x.data.CalibrationStore.active(this,gameKey())
     activityPaused = false
     syncPause() /* where it stopped (onPause), unless the menu is open */
     hideSystemBars()
@@ -447,6 +504,8 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     applyHudStyle()
     val thermalWarning = experience.options.enabled(com.rfandango.haku_x.data.ExperienceSetting.THERMAL_WARNING)
     if ((fpsOn && hudOptions.temperatures) || thermalWarning) temperatures.start() else temperatures.stop()
+    calibration.resume()
+    if (calibrationRequested) { calibrationRequested=false;fpsHandler.postDelayed({ beginCalibration() },250) }
     hitchesOn = BuildConfig.DEBUG && prefs.getBoolean(PREF_SHOW_HITCHES, false)
     fpsView?.visibility = if (fpsOn) View.VISIBLE else View.GONE
     if (!hitchesOn) hitchView?.visibility = View.GONE
@@ -493,6 +552,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   }
 
   override fun onPause() {
+    calibration.pause()
     experience.clearKeys { router?.onKey(it) }
     temperatures.stop()
     fpsHandler.removeCallbacks(fpsRunnable)
@@ -505,6 +565,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   }
 
   override fun onDestroy() {
+    calibration.close()
     temperatures.close()
     fpsHandler.removeCallbacks(fpsRunnable)
     fpsHandler.removeCallbacks(fatalRunnable)
@@ -735,6 +796,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
    * without a gamepad, the jewel stays.
    */
   private fun updateControllerVisibility() {
+    onScreenController?.visibility = if (calibration.trial) View.GONE else View.VISIBLE
     val hasPad = hasGamepad()
     val shown = controlsShown ?: !hasPad
     onScreenController?.minimal = !shown
@@ -762,6 +824,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
    * it or back closes it and the game goes on (showMenuDialog).
    */
   private fun showMenu() {
+    if(calibration.trial) { calibration.cancel();return }
     if (editorBar != null) return
     val shown = controlsShown ?: !hasGamepad()
     /* savestates: push-buffer mode only (native/state) */
@@ -783,6 +846,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
       getString(R.string.overlay_menu_controllers) to ::showPlayers,
     )
     if (states) {
+      items += getString(R.string.cal_title) to ::beginCalibration
       items += getString(R.string.overlay_menu_save_state) to { saveStates.showSlots(save = true) }
       items += getString(R.string.overlay_menu_load_state) to { saveStates.showSlots(save = false) }
     }
@@ -1055,6 +1119,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
 
   /* Back opens the menu instead of leaving the game; while editing, it cancels the edit. */
   private fun onBack() {
+    if (calibration.trial) { calibration.cancel();return }
     if (editorBar != null) {
       onScreenController?.reloadLayout()
       closeEditor()
@@ -1076,6 +1141,10 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
    * it: Controllers.defaults).
    */
   override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+    if(calibration.trial) {
+      if(event.action==KeyEvent.ACTION_UP && event.keyCode in listOf(KeyEvent.KEYCODE_BACK,KeyEvent.KEYCODE_BUTTON_B)) calibration.cancel()
+      return true
+    }
     if (editorBar == null && menuDialogs == 0 && Controllers.isGameController(event.device) &&
       experience.onKey(event) { router?.onKey(it) }) return true
     if (event.keyCode == KeyEvent.KEYCODE_BACK && router?.bindsKey(event) != true) {
@@ -1101,6 +1170,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
 
   /* A controller's sticks, triggers and hat, likewise. */
   override fun dispatchGenericMotionEvent(event: MotionEvent): Boolean {
+    if(calibration.trial) return true
     if (editorBar == null && router?.onMotion(event) == true) {
       return true
     }
@@ -1222,6 +1292,9 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     /** fps, average frame time (ms), last frame time (ms), 1 if push-buffer decoding renders. */
     @JvmStatic
     external fun nativeGetFrameStats(): FloatArray?
+
+    @JvmStatic external fun nativeMeasureStart()
+    @JvmStatic external fun nativeMeasureEnd(): DoubleArray
 
     /** Why the game can't run on this device (the GPU driver, or the game), or null. */
     @JvmStatic

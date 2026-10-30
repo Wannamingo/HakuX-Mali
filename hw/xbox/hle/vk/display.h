@@ -44,6 +44,12 @@ typedef struct HleDispStats {
 } HleDispStats;
 HleDispStats hle_disp_stats(void);
 
+/* Explicit calibration window. Frame intervals are taken where a new image
+ * becomes front, not from the HUD's polling or the panel refresh rate.
+ * Bounded storage, no file I/O or GPU wait. Call start only after display init. */
+void hle_disp_measure_start(void);
+void hle_disp_measure_end(double out[6]); /* seconds, frames, samples, median/P95/max ms */
+
 /* The display's gamma ramp (SetGammaRamp). The Xbox applies it at scanout,
  * so a ramp that changes between swaps shows at once: Forza fades its
  * splash screens in and out with it, each presented once. A consumer that

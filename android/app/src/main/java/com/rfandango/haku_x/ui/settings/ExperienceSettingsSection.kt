@@ -117,6 +117,7 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
         Text(stringResource(R.string.extra_picture_use_global_value))
       }
     }
+    if(autoOnly) CalibrationSection(gameKey)
   }
   if (!autoOnly && category == SettingsCategory.CONTROLS && gameKey == null) HotkeysSection(store)
   if (!autoOnly && (category == SettingsCategory.APP || (gameKey != null && category == SettingsCategory.GRAPHICS))) {
@@ -136,6 +137,30 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
       current = if (gameKey != null && field !in own) null else effective[field],
       onPick = { update(field, it); choosing = null }, onDismiss = { choosing = null })
   }
+}
+
+@Composable private fun CalibrationSection(gameKey:String?) {
+  val context=LocalContext.current
+  var measured by remember(gameKey) { mutableStateOf<CalibrationRun?>(null) }
+  var pending by remember { mutableStateOf<CalibrationSession?>(null) }
+  LaunchedEffect(gameKey) {
+    withContext(Dispatchers.IO) {
+      val store=CalibrationStore(context)
+      measured=gameKey?.let(store::measured);pending=store.pending()?.takeIf { it.phase !in listOf("complete","discarded") }
+    }
+  }
+  val result=measured
+  Hint(if(result==null) stringResource(R.string.cal_not_measured)
+    else stringResource(R.string.cal_saved,com.rfandango.haku_x.GameCalibration.describe(result.options),result.metrics!!.fps,result.metrics.p95Ms))
+  TextButton(onClick={
+    val active=CalibrationStore.activeGame(context)
+    if(gameKey!=null && active==gameKey) context.startActivity(android.content.Intent(context,com.rfandango.haku_x.NativeCoreActivity::class.java)
+      .putExtra(com.rfandango.haku_x.GameCalibration.EXTRA_REQUEST,gameKey)
+      .addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+    else Toast.makeText(context,R.string.cal_open_game,Toast.LENGTH_LONG).show()
+  }) { Text(stringResource(if(result==null) R.string.cal_title else R.string.cal_repeat)) }
+  if(pending!=null) TextButton(onClick={ context.startActivity(android.content.Intent(context,com.rfandango.haku_x.CalibrationActivity::class.java)
+    .putExtra(com.rfandango.haku_x.GameCalibration.EXTRA_SESSION,pending!!.id)) }) { Text(stringResource(R.string.cal_recover)) }
 }
 
 private fun bufferLabel(value: Int) = when (value) {

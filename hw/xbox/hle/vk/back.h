@@ -72,5 +72,10 @@ void hle_back_set_frame_hook(const HleFrameHook *hook);
  * never reaches the GPU's teardown, nor the next periodic write). */
 void hle_back_save_caches(void);
 
+/* Calibration's optional timestamps, independent of the expensive debug
+ * profile. Existing driver quirks still apply. Never waits for query results. */
+void hle_back_measure_start(void);
+void hle_back_measure_end(double *ms, uint64_t *buffers);
+
 
 #endif

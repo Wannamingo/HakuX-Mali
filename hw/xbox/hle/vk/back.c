@@ -285,6 +285,25 @@ static struct {
     int64_t last_log;
 } g_gput;
 
+static unsigned g_measure_epoch, g_measure_next_epoch;
+static unsigned g_measure_slot[HLE_FRAMES];
+static uint64_t g_measure_gpu_ns, g_measure_gpu_buffers;
+
+void hle_back_measure_start(void)
+{
+    __atomic_store_n(&g_measure_epoch, 0, __ATOMIC_RELEASE);
+    __atomic_store_n(&g_measure_gpu_ns, 0, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_measure_gpu_buffers, 0, __ATOMIC_RELAXED);
+    __atomic_store_n(&g_measure_epoch, ++g_measure_next_epoch, __ATOMIC_RELEASE);
+}
+
+void hle_back_measure_end(double *ms, uint64_t *buffers)
+{
+    __atomic_store_n(&g_measure_epoch, 0, __ATOMIC_RELEASE);
+    *buffers = __atomic_load_n(&g_measure_gpu_buffers, __ATOMIC_RELAXED);
+    *ms = *buffers ? __atomic_load_n(&g_measure_gpu_ns, __ATOMIC_RELAXED) / 1e6 : -1.0;
+}
+
 static void gput_collect(unsigned slot)
 {
     if (!g_gput.armed[slot]) {
@@ -296,6 +315,11 @@ static void gput_collect(unsigned slot)
                                 sizeof(t[0]), VK_QUERY_RESULT_64_BIT) == VK_SUCCESS &&
         t[1] >= t[0]) {
         uint64_t ns = (uint64_t)((double)(t[1] - t[0]) * g_hvk.props.limits.timestampPeriod);
+        const unsigned epoch = __atomic_load_n(&g_measure_epoch, __ATOMIC_ACQUIRE);
+        if (epoch && g_measure_slot[slot] == epoch) {
+            __atomic_add_fetch(&g_measure_gpu_ns, ns, __ATOMIC_RELAXED);
+            __atomic_add_fetch(&g_measure_gpu_buffers, 1, __ATOMIC_RELAXED);
+        }
         g_gput.ns += ns;
         g_gput.n++;
         g_gput.max_ns = MAX(g_gput.max_ns, ns);
@@ -314,10 +338,20 @@ static void gput_collect(unsigned slot)
 
 static void gput_begin(VkCommandBuffer cb, unsigned slot)
 {
-    if (!g_hle_prof_on || g_gput.failed || hle_quirk(HLE_QUIRK_NO_TIMESTAMPS)) {
+    const unsigned epoch = __atomic_load_n(&g_measure_epoch, __ATOMIC_ACQUIRE);
+    g_measure_slot[slot] = 0;
+    if ((!g_hle_prof_on && !epoch) || g_gput.failed || hle_quirk(HLE_QUIRK_NO_TIMESTAMPS)) {
         return;
     }
     if (!g_gput.pool) {
+        uint32_t count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(g_hvk.phys, &count, NULL);
+        VkQueueFamilyProperties *queues = g_new(VkQueueFamilyProperties, count);
+        vkGetPhysicalDeviceQueueFamilyProperties(g_hvk.phys, &count, queues);
+        const bool capable = g_hvk.qfam < count && queues[g_hvk.qfam].timestampValidBits == 64;
+        g_free(queues);
+        /* The profiler's subtraction assumes a 64-bit counter. */
+        if (!capable) { g_gput.failed = true; return; }
         VkQueryPoolCreateInfo qi = { .sType = VK_STRUCTURE_TYPE_QUERY_POOL_CREATE_INFO,
                                      .queryType = VK_QUERY_TYPE_TIMESTAMP,
                                      .queryCount = 2 * HLE_FRAMES };
@@ -330,6 +364,7 @@ static void gput_begin(VkCommandBuffer cb, unsigned slot)
     T.vkCmdResetQueryPool(cb, g_gput.pool, 2 * slot, 2);
     T.vkCmdWriteTimestamp(cb, VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT, g_gput.pool, 2 * slot);
     g_gput.armed[slot] = true;
+    g_measure_slot[slot] = epoch;
 }
 
 static void gput_end(VkCommandBuffer cb, unsigned slot)

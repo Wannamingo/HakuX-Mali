@@ -41,12 +41,47 @@
 #include "hw/xbox/hle/prop.h"
 #include <sys/syscall.h>
 #include <unistd.h>
+#include <sys/resource.h>
+#include <time.h>
+#include "hw/xbox/hle/vk/display.h"
+#include "hw/xbox/hle/vk/back.h"
 
 #define EXPORT __attribute__((visibility("default")))
 
 static NcCore g_core;
 static int g_disc_fd = -1;
 static SDL_AtomicInt g_core_state; /* 0 booting, 1 running, -1 failed */
+
+static double process_cpu_ms(void)
+{
+    struct timespec ts;
+    clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &ts);
+    return ts.tv_sec * 1000.0 + ts.tv_nsec / 1e6;
+}
+static double g_measure_cpu;
+
+EXPORT JNIEXPORT void JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeMeasureStart(JNIEnv *env, jclass cls)
+{
+    g_measure_cpu = process_cpu_ms();
+    hle_back_measure_start();
+    hle_disp_measure_start();
+}
+
+EXPORT JNIEXPORT jdoubleArray JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeMeasureEnd(JNIEnv *env, jclass cls)
+{
+    double v[10] = {0};
+    hle_disp_measure_end(v);
+    v[6] = process_cpu_ms() - g_measure_cpu;
+    struct rusage usage = {0};
+    getrusage(RUSAGE_SELF, &usage);
+    v[7] = usage.ru_maxrss / 1024.0; /* Linux/Android: KiB; whole fresh process's peak */
+    uint64_t buffers;
+    hle_back_measure_end(&v[8], &buffers);
+    v[9] = (double)buffers;
+    jdoubleArray a = (*env)->NewDoubleArray(env, 10);
+    if (a) (*env)->SetDoubleArrayRegion(env, a, 0, 10, v);
+    return a;
+}
 
 /* The on-screen controller's state (NativeCoreActivity.nativeSetOverlayPad). */
 static pthread_mutex_t g_overlay_lock = PTHREAD_MUTEX_INITIALIZER;

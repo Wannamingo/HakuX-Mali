@@ -62,6 +62,10 @@
       android:exported="false" />
 
     <!-- The system installer's answers about an update (data/Updates.kt). -->
+    <activity android:name=".CalibrationActivity" android:screenOrientation="sensorLandscape"
+      android:configChanges="keyboard|keyboardHidden|orientation|screenSize|screenLayout|smallestScreenSize|uiMode|locale|layoutDirection"
+      android:exported="false" />
+
     <receiver
       android:name=".data.UpdateInstallReceiver"
       android:exported="false" />
