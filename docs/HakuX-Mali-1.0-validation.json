@@ -1,0 +1,36 @@
+{
+  "app": "HakuX-Mali",
+  "version": "1.0",
+  "versionCode": 14,
+  "apk_sha256": "4fc8fb754a8bdeb499de324555be2089eb6e92914d37bdd8ce2663b86a262650",
+  "package": "com.rfandango.haku_x.debug",
+  "build": "release/R8, non-debuggable, arm64-v8a",
+  "jvm_tests_passed": 35,
+  "signature_v3": true,
+  "alignment": "16 KiB",
+  "native_libraries": {
+    "lib/arm64-v8a/libSDL3.so": "2381748377b32a732575de079ea9b36250a10948c54d9d0bc2a5435f9b835a41",
+    "lib/arm64-v8a/libfile_redirect_hook.so": "cad4a9c3206a327b080c21579b2d26805179798cefb1a856acdf6aa427305fce",
+    "lib/arm64-v8a/libgsl_alloc_hook.so": "4a8ffea1b44941a0855a2edf06f46501f4f323d1a7e5476876576bcb08aeac87",
+    "lib/arm64-v8a/libhakuxcore.so": "ea9f7223230e5ed5a6537b232b7886631c874328553afd21c14d26492b9f3a19",
+    "lib/arm64-v8a/libhook_impl.so": "0010606f8621a649e81ad27764e4a150fd312e2103682fe07c36a6cfc1b79b6c",
+    "lib/arm64-v8a/libkgsl_context_hook.so": "7eea3099264796b9704bbf4820ae19b1db052643b70ba3caee9c581682353856",
+    "lib/arm64-v8a/libmain_hook.so": "21700f6fceebca30e1420c317a57506d35a2c43f83c33fa94d16bf6fcccf7d00"
+  },
+  "native_unchanged_from": "1.2.0-rg477m.2-vita.2",
+  "icon_resources_verified": 20,
+  "device": "ANBERNIC RG477M, Android 14 / GammaOS",
+  "folder_test": {
+    "game": "Manhunt (PAL)",
+    "files": 969,
+    "read_in_place": true,
+    "reached": "gameplay",
+    "observed_fps": "approximately 50",
+    "full_playthrough": false
+  },
+  "vita_pro": "Support retained; performance measurements belong to the earlier build with identical native libraries. Version 1.0 not benchmarked on Vita Pro.",
+  "known_issues": "Previously reported Call of Cthulhu intro texture defect and Vita Pro MaliSX2 out-of-memory/device-lost issue are not claimed fixed.",
+  "relative_links_verified": 36,
+  "installed_apk_matches_release": true,
+  "user_confirmed_working_on_device": true
+}

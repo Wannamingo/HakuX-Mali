@@ -13,8 +13,25 @@ import androidx.activity.SystemBarStyle
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.lifecycle.lifecycleScope
 import com.rfandango.haku_x.data.AppPrefs
 import com.rfandango.haku_x.data.Game
+import com.rfandango.haku_x.data.GameSources
 import com.rfandango.haku_x.data.PreviousVersion
 import com.rfandango.haku_x.data.SaveStateStore
 import com.rfandango.haku_x.data.Storage
@@ -25,6 +42,16 @@ import com.rfandango.haku_x.ui.theme.AppTheme
 import com.rfandango.haku_x.ui.theme.HakuXTheme
 import com.rfandango.haku_x.ui.theme.appInDarkTheme
 import java.io.File
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import kotlinx.coroutines.currentCoroutineContext
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.CancellationException
+import android.os.SystemClock
+import android.os.Handler
+import android.os.Looper
 
 /**
  * The app's one screen host (Compose: setup, library, settings), and the
@@ -32,6 +59,52 @@ import java.io.File
  * image, or a rom_path extra): those go straight to the core.
  */
 class LauncherActivity : ComponentActivity() {
+  private data class Launch(val uri: Uri, val path: String?, val title: String?, val external: Boolean, val state: String? = null)
+  private var preparing by mutableStateOf<GameSources.Progress?>(null)
+  private var choices by mutableStateOf<List<GameSources.Choice>?>(null)
+  private var preparationError by mutableStateOf<String?>(null)
+  private var pending: Launch? = null
+  private var preparationJob: Job? = null
+
+  private fun prepareLaunch(request: Launch, selection: String? = null) {
+    if (preparationJob?.isActive == true) return
+    pending = request
+    choices = null
+    preparationError = null
+    preparing = GameSources.Progress()
+    preparationJob = lifecycleScope.launch {
+      try {
+        val result = withContext(Dispatchers.IO) {
+          val running = currentCoroutineContext()
+          val main = Handler(Looper.getMainLooper())
+          var last = 0L
+          GameSources.prepare(this@LauncherActivity, request.uri, selection, { update ->
+            val now = SystemClock.elapsedRealtime()
+            if (now - last >= 100) {
+              last = now
+              main.post { if (running.isActive) preparing = update }
+            }
+          }, { !running.isActive })
+        }
+        preparing = null
+        when (result) {
+          is GameSources.Result.Choose -> choices = result.choices
+          is GameSources.Result.Ready -> {
+            startCore(request.uri, request.path, request.title, request.external, request.state)
+          }
+        }
+      } catch (_: CancellationException) {
+        preparing = null
+      } catch (e: Exception) {
+        preparing = null
+        Log.e(TAG, "Game preparation failed", e)
+        if (currentCoroutineContext().isActive) {
+          preparationError = e.message ?: e.toString()
+        }
+      }
+    }
+  }
+
   override fun onCreate(savedInstanceState: Bundle?) {
     super.onCreate(savedInstanceState)
     val prefs = AppPrefs(this)
@@ -45,10 +118,6 @@ class LauncherActivity : ComponentActivity() {
     Thread { HddStore(this).deleteLeftovers() }.start()
     // the first start after the update from the xemu-based release: its data comes over first
     val needsMigration = !prefs.previousMigrated && PreviousVersion(this).find() != null
-
-    if (folderReady && launchExternal()) {
-      return
-    }
 
     AppTheme.load(this)
     var windowDark = AppTheme.isDark(this)
@@ -68,7 +137,7 @@ class LauncherActivity : ComponentActivity() {
           onLaunchGame = { game: Game ->
             Log.i(TAG, "launch: path=${game.relativePath} uri=${game.uri} size=${game.sizeBytes}")
             Storage.persistPermission(this, game.uri)
-            startCore(game.uri, game.relativePath, game.title, launchedExternally = false)
+            prepareLaunch(Launch(game.uri, game.relativePath, game.title, false))
           },
           onLaunchState = { game: Game, store: SaveStateStore, slot: Int ->
             Log.i(TAG, "launch: path=${game.relativePath} into savestate slot $slot")
@@ -76,12 +145,46 @@ class LauncherActivity : ComponentActivity() {
             /* the state's frame on screen while the core starts (NativeCoreActivity holds it) */
             val held = RelaunchActivity.heldFrame(this)
             runCatching { store.thumb(slot).copyTo(held, overwrite = true) }.onFailure { held.delete() }
-            startCore(game.uri, game.relativePath, game.title, launchedExternally = false,
-                      state = store.state(slot).absolutePath)
+            prepareLaunch(Launch(game.uri, game.relativePath, game.title, false, store.state(slot).absolutePath))
           },
         )
+        preparing?.let {
+          AlertDialog(
+            onDismissRequest = { preparationJob?.cancel() },
+            title = { Text(getString(R.string.game_prepare_title)) },
+            text = {
+              Column {
+                Text(getString(R.string.game_prepare_index))
+                Spacer(Modifier.height(16.dp))
+                CircularProgressIndicator()
+              }
+            },
+            confirmButton = { TextButton(onClick = { preparationJob?.cancel() }) { Text(getString(android.R.string.cancel)) } },
+          )
+        }
+        choices?.let { list ->
+          AlertDialog(
+            onDismissRequest = { choices = null },
+            title = { Text(getString(R.string.game_prepare_choose)) },
+            text = {
+              Column(Modifier.heightIn(max = 360.dp).verticalScroll(rememberScrollState())) {
+                for (choice in list) TextButton(onClick = { pending?.let { prepareLaunch(it, choice.key) } }) { Text(choice.label) }
+              }
+            },
+            confirmButton = { TextButton(onClick = { choices = null }) { Text(getString(android.R.string.cancel)) } },
+          )
+        }
+        preparationError?.let { message ->
+          AlertDialog(
+            onDismissRequest = { preparationError = null },
+            title = { Text(getString(R.string.game_prepare_failed)) },
+            text = { Text(message) },
+            confirmButton = { TextButton(onClick = { preparationError = null }) { Text(getString(android.R.string.ok)) } },
+          )
+        }
       }
     }
+    if (folderReady) launchExternal()
   }
 
   /** The system bars' icons and the window behind Compose, light or dark as the app's theme is. */
@@ -124,15 +227,16 @@ class LauncherActivity : ComponentActivity() {
   private fun launchExternal(): Boolean {
     val external = externalGame() ?: return false
     Storage.persistPermission(this, external, write = false)
-    startCore(external, null, null, launchedExternally = true)
+    prepareLaunch(Launch(external, null, null, true))
     return true
   }
 
   private fun externalGame(): Uri? {
-    intent?.data?.let { return it }
+    intent?.data?.let {
+      return if (it.scheme == "file" && it.path != null) com.rfandango.haku_x.data.GameDocuments.fromPath(this, it.path!!) else it
+    }
     val path = intent?.getStringExtra("rom_path") ?: return null
-    val file = File(path)
-    return if (file.isFile) Uri.fromFile(file) else null
+    return com.rfandango.haku_x.data.GameDocuments.fromPath(this, path)
   }
 
   /* Controllers' events to the controller settings first (InputCapture). */

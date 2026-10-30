@@ -2,7 +2,7 @@ package com.rfandango.haku_x.data
 
 /** This fork's release feed, revision ordering and in-place APK identity. */
 object UpdatePolicy {
-  const val REPO = "Wannamingo/hakuX-for-RG477M"
+  const val REPO = "Wannamingo/HakuX-Mali"
   const val LATEST_URL = "https://api.github.com/repos/$REPO/releases/latest"
 
   fun isApkAsset(name: String, url: String): Boolean =

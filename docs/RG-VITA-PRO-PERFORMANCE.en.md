@@ -49,4 +49,4 @@ One Most Wanted 2x run on MaliSX2 reported `0x60 (out of memory)` for a vertex/t
 
 The failure did not recur in the controlled reruns, but **the MaliSX2 defect is not claimed fixed**. A practical starting configuration for Most Wanted is System driver and 1x; try 2x afterwards if desired.
 
-Data: [CSV](rg-vita-pro-performance.csv), [JSON](rg-vita-pro-performance.json). [PDF with charts, Russian](https://github.com/Wannamingo/hakuX-for-RG477M/releases/download/v1.2.0-rg477m.2/hakuX-RG-Vita-Pro-performance-2026-10-29.pdf). [Build notes](../releases/1.2.0-rg477m.2-vita.2.en.md).
+Data: [CSV](rg-vita-pro-performance.csv), [JSON](rg-vita-pro-performance.json). [PDF with charts, Russian](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.2.0-rg477m.2/hakuX-RG-Vita-Pro-performance-2026-10-29.pdf). [Build notes](../releases/1.2.0-rg477m.2-vita.2.en.md).

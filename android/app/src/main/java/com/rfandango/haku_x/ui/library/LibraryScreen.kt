@@ -273,6 +273,13 @@ private fun GameList(
             if (disc != null && disc.titleId != 0L) {
               IdLine(disc, idStyle)
             }
+            if (game.kind == com.rfandango.haku_x.data.GameKind.FOLDER) {
+              Text(
+                stringResource(R.string.game_format_folder),
+                style = idStyle,
+                color = colors.onSurfaceVariant,
+              )
+            }
           }
         }
         if (menuFor == game.uri) {
@@ -313,7 +320,7 @@ private fun GameList(
               )
             }
             // A full dump (the video partition first) can become an XISO.
-            if (disc?.isFullDump == true) {
+            if (disc?.isFullDump == true && game.kind == com.rfandango.haku_x.data.GameKind.IMAGE) {
               DropdownMenuItem(
                 text = { Text(stringResource(R.string.library_menu_convert)) },
                 leadingIcon = { Icon(Icons.Filled.Build, contentDescription = null) },

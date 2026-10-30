@@ -122,7 +122,7 @@ class DiscInfoCache(context: Context) {
 
   /** The image file and its size name the cache entry: a replaced image is read again. */
   private fun key(game: Game): String {
-    val digest = MessageDigest.getInstance("SHA-1").digest("${game.uri}|${game.sizeBytes}".toByteArray())
+    val digest = MessageDigest.getInstance("SHA-1").digest("${game.uri}|${game.sizeBytes}|${game.modified}".toByteArray())
     return digest.take(10).joinToString("") { "%02x".format(it) }
   }
 }

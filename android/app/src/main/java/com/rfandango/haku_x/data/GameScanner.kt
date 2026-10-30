@@ -18,11 +18,15 @@ data class Game(
   val relativePath: String,
   val sizeBytes: Long,
   val folder: Uri,
+  val kind: GameKind = GameKind.IMAGE,
+  val modified: Long = 0,
 )
+
+enum class GameKind { IMAGE, FOLDER }
 
 /** The games in a folder (and its subfolders): a listing, no image is opened. */
 object GameScanner {
-  private val gameExts = setOf("iso", "xiso", "cso", "cci")
+  private val gameExts = GameSources.imageExtensions
 
   /**
    * Every folder's games, by title. A file two folders reach (one inside the
@@ -48,6 +52,7 @@ object GameScanner {
     Document.COLUMN_DISPLAY_NAME,
     Document.COLUMN_MIME_TYPE,
     Document.COLUMN_SIZE,
+    Document.COLUMN_LAST_MODIFIED,
   )
 
   /**
@@ -74,11 +79,26 @@ object GameScanner {
       val (id, prefix) = stack.removeLast()
       try {
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(folder, id)
+        data class Child(val id: String, val name: String, val mime: String?, val size: Long, val modified: Long)
+        val entries = ArrayList<Child>()
         context.contentResolver.query(children, CHILD_COLUMNS, null, null, null)?.use { c ->
           while (c.moveToNext()) {
             val childId = c.getString(0) ?: continue
             val name = c.getString(1) ?: continue
             val mime = c.getString(2)
+            entries += Child(childId, name, mime, if (c.isNull(3)) 0 else c.getLong(3), if (c.isNull(4)) 0 else c.getLong(4))
+          }
+        }
+        val executable = entries.firstOrNull { it.mime != Document.MIME_TYPE_DIR && it.name.equals("default.xbe", true) }
+        if (executable != null) {
+          val uri = DocumentsContract.buildDocumentUriUsingTree(folder, id)
+          val name = prefix.trimEnd('/').substringAfterLast('/').ifEmpty { GameDocuments.stat(context, uri).name }
+          games += Game(toTitle(name, stripExtension = false), uri, prefix.trimEnd('/').ifEmpty { name }, executable.size, folder, GameKind.FOLDER, executable.modified)
+          // An Xbox game is one card, not every nested resource/default.xbe inside it.
+          continue
+        }
+        for (entry in entries) {
+            val (childId, name, mime, size, modified) = entry
             if (mime == Document.MIME_TYPE_DIR) {
               // Converted dumps wait in their own folder, out of the library.
               if (!name.equals(XisoConverter.ORIGINALS_FOLDER, ignoreCase = true)) {
@@ -93,10 +113,10 @@ object GameScanner {
               title = toTitle(name),
               uri = DocumentsContract.buildDocumentUriUsingTree(folder, childId),
               relativePath = prefix + name,
-              sizeBytes = if (c.isNull(3)) 0L else c.getLong(3),
+              sizeBytes = size,
               folder = folder,
+              modified = modified,
             )
-          }
         }
       } catch (_: Exception) {
         // a folder that can't be listed now (its card out) is left out
@@ -124,18 +144,18 @@ object GameScanner {
   }
 
   /** A game's title from its file's name (toTitle); brackets kept when asked. */
-  fun fileTitle(relativePath: String, brackets: Boolean = false): String =
-    toTitle(relativePath.substringAfterLast('/'), brackets)
+  fun fileTitle(relativePath: String, brackets: Boolean = false, folder: Boolean = false): String =
+    toTitle(relativePath.substringAfterLast('/'), brackets, stripExtension = !folder)
 
   /**
    * A file's name as a title: the extension dropped, and anything in
    * brackets too ("(USA, Japan) (En,Ja)", "[!]"), unless that leaves nothing.
    */
-  private fun toTitle(fileName: String, brackets: Boolean = false): String {
+  private fun toTitle(fileName: String, brackets: Boolean = false, stripExtension: Boolean = true): String {
     val lower = fileName.lowercase(Locale.ROOT)
     val name = when {
-      lower.endsWith(".xiso.iso") -> fileName.dropLast(".xiso.iso".length)
-      fileName.contains('.') -> fileName.substringBeforeLast('.')
+      stripExtension && lower.endsWith(".xiso.iso") -> fileName.dropLast(".xiso.iso".length)
+      stripExtension && fileName.contains('.') -> fileName.substringBeforeLast('.')
       else -> fileName
     }.trim()
     if (brackets) return name

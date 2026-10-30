@@ -15,13 +15,14 @@ import java.util.Locale
  * 0 in an XISO, or after the video partition in a full dump (the offsets
  * the core's xdvdfs.c probes).
  */
-class XboxDisc private constructor(private val ch: FileChannel, private val partition: Long) {
+class XboxDisc private constructor(private val ch: FileChannel, private val partition: Long, private val rawXbe: Boolean = false) {
 
   /** Where the game partition starts: 0 in an XISO, past the video partition in a full dump. */
   val partitionOffset: Long get() = partition
 
   /** default.xbe's first byte in the image, or null. */
   private val xbeOffset: Long? by lazy {
+    if (rawXbe) return@lazy 0L
     // Volume descriptor at sector 32: magic, root directory sector and size.
     val vd = readAt(ch, partition + VOLUME + MAGIC.length, 8) ?: return@lazy null
     val rootSector = vd.int.toLong() and MASK
@@ -142,15 +143,18 @@ class XboxDisc private constructor(private val ch: FileChannel, private val part
     private val PARTITIONS = longArrayOf(0L, 0x18300000L, 0xFD90000L, 0x2080000L)
 
     /** Opens the image at uri and runs use on it; null when it isn't an Xbox disc or can't be read. */
-    fun <T> open(context: Context, uri: Uri, use: (XboxDisc) -> T): T? = try {
-      context.contentResolver.openFileDescriptor(uri, "r")?.use { pfd ->
-        FileInputStream(pfd.fileDescriptor).use { fis ->
-          val ch = fis.channel
-          partitionOf(ch)?.let { use(XboxDisc(ch, it)) }
+    fun <T> open(context: Context, uri: Uri, use: (XboxDisc) -> T): T? {
+      return try {
+        val (source, raw) = GameSources.metadata(context, uri) ?: return null
+        context.contentResolver.openFileDescriptor(source, "r")?.use { pfd ->
+          FileInputStream(pfd.fileDescriptor).use { fis ->
+            val ch = fis.channel
+            if (raw) use(XboxDisc(ch, 0, true)) else partitionOf(ch)?.let { use(XboxDisc(ch, it)) }
+          }
         }
+      } catch (_: Exception) {
+        null
       }
-    } catch (_: Exception) {
-      null
     }
 
     /** The game partition's offset in an image (null: not an Xbox disc). */

@@ -31,8 +31,8 @@ android {
     minSdk = 28
     targetSdk = 36
 
-    versionCode = 12
-    versionName = "1.2.0-rg477m.2-vita.2"
+    versionCode = 14
+    versionName = "1.0"
 
     ndk {
       abiFilters += listOf("arm64-v8a")
@@ -57,7 +57,7 @@ android {
   buildTypes {
     debug {
       applicationIdSuffix = ".debug"
-      resValue("string", "app_name", "hakuX Debug")
+      resValue("string", "app_name", "HakuX-Mali Debug")
       ndk {
         debugSymbolLevel = "NONE"
       }
@@ -74,7 +74,7 @@ android {
       )
     }
     release {
-      resValue("string", "app_name", providers.gradleProperty("hakuxAppName").getOrElse("hakuX RG477M"))
+      resValue("string", "app_name", providers.gradleProperty("hakuxAppName").getOrElse("HakuX-Mali"))
       isDebuggable = false
       isMinifyEnabled = true
       proguardFiles(

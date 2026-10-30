@@ -667,8 +667,8 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
       return ""
     }
     return try {
-      val pfd = contentResolver.openFileDescriptor(Uri.parse(uri), "r")
-      "fd:${pfd!!.detachFd()}"
+      val pfd = com.rfandango.haku_x.data.GameSources.open(this, Uri.parse(uri))
+      "fd:${pfd.detachFd()}"
     } catch (e: Exception) {
       Log.e(TAG, "can't open $uri: ${e.message}")
       ""

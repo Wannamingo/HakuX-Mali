@@ -49,4 +49,4 @@ MaliSX2 в одном запуске Most Wanted при 2x сообщил `0x60 
 
 В контролируемых повторах ошибка не повторилась, но **исправление дефекта MaliSX2 не заявляется**. Практический вариант для Most Wanted - системный драйвер и 1x, затем при необходимости 2x.
 
-Данные: [CSV](rg-vita-pro-performance.csv), [JSON](rg-vita-pro-performance.json). [PDF с графиками, русский](https://github.com/Wannamingo/hakuX-for-RG477M/releases/download/v1.2.0-rg477m.2/hakuX-RG-Vita-Pro-performance-2026-10-29.pdf). [Описание сборки](../releases/1.2.0-rg477m.2-vita.2.ru.md).
+Данные: [CSV](rg-vita-pro-performance.csv), [JSON](rg-vita-pro-performance.json). [PDF с графиками, русский](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.2.0-rg477m.2/hakuX-RG-Vita-Pro-performance-2026-10-29.pdf). [Описание сборки](../releases/1.2.0-rg477m.2-vita.2.ru.md).

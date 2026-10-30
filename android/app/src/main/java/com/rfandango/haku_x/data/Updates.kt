@@ -89,7 +89,7 @@ object Updates {
       if (apk == null || !newer) return@withContext null
       Release(
         version = version,
-        title = json.optString("name").ifBlank { "HakuX for RG477M $version" },
+        title = json.optString("name").ifBlank { "HakuX-Mali $version" },
         notes = json.optString("body"),
         apkUrl = apk.getString("browser_download_url"),
         apkSize = apk.optLong("size"),

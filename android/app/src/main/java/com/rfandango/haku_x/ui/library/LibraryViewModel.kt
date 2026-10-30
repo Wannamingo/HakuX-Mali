@@ -60,7 +60,7 @@ data class LibraryState(
   private fun onePerDisc(): List<Game> {
     val chosen = games
       .filter { (info[it.uri]?.titleId ?: 0L) != 0L }
-      .groupBy { info.getValue(it.uri).release }
+      .groupBy { info.getValue(it.uri).release to it.kind }
       .values
       .mapTo(HashSet()) { same ->
         val xisos = same.filter { !info.getValue(it.uri).isFullDump }
@@ -81,7 +81,7 @@ data class LibraryState(
       val same = out.groupingBy { it.title.lowercase(Locale.ROOT) }.eachCount().filterValues { it > 1 }.keys
       if (same.isEmpty()) break
       out = out.map {
-        if (it.title.lowercase(Locale.ROOT) in same) it.copy(title = GameScanner.fileTitle(it.relativePath, brackets)) else it
+        if (it.title.lowercase(Locale.ROOT) in same) it.copy(title = GameScanner.fileTitle(it.relativePath, brackets, it.kind == com.rfandango.haku_x.data.GameKind.FOLDER)) else it
       }
     }
     return if (out === shown) shown else out.sortedBy { it.title.lowercase(Locale.ROOT) }

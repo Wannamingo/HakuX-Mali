@@ -5,10 +5,10 @@ import org.junit.Test
 
 class UpdatePolicyTest {
   @Test fun forkFeedAndAssets() {
-    assertEquals("https://api.github.com/repos/Wannamingo/hakuX-for-RG477M/releases/latest", UpdatePolicy.LATEST_URL)
-    assertTrue(UpdatePolicy.isApkAsset("hakuX-RG477M.apk", "https://github.com/Wannamingo/hakuX-for-RG477M/releases/download/v1.2.0-rg477m.2/hakuX-RG477M.apk"))
+    assertEquals("https://api.github.com/repos/Wannamingo/HakuX-Mali/releases/latest", UpdatePolicy.LATEST_URL)
+    assertTrue(UpdatePolicy.isApkAsset("HakuX-Mali-1.0-release.apk", "https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.2.0-rg477m.2/HakuX-Mali-1.0-release.apk"))
     assertFalse(UpdatePolicy.isApkAsset("hakuX.apk", "https://github.com/rfandango/hakuX/releases/download/v1.2.0/hakuX.apk"))
-    assertFalse(UpdatePolicy.isApkAsset("source.zip", "https://github.com/Wannamingo/hakuX-for-RG477M/releases/download/v1/source.zip"))
+    assertFalse(UpdatePolicy.isApkAsset("source.zip", "https://github.com/Wannamingo/HakuX-Mali/releases/download/v1/source.zip"))
   }
 
   @Test fun forkRevisionOrdering() {
@@ -20,6 +20,9 @@ class UpdatePolicyTest {
   }
 
   @Test fun numericVersions() {
+    assertEquals(0, UpdatePolicy.compareVersions("v1.0", "1.0"))
+    assertTrue(UpdatePolicy.compareVersions("1.0.1", "1.0") > 0)
+    assertTrue(UpdatePolicy.compareVersions("1.1", "1.0.9") > 0)
     assertTrue(UpdatePolicy.compareVersions("1.10.0-rg477m.1", "1.9.0-rg477m.1") > 0)
     assertEquals(0, UpdatePolicy.compareVersions("1.2", "1.2.0"))
   }
