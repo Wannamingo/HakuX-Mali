@@ -6,7 +6,7 @@ Choose **Calibrate performance** from the pause menu in a stable gameplay scene.
 
 ## Comparison
 
-Candidates are 1×/bilinear/FXAA off, the current graphics configuration, 2×/bilinear/FXAA off, and 1×/GSR/FXAA off. Duplicates are removed, then the first reference is repeated to detect changed conditions. All candidates use the same display-based FPS ceiling, up to 120; system power saving uses the current display rate. Each candidate runs in a fresh native process from the same checkpoint, waits for loading and shader prebuild, warms up for 10 seconds, then measures for 30 seconds. Game controls are blocked; Cancel or Back/B restores the checkpoint.
+Candidates are 1×/bilinear/FXAA off, the current graphics configuration, 2×/bilinear/FXAA off, and 1×/GSR/FXAA off. Duplicates are removed, then the first reference is repeated to detect changed conditions. All candidates use the same display-based FPS ceiling, up to 120; system power saving uses the current display rate. Each candidate runs in a fresh native process from the same checkpoint, waits for loading and shader prebuild, then warms up for 10 seconds. The first measurement lasts 15 seconds, all subsequent measurements last 10 seconds. Game controls are blocked; Cancel or Back/B restores the checkpoint.
 
 The winner prioritizes measured FPS. Candidates within 3% of the best are compared by P95 frame interval, then lower graphics load. A higher resolution can win if it is measurably faster; 1× is not a predetermined result. Reference drift above 10% in FPS or 25% in P95 prevents publishing a new profile. Existing profiles are retained.
 

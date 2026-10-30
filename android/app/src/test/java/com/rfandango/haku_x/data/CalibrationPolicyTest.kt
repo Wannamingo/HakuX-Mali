@@ -8,6 +8,11 @@ class CalibrationPolicyTest {
   private val high=GraphicsOptions(2,false,"bilinear",120)
   private fun metric(fps:Double,p95:Double=20.0)=CalibrationMetrics(30.0,(fps*30).toLong(),800,12.0,p95,100.0,50000.0,600.0)
   private fun run(o:GraphicsOptions,fps:Double,p95:Double=20.0)=CalibrationRun(o,metric(fps,p95))
+  @Test fun firstMeasurementIs15SecondsAndRemainingAre10() {
+    assertEquals(15_000L,CalibrationPolicy.measurementMs(0))
+    for(index in 1..5) assertEquals(10_000L,CalibrationPolicy.measurementMs(index))
+    assertTrue(metric(60.0).copy(seconds=10.0,frames=600,samples=599).valid)
+  }
   @Test fun comparesSameCeilingAndRepeatsReference() {
     val options=CalibrationPolicy.candidates(high.copy(fpsLimit=30),120)
     assertEquals(options.first(),options.last())

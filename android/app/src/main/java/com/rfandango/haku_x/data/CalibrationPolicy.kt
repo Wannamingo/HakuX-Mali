@@ -10,7 +10,7 @@ data class CalibrationMetrics(
   val temperatureGpu: Double? = null, val temperatureBattery: Double? = null,
 ) {
   val fps get() = if (seconds > 0) frames / seconds else 0.0
-  val valid get() = seconds >= 20 && frames >= 100 && samples >= 60 &&
+  val valid get() = seconds >= 9 && frames >= 100 && samples >= 60 &&
     listOf(seconds, medianMs, p95Ms, maxMs, cpuMs, peakRssMb).all { it.isFinite() } &&
     medianMs > 0 && p95Ms >= medianMs && maxMs >= p95Ms && maxMs < 3000 && cpuMs >= 0 && peakRssMb > 0
 }
@@ -19,7 +19,7 @@ data class CalibrationRun(val options: GraphicsOptions, val metrics: Calibration
 
 object CalibrationPolicy {
   const val WARMUP_MS = 10_000L
-  const val MEASURE_MS = 30_000L
+  fun measurementMs(index: Int): Long = if (index == 0) 15_000L else 10_000L
   const val BOOT_TIMEOUT_MS = 60_000L
   const val SCHEMA = 1
 

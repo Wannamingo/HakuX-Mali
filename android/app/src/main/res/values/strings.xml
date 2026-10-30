@@ -495,7 +495,7 @@
   <string name="xinput_rs_x">Right stick, horizontal</string>
   <string name="xinput_rs_y">Right stick, vertical</string>
   <string name="cal_title">Calibrate performance</string>
-  <string name="cal_explain">Compare graphics settings in this gameplay scene. Each pass restores a separate temporary checkpoint, warms up for 10 seconds, then measures for 30 seconds. The reference is repeated to check consistency. This takes several minutes; do not use the controls. Your regular save slots are preserved. Afterwards you can apply the measured result or return with your previous settings.</string>
+  <string name="cal_explain">Compare graphics settings in this gameplay scene. Each pass restores a separate temporary checkpoint and warms up for 10 seconds. The first measurement takes 15 seconds, all subsequent measurements take 10 seconds. The reference is repeated to check consistency. Do not use the controls during comparison. Your regular save slots are preserved. Afterwards you can apply the measured result or return with your previous settings.</string>
   <string name="cal_start">Start comparison</string>
   <string name="cal_checkpoint">Creating a separate test checkpoint…</string>
   <string name="cal_progress">Pass %1$d/%2$d · %3$s\n%4$s · %5$d/%6$d s · Back/B cancels</string>

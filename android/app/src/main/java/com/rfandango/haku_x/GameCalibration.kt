@@ -13,7 +13,7 @@ import android.widget.TextView
 import com.rfandango.haku_x.data.*
 import kotlin.math.max
 
-/** One fresh native process per candidate. Only the explicit 30-second window
+/** One fresh native process per candidate. Only the explicit measurement window
  * enters the metrics; checkpoint loading, shader prebuild and warmup do not. */
 class GameCalibration(private val activity: NativeCoreActivity, private val restored: () -> Unit) {
   private val store = CalibrationStore(activity)
@@ -91,12 +91,12 @@ class GameCalibration(private val activity: NativeCoreActivity, private val rest
           NativeCoreActivity.nativeMeasureStart();measuring=true;measureAt=now
         }
         val elapsed=if(measuring) now-measureAt else if(warmAt!=0L) now-warmAt else 0
-        val target=if(measuring) CalibrationPolicy.MEASURE_MS else CalibrationPolicy.WARMUP_MS
+        val target=if(measuring) CalibrationPolicy.measurementMs(s.index) else CalibrationPolicy.WARMUP_MS
         val option=s.candidates[s.index]
         line.text=activity.getString(R.string.cal_progress,s.index+1,s.candidates.size,
           describe(option),activity.getString(if(measuring) R.string.cal_measuring else if(warmAt!=0L) R.string.cal_warming else R.string.cal_loading),
           (elapsed/1000).toInt(),(target/1000).toInt())
-        if(measuring && elapsed>=CalibrationPolicy.MEASURE_MS) {
+        if(measuring && elapsed>=CalibrationPolicy.measurementMs(s.index)) {
           val v=NativeCoreActivity.nativeMeasureEnd();measuring=false
           val metrics=if(v.size>=10) CalibrationMetrics(v[0],v[1].toLong(),v[2].toInt(),v[3],v[4],v[5],v[6],v[7],v[8],v[9].toLong(),cpu,gpu,battery) else null
           finish(metrics,if(metrics?.valid==true) null else activity.getString(R.string.cal_invalid));return
