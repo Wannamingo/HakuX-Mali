@@ -2,6 +2,8 @@
 
 ## HakuX-Mali 1.0 — 2026-10-30
 
+- Artwork update (Android build 15): supplied HX launcher icon and GitHub banner, including both language pages. Corresponding sources: `v1.0-branding.1`.
+
 - Renamed the app and fork to HakuX-Mali; version 1.0, Android versionCode 14.
 - Direct launch from Xbox game folders containing default.xbe, with library metadata and frontend path support.
 - Retained image support, RG477M fixes, experimental RG VITA Pro support, bundled MaliSX2, supplied icon, 120 FPS limit and single-line temperature HUD.

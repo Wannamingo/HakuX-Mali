@@ -1,8 +1,8 @@
 {
   "app": "HakuX-Mali",
   "version": "1.0",
-  "versionCode": 14,
-  "apk_sha256": "4fc8fb754a8bdeb499de324555be2089eb6e92914d37bdd8ce2663b86a262650",
+  "versionCode": 15,
+  "apk_sha256": "0b76ddfe6ac5899209e6b893afb8d102973f013b14a66e253b445863603dd55d",
   "package": "com.rfandango.haku_x.debug",
   "build": "release/R8, non-debuggable, arm64-v8a",
   "jvm_tests_passed": 35,
@@ -26,11 +26,21 @@
     "read_in_place": true,
     "reached": "gameplay",
     "observed_fps": "approximately 50",
-    "full_playthrough": false
+    "full_playthrough": false,
+    "build": "Original 1.0 (versionCode 14); gameplay check retained, native libraries unchanged"
   },
   "vita_pro": "Support retained; performance measurements belong to the earlier build with identical native libraries. Version 1.0 not benchmarked on Vita Pro.",
   "known_issues": "Previously reported Call of Cthulhu intro texture defect and Vita Pro MaliSX2 out-of-memory/device-lost issue are not claimed fixed.",
   "relative_links_verified": 36,
+  "artwork_update": {
+    "date": "2026-10-30",
+    "versionCode": 15,
+    "original_icon": "assets/branding/hakux-mali-icon.png",
+    "original_banner": "assets/branding/hakux-mali-banner.png",
+    "adaptive_mask_preview_checked": true,
+    "banner_sha256": "45b3e0ffff122da67202769429abc36520abd9a713f815c29ed5bc46aec9a580",
+    "icon_sha256": "942a71dac186f48083d583e929f6aac1acd30ebedfd0effb6e5c77f28b6edf63"
+  },
   "installed_apk_matches_release": true,
-  "user_confirmed_working_on_device": true
+  "launcher_icon_visually_checked": true
 }

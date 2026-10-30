@@ -2,7 +2,7 @@
 
 [Русский](README.md) | [English](README.en.md)
 
-<img src="android/app/src/main/res/mipmap-xxxhdpi/ic_launcher.png" width="128" alt="HakuX-Mali icon">
+<img src="assets/branding/hakux-mali-banner.png" width="100%" alt="HakuX-Mali — Console emulation, higher possibilities">
 
 A free, unofficial [hakuX](https://github.com/rfandango/hakuX) adaptation for **ANBERNIC RG477M / Mali-G615 MC6**, with experimental **ANBERNIC RG VITA Pro / RK3576 / Mali-G52** support, Android arm64 and **MaliSX2 0.2.3**. The current release is based on hakuX 1.2.0. Upstream credits and component licenses are preserved.
 
