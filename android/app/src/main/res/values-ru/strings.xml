@@ -32,7 +32,7 @@
   <string name="library_convert_done_kept">%1$s готов. Исходный ISO не удалось переместить; он остался на прежнем месте.</string>
   <string name="library_convert_failed_title">Не удалось преобразовать образ</string>
   <string name="game_settings_title">Настройки игры</string>
-  <string name="game_settings_desc">Эти значения действуют только для этой игры. Остальные параметры берутся из общих настроек. Изменения применятся при следующем запуске игры.</string>
+  <string name="game_settings_desc">Эти значения действуют только для этой игры. Остальные параметры берутся из общих настроек. В каждом разделе указано, когда применяются изменения.</string>
   <string name="game_settings_reset">Сбросить</string>
   <string name="game_settings_global">Общая настройка: %1$s</string>
   <string name="game_settings_use_global">Использовать общую настройку (%1$s)</string>

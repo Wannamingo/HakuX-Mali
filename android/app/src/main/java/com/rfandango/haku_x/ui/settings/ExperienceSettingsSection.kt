@@ -6,6 +6,7 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Column
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
@@ -145,7 +146,9 @@ internal fun hotkeyLabel(action: HotkeyAction) = when (action) {
   var bindings by remember { mutableStateOf(store.hotkeys()) }
   var editing by remember { mutableStateOf<HotkeyAction?>(null) }
   SettingsGroup(true) {
-    Section(stringResource(R.string.exp_hotkeys)); Hint(stringResource(R.string.exp_hotkeys_desc))
+    SettingsTarget(R.string.exp_hotkeys) {
+      Column { Section(stringResource(R.string.exp_hotkeys)); Hint(stringResource(R.string.exp_hotkeys_desc)) }
+    }
     for (action in HotkeyAction.entries) ListItem(headlineContent = { Text(stringResource(hotkeyLabel(action))) },
       supportingContent = { Text(if (bindings[action] == null || bindings[action] == 0) stringResource(R.string.exp_unassigned)
         else "Select + " + KeyEvent.keyCodeToString(bindings.getValue(action)).removePrefix("KEYCODE_BUTTON_")) },

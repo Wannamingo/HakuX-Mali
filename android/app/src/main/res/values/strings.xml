@@ -33,7 +33,7 @@
   <string name="library_convert_done_kept">%1$s is ready. The original ISO couldn\'t be moved and stays where it was.</string>
   <string name="library_convert_failed_title">Conversion failed</string>
   <string name="game_settings_title">Game settings</string>
-  <string name="game_settings_desc">These apply to this game only; the others follow the app\'s settings. Changes take effect at the game\'s next start.</string>
+  <string name="game_settings_desc">These apply to this game only; the others follow the app\'s settings. Each section explains when its changes take effect.</string>
   <string name="game_settings_reset">Reset</string>
   <string name="game_settings_global">App setting: %1$s</string>
   <string name="game_settings_use_global">Use the app setting (%1$s)</string>
