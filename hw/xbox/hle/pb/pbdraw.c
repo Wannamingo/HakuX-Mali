@@ -2884,12 +2884,13 @@ void hle_pbd_idle(void)
         kick();
     }
     /* Syberia's Bink menu updates guest memory between the background and
-     * UI kicks. With copied RAM an idle-boundary upload replaced the newly
-     * drawn background with the old frame, retaining previous menu pages.
+     * UI kicks. An idle-boundary upload can replace the newly drawn
+     * background with the old frame, retaining previous menu pages. The
+     * image is separate from guest RAM even when that RAM is imported.
      * Its normal bind/sample/flip sync points still upload CPU frames;
      * avoid the extra whole-target upload between those kicks. Other
      * titles (Chaos Theory's loading pictures) need the idle sync. */
-    if (g_hram.zero_copy || g_hle.title.xbe.title_id != 0x4D490006u) {
+    if (g_hle.title.xbe.title_id != 0x4D490006u) {
         g_pd.rt_fresh = true;
     }
     keep_serve();
