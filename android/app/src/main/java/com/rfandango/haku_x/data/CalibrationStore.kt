@@ -98,7 +98,7 @@ class CalibrationStore(private val context: Context) {
     }
     private fun graphics(v: GraphicsOptions)=JSONObject().put("scale",v.scale).put("fxaa",v.fxaa).put("upscale",v.upscale).put("fps",v.fpsLimit)
     private fun graphics(j: JSONObject)=GraphicsOptions(j.getInt("scale"),j.getBoolean("fxaa"),j.getString("upscale"),j.getInt("fps"))
-      .also { require(it.scale in 1..4 && it.upscale in listOf("bilinear","sgsr") && it.fpsLimit in 24..120) }
+      .also { require(it.scale in 1..4 && it.upscale in listOf("bilinear","sgsr") && it.fpsLimit in 0..240) }
     private fun metrics(v: CalibrationMetrics)=JSONObject().put("seconds",v.seconds).put("frames",v.frames).put("samples",v.samples)
       .put("median",v.medianMs).put("p95",v.p95Ms).put("max",v.maxMs).put("cpuMs",v.cpuMs).put("rssMb",v.peakRssMb)
       .put("gpuMs",v.gpuMs).put("gpuBuffers",v.gpuBuffers).put("cpuTemp",v.temperatureCpu)

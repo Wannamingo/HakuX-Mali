@@ -24,6 +24,7 @@ class CalibrationActivity:Activity() {
   private val store by lazy { CalibrationStore(this) }
   private var foreground=false
   private var launched=false
+  private var transitioning=false
   private var waitAt=0L
   private var session:CalibrationSession?=null
   private lateinit var column:LinearLayout
@@ -37,7 +38,7 @@ class CalibrationActivity:Activity() {
     launched=state?.getBoolean("launched")?:false
   }
   override fun onSaveInstanceState(out:Bundle) { out.putBoolean("launched",launched);super.onSaveInstanceState(out) }
-  override fun onResume() { super.onResume();foreground=true;waitAt=SystemClock.uptimeMillis();handler.post(poll) }
+  override fun onResume() { super.onResume();foreground=true;transitioning=false;waitAt=SystemClock.uptimeMillis();handler.post(poll) }
   override fun onPause() { foreground=false;handler.removeCallbacksAndMessages(null);super.onPause() }
   private val poll:Runnable=object:Runnable {
     override fun run() {
@@ -81,6 +82,8 @@ class CalibrationActivity:Activity() {
     launchNative(s,false)
   }
   private fun launchNative(s:CalibrationSession,restore:Boolean) {
+    if(transitioning)return
+    transitioning=true
     startActivity(Intent(this,NativeCoreActivity::class.java)
       .putExtra(NativeCoreActivity.EXTRA_DVD_URI,s.disc)
       .putExtra(NativeCoreActivity.EXTRA_LOADSTATE,store.checkpoint(s.id).absolutePath)
@@ -88,6 +91,7 @@ class CalibrationActivity:Activity() {
       .addFlags(Intent.FLAG_ACTIVITY_NO_ANIMATION),RelaunchActivity.noTransition(this).toBundle())
   }
   private fun restore(s:CalibrationSession,apply:Boolean) {
+    if(transitioning)return
     if(apply) {
       val winner=CalibrationPolicy.winner(s.runs)?:return
       runCatching { store.publish(s,winner);ExperienceStore(this).set(ExperienceSetting.AUTO_PERFORMANCE,1,s.game) }

@@ -97,6 +97,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
 
   private fun beginCalibration() {
     if(calibration.active || !nativeStatesAvailable() || !nativeGetFrameShown() || fatalShown) return
+    calibrationPrompted=true
     val store=com.rfandango.haku_x.data.CalibrationStore(this)
     store.pending()?.takeIf { it.phase !in listOf("complete","discarded") }?.let { pending ->
       showMenuDialog(AlertDialog.Builder(this).setTitle(R.string.cal_title).setMessage(R.string.cal_pending)

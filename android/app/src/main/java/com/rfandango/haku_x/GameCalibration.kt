@@ -21,7 +21,7 @@ class GameCalibration(private val activity: NativeCoreActivity, private val rest
   private val restore = activity.intent.getBooleanExtra(EXTRA_RESTORE,false)
   private val handler = Handler(Looper.getMainLooper())
   private val temperatures = HudTemperatureMonitor(activity)
-  private val started = SystemClock.uptimeMillis()
+  private var started = SystemClock.uptimeMillis()
   private var warmAt = 0L
   private var measureAt = 0L
   private var measuring = false
@@ -47,6 +47,7 @@ class GameCalibration(private val activity: NativeCoreActivity, private val rest
   }
   fun resume() {
     if (!active) return
+    if(restore) started=SystemClock.uptimeMillis()
     if (interrupted) { finish(null,activity.getString(R.string.cal_interrupted),cancelled=true);return }
     temperatures.start();handler.removeCallbacks(poll);handler.post(poll)
   }

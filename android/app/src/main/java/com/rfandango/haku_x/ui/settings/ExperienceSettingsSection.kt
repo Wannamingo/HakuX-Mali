@@ -159,8 +159,14 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
       .addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
     else Toast.makeText(context,R.string.cal_open_game,Toast.LENGTH_LONG).show()
   }) { Text(stringResource(if(result==null) R.string.cal_title else R.string.cal_repeat)) }
-  if(pending!=null) TextButton(onClick={ context.startActivity(android.content.Intent(context,com.rfandango.haku_x.CalibrationActivity::class.java)
-    .putExtra(com.rfandango.haku_x.GameCalibration.EXTRA_SESSION,pending!!.id)) }) { Text(stringResource(R.string.cal_recover)) }
+  if(pending!=null) TextButton(onClick={
+    val active=CalibrationStore.activeGame(context)
+    if(active!=null) context.startActivity(android.content.Intent(context,com.rfandango.haku_x.NativeCoreActivity::class.java)
+      .putExtra(com.rfandango.haku_x.GameCalibration.EXTRA_REQUEST,active)
+      .addFlags(android.content.Intent.FLAG_ACTIVITY_REORDER_TO_FRONT or android.content.Intent.FLAG_ACTIVITY_SINGLE_TOP))
+    else context.startActivity(android.content.Intent(context,com.rfandango.haku_x.CalibrationActivity::class.java)
+      .putExtra(com.rfandango.haku_x.GameCalibration.EXTRA_SESSION,pending!!.id))
+  }) { Text(stringResource(R.string.cal_recover)) }
 }
 
 private fun bufferLabel(value: Int) = when (value) {
