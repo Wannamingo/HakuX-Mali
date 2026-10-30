@@ -1,4 +1,5 @@
 <resources>
+  <string name="exp_auto_failed">Не удалось записать автосохранение. Предыдущее состояние сохранено. Выйти из игры без сохранения?</string><string name="exp_exit_without_save">Выйти без сохранения</string>
   <string name="exp_economy">Экономичный</string><string name="exp_economy_desc">1×, без FXAA, билинейный фильтр, 30 FPS. Применяется при следующем запуске.</string>
   <string name="exp_audio">Звук</string>
   <string name="exp_volume">Громкость игры</string><string name="exp_mute">Отключить звук игры</string>

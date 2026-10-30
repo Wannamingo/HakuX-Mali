@@ -79,7 +79,7 @@ class SaveStates(
       activity.runOnUiThread {
         if (err != null) {
           progress.dismiss()
-          onComplete?.invoke(false)
+          if (onComplete != null) { onComplete(false); return@runOnUiThread }
           showDialog(
             AlertDialog.Builder(activity)
               .setTitle(R.string.state_save_failed_title)

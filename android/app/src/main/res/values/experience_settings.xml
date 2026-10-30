@@ -1,4 +1,5 @@
 <resources>
+  <string name="exp_auto_failed">The automatic state could not be saved. The previous state is kept. Leave the game without saving?</string><string name="exp_exit_without_save">Leave without saving</string>
   <string name="exp_economy">Economy</string><string name="exp_economy_desc">1×, FXAA off, bilinear, 30 FPS. Apply at the next game start.</string>
   <string name="exp_audio">Audio</string>
   <string name="exp_volume">Game volume</string><string name="exp_mute">Mute game audio</string>

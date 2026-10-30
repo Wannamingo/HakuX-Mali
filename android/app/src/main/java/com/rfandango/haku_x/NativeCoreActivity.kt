@@ -896,9 +896,17 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   private fun requestExitGame() {
     if (exitSaving) return
     val options = com.rfandango.haku_x.data.ExperienceStore(this).effective(gameKey())
-    if (!fatalShown && nativeStatesAvailable() && options.enabled(com.rfandango.haku_x.data.ExperienceSetting.AUTO_SAVE)) {
+    if (!fatalShown && nativeStatesAvailable() && nativeGetFrameShown() && options.enabled(com.rfandango.haku_x.data.ExperienceSetting.AUTO_SAVE)) {
       exitSaving = true
-      saveStates.save(SaveStateStore.AUTO_SLOT) { saved -> if (saved) exitGame() else exitSaving = false }
+      saveStates.save(SaveStateStore.AUTO_SLOT) { saved ->
+        if (saved) exitGame() else {
+          exitSaving = false
+          showMenuDialog(AlertDialog.Builder(this).setTitle(R.string.state_save_failed_title)
+            .setMessage(R.string.exp_auto_failed)
+            .setPositiveButton(R.string.exp_exit_without_save) { _, _ -> exitGame() }
+            .setNegativeButton(android.R.string.cancel, null))
+        }
+      }
     } else exitGame()
   }
 
