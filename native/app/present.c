@@ -53,6 +53,13 @@ void nc_present_set_upscale(int mode)
     g_upscale = mode;
 }
 
+void nc_present_set_picture(int brightness, int contrast, int saturation, int gamma, int sharpness)
+{
+    hle_present_set_picture(brightness, contrast, saturation, gamma, sharpness);
+    nc_log("hakuX-app", "picture: brightness %d%%, contrast %d%%, saturation %d%%, gamma %d%%, SGSR %d%%",
+           brightness, contrast, saturation, gamma, sharpness);
+}
+
 void nc_present_set_aspect(int mode)
 {
     g_aspect = mode;

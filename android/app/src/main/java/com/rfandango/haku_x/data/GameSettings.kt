@@ -8,12 +8,18 @@ import java.util.Locale
 /** The settings a game can override; the rest are the app's for every game. */
 enum class GameSetting(val key: String) {
   UNCAPPED("uncapped"),
+  FPS_LIMIT("fps_limit"),
   RENDER_SCALE("render_scale"),
   ASYNC_SHADERS("async_shaders"),
   PREBUILD_SHADERS("prebuild_shaders"),
   ASPECT("aspect"),
   FXAA("fxaa"),
   UPSCALE("upscale"),
+  BRIGHTNESS("picture_brightness"),
+  CONTRAST("picture_contrast"),
+  SATURATION("picture_saturation"),
+  GAMMA("picture_gamma"),
+  SHARPNESS("picture_sharpness"),
   LANGUAGE("language"),
   SCREEN_FORMAT("screen_format"),
   VIDEO_480P("480p"),
@@ -59,6 +65,14 @@ class GameOverrides(context: Context, val game: String) {
     if (value == null) remove(key(setting)) else putString(key(setting), value)
   }
 
+  fun applyGraphicsProfile(profile: GraphicsProfile) = sp.edit {
+    val options = profile.options
+    putString(key(GameSetting.RENDER_SCALE), options.scale.toString())
+    putString(key(GameSetting.FXAA), options.fxaa.toString())
+    putString(key(GameSetting.UPSCALE), options.upscale)
+    putString(key(GameSetting.FPS_LIMIT), options.fpsLimit.toString())
+  }
+
   fun clear() = sp.edit { GameSetting.entries.forEach { remove(key(it)) } }
 
   val isEmpty: Boolean get() = GameSetting.entries.none { sp.contains(key(it)) }
@@ -84,12 +98,15 @@ class RunSettings(private val app: AppPrefs, private val game: GameOverrides?) {
   private fun text(s: GameSetting, global: String) = game?.get(s) ?: global
 
   val uncapped get() = bool(GameSetting.UNCAPPED, app.uncapped)
+  val frameRateLimit get() = effectiveFpsLimit(game?.get(GameSetting.FPS_LIMIT), app.frameRateLimit)
   val renderScale get() = game?.get(GameSetting.RENDER_SCALE)?.toIntOrNull() ?: app.renderScale
   val asyncShaders get() = bool(GameSetting.ASYNC_SHADERS, app.asyncShaders)
   val prebuildShaders get() = bool(GameSetting.PREBUILD_SHADERS, app.prebuildShaders)
   val aspectRatio get() = text(GameSetting.ASPECT, app.aspectRatio)
   val fxaa get() = bool(GameSetting.FXAA, app.fxaa)
   val upscaleFilter get() = text(GameSetting.UPSCALE, app.upscaleFilter)
+  fun picture(control: PictureControl): Int = control.sanitize(
+    game?.get(control.setting)?.toIntOrNull() ?: app.picture(control))
   val language get() = text(GameSetting.LANGUAGE, app.language)
   val screenFormat get() = text(GameSetting.SCREEN_FORMAT, app.screenFormat)
   val video480p get() = bool(GameSetting.VIDEO_480P, app.video480p)

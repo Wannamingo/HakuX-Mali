@@ -68,6 +68,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   private var hitchView: TextView? = null
   /* the settings' overlays, read as the game comes back (onResume) */
   private var fpsOn = false
+  private var hudOptions = com.rfandango.haku_x.data.HudOptions()
   private var hitchesOn = false
   private val temperatures by lazy { HudTemperatureMonitor(applicationContext) }
   private val fpsHandler = Handler(Looper.getMainLooper())
@@ -91,7 +92,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
         if (s[1] > 0f && s[2] > 2f * s[1]) {
           text += " *" /* the last frame took over twice the average */
         }
-        fpsView?.text = text + temperatures.hudText
+        fpsView?.text = text + temperatures.readings.hudText(hudOptions.cpu, hudOptions.gpu, hudOptions.battery)
       }
       hitchView?.takeIf { hitchesOn }?.let { v ->
         val hitches = nativeGetHleHitches()
@@ -235,7 +236,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     }
     /* The app's settings, under this game's overrides. */
     val settings = RunSettings(AppPrefs(this), gameOverrides())
-    args += "fpslimit=${AppPrefs(this).frameRateLimit}"
+    args += "fpslimit=${settings.frameRateLimit}"
     /* Every frame presented at once, no vblank wait: on by default. */
     if (settings.uncapped) {
       args += "uncap"
@@ -248,6 +249,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
      * the screen is scaled up (a larger one is averaged down). */
     args += "fxaa=${if (settings.fxaa) 1 else 0}"
     args += "upscale=${settings.upscaleFilter}"
+    args += "picture=" + com.rfandango.haku_x.data.PictureControl.entries.joinToString(",") { settings.picture(it).toString() }
     /* The console's video settings (widescreen, 480p/720p/1080i, the cable)
      * and its language. */
     args += "video=%x".format(settings.videoFlags())
@@ -430,8 +432,10 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     syncPause() /* where it stopped (onPause), unless the menu is open */
     hideSystemBars()
     val prefs = getSharedPreferences("x1box_prefs", Context.MODE_PRIVATE)
-    fpsOn = prefs.getBoolean("show_fps", true)
-    if (fpsOn) temperatures.start() else temperatures.stop()
+    hudOptions = com.rfandango.haku_x.data.HudPreferences(this).read(prefs.getBoolean("show_fps", true))
+    fpsOn = hudOptions.enabled
+    applyHudStyle()
+    if (fpsOn && hudOptions.temperatures) temperatures.start() else temperatures.stop()
     hitchesOn = BuildConfig.DEBUG && prefs.getBoolean(PREF_SHOW_HITCHES, false)
     fpsView?.visibility = if (fpsOn) View.VISIBLE else View.GONE
     if (!hitchesOn) hitchView?.visibility = View.GONE
@@ -552,6 +556,26 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
    * counts, the ongoing or last hang and the last stutter, with their causes.
    * Each has its own switch; the monitor takes the top with the FPS off.
    */
+  private fun applyHudStyle() {
+    val fps = fpsView ?: return
+    val margin = (4 * resources.displayMetrics.density).toInt()
+    fps.maxWidth = (resources.displayMetrics.widthPixels - 2 * margin).coerceAtLeast(1)
+    fps.setTextSize(TypedValue.COMPLEX_UNIT_SP, hudOptions.textSize.toFloat())
+    fps.ellipsize = android.text.TextUtils.TruncateAt.END
+    fps.setBackgroundColor(Color.argb(hudOptions.background * 255 / 100, 0, 0, 0))
+    fps.layoutParams = RelativeLayout.LayoutParams(
+      RelativeLayout.LayoutParams.WRAP_CONTENT, RelativeLayout.LayoutParams.WRAP_CONTENT,
+    ).apply {
+      val top = hudOptions.position == com.rfandango.haku_x.data.HudPosition.TOP_LEFT ||
+        hudOptions.position == com.rfandango.haku_x.data.HudPosition.TOP_RIGHT
+      val left = hudOptions.position == com.rfandango.haku_x.data.HudPosition.TOP_LEFT ||
+        hudOptions.position == com.rfandango.haku_x.data.HudPosition.BOTTOM_LEFT
+      addRule(if (top) RelativeLayout.ALIGN_PARENT_TOP else RelativeLayout.ALIGN_PARENT_BOTTOM)
+      addRule(if (left) RelativeLayout.ALIGN_PARENT_LEFT else RelativeLayout.ALIGN_PARENT_RIGHT)
+      setMargins(margin, margin, margin, margin)
+    }
+  }
+
   private fun setupFpsOverlay() {
     val fps = TextView(this).apply {
       id = View.generateViewId()

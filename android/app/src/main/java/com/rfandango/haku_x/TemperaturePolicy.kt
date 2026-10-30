@@ -7,11 +7,12 @@ object TemperaturePolicy {
   enum class Kind { CPU, GPU, SOC, BATTERY }
   data class Sample(val kind: Kind, val celsius: Float)
   data class Readings(val cpu: Float?, val gpu: Float?, val soc: Float?, val battery: Float?) {
-    fun hudText(): String {
+    fun hudText(showCpu: Boolean = true, showGpu: Boolean = true, showBattery: Boolean = true): String {
+      if (!showCpu && !showGpu && !showBattery) return ""
       val values = listOfNotNull(
-        cpu?.let { "CPU" to it } ?: soc?.let { "SOC" to it },
-        gpu?.let { "GPU" to it },
-        battery?.let { "BAT" to it },
+        if (showCpu) cpu?.let { "CPU" to it } ?: soc?.let { "SOC" to it } else null,
+        if (showGpu) gpu?.let { "GPU" to it } else null,
+        if (showBattery) battery?.let { "BAT" to it } else null,
       )
       return if (values.isEmpty()) " | TEMP --" else
         " | " + values.joinToString("  ") { (label, c) -> String.format(Locale.ROOT, "%s %.0f°C", label, c) }

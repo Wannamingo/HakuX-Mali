@@ -571,6 +571,15 @@ EXPORT int SDL_main(int argc, char *argv[])
         if (!strncmp(argv[i], "upscale=", 8)) {
             nc_present_set_upscale(!strcmp(argv[i] + 8, "sgsr") ? NC_UPSCALE_SGSR : NC_UPSCALE_BILINEAR);
         }
+        if (!strncmp(argv[i], "picture=", 8)) {
+            int b, c, s, g, sharpness;
+            char tail;
+            if (sscanf(argv[i] + 8, "%d,%d,%d,%d,%d%c", &b, &c, &s, &g, &sharpness, &tail) == 5) {
+                nc_present_set_picture(b, c, s, g, sharpness);
+            } else {
+                nc_log("hakuX-app", "invalid picture controls: keeping original output");
+            }
+        }
         /* vkdriver=<driver dir>|<library>|<hook library dir>: the custom
          * Vulkan driver chosen in the settings (Turnip), via adrenotools. */
         if (!strncmp(argv[i], "vkdriver=", 9)) {

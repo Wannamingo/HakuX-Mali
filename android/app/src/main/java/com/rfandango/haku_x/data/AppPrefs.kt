@@ -56,6 +56,14 @@ class AppPrefs(context: Context) {
     get() = sp.getInt("frame_rate_limit", 120).coerceIn(0, 240)
     set(value) = sp.edit { putInt("frame_rate_limit", value.coerceIn(0, 240)) }
 
+  fun applyGraphicsProfile(profile: GraphicsProfile) = sp.edit {
+    val options = profile.options
+    putInt(NativeCoreActivity.PREF_SCALE, options.scale)
+    putBoolean(NativeCoreActivity.PREF_FXAA, options.fxaa)
+    putString(NativeCoreActivity.PREF_UPSCALE, options.upscale)
+    putInt("frame_rate_limit", options.fpsLimit)
+  }
+
   /** Shaders compiled off the render thread, draws needing one skipped meanwhile (read at game start). */
   var asyncShaders: Boolean
     get() = sp.getBoolean(NativeCoreActivity.PREF_ASYNC_SHADERS, true)
@@ -105,6 +113,9 @@ class AppPrefs(context: Context) {
     get() = sp.getString(NativeCoreActivity.PREF_UPSCALE, NativeCoreActivity.UPSCALE_BILINEAR)
       ?: NativeCoreActivity.UPSCALE_BILINEAR
     set(value) = sp.edit { putString(NativeCoreActivity.PREF_UPSCALE, value) }
+
+  fun picture(control: PictureControl): Int = control.sanitize(sp.getInt(control.setting.key, 100))
+  fun setPicture(control: PictureControl, value: Int) = sp.edit { putInt(control.setting.key, control.sanitize(value)) }
 
   // The console's video settings, as its dashboard keeps them (EEPROM video
   // flags and the AV cable): games choose their display modes from these.

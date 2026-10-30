@@ -1,0 +1,40 @@
+<resources>
+  <string name="extra_profile">Graphics profile</string>
+  <string name="extra_profile_desc">Sets resolution, FXAA, upscaling and the FPS limit for the next game start. Other settings are kept.</string>
+  <string name="extra_profile_performance">Performance</string>
+  <string name="extra_profile_balanced">Balanced</string>
+  <string name="extra_profile_quality">Quality</string>
+  <string name="extra_profile_custom">Custom</string>
+  <string name="extra_profile_performance_desc">1× · FXAA off · Bilinear · 60 FPS limit</string>
+  <string name="extra_profile_balanced_desc">1× · FXAA off · SGSR · 120 FPS limit</string>
+  <string name="extra_profile_quality_desc">2× · FXAA on · SGSR · 120 FPS limit</string>
+  <string name="extra_hud">HUD appearance and sensors</string>
+  <string name="extra_hud_desc">One line of FPS, frame times and selected temperatures. Changes apply when you return to the game.</string>
+  <string name="extra_save_failed">Could not save these settings. Check available storage.</string>
+  <string name="extra_hud_appearance">Appearance</string>
+  <string name="extra_hud_size">Text size</string>
+  <string name="extra_hud_position">Position</string>
+  <string name="extra_hud_background">Background opacity</string>
+  <string name="extra_hud_temperatures">Temperature sensors</string>
+  <string name="extra_hud_cpu">CPU / SoC</string>
+  <string name="extra_hud_gpu">GPU</string>
+  <string name="extra_hud_battery">Battery</string>
+  <string name="extra_hud_top_left">Top left</string>
+  <string name="extra_hud_top_right">Top right</string>
+  <string name="extra_hud_bottom_left">Bottom left</string>
+  <string name="extra_hud_bottom_right">Bottom right</string>
+  <string name="extra_percent">%1$d%%</string>
+  <string name="extra_picture">Picture adjustment</string>
+  <string name="extra_picture_desc" formatted="false">100% preserves the original picture. Changes apply at the next game start.</string>
+  <string name="extra_picture_reset">Restore original picture</string>
+  <string name="extra_picture_global">Use global picture settings</string>
+  <string name="extra_picture_use_global_value">Use global value</string>
+  <string name="extra_picture_inherited">Using the global value</string>
+  <string name="extra_picture_override">Overridden for this game</string>
+  <string name="extra_brightness">Brightness</string>
+  <string name="extra_contrast">Contrast</string>
+  <string name="extra_saturation">Saturation</string>
+  <string name="extra_gamma">Gamma</string>
+  <string name="extra_sharpness">SGSR sharpness</string>
+  <string name="extra_sharpness_desc" formatted="false">0% is smooth, 100% is the original SGSR strength. Applies only when SGSR enlarges the image.</string>
+</resources>

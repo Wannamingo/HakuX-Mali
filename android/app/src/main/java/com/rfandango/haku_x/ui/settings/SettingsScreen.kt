@@ -60,6 +60,7 @@ fun SettingsScreen(
   onControllers: () -> Unit,
   onHardDisk: () -> Unit,
   onGpuDriver: () -> Unit,
+  onHudSettings: () -> Unit,
   /** The first-start screen again: the xemu-based release's data brought over. */
   onMigrate: () -> Unit,
   onGameSettings: (() -> Unit)? = null,
@@ -78,7 +79,8 @@ fun SettingsScreen(
   var frameRateDialog by remember { mutableStateOf(false) }
   var asyncShaders by remember { mutableStateOf(prefs.asyncShaders) }
   var prebuildShaders by remember { mutableStateOf(prefs.prebuildShaders) }
-  var showFps by remember { mutableStateOf(prefs.showFps) }
+  val hudPreferences = remember { com.rfandango.haku_x.data.HudPreferences(context) }
+  var showFps by remember { mutableStateOf(hudPreferences.read(prefs.showFps).enabled) }
   var showHitches by remember { mutableStateOf(prefs.showHitches) }
   var scale by remember { mutableIntStateOf(prefs.renderScale) }
   var aspect by remember { mutableStateOf(prefs.aspectRatio) }
@@ -246,8 +248,17 @@ fun SettingsScreen(
           title = stringResource(R.string.settings_show_fps),
           summary = stringResource(R.string.settings_show_fps_desc),
           checked = showFps,
-          onChange = { showFps = it; prefs.showFps = it },
+          onChange = { enabled ->
+            runCatching { hudPreferences.write(hudPreferences.read(enabled).copy(enabled = enabled)) }
+              .onSuccess { showFps = enabled; prefs.showFps = enabled }
+              .onFailure { snackbar.notify(scope, context.getString(R.string.extra_save_failed)) }
+          },
         )
+      }
+      SettingsTarget(R.string.extra_hud) {
+        ListItem(headlineContent = { Text(stringResource(R.string.extra_hud)) },
+          supportingContent = { Text(stringResource(R.string.extra_hud_desc)) },
+          modifier = Modifier.clickable(onClick = onHudSettings))
       }
       if (BuildConfig.DEBUG) {
         SettingsTarget(R.string.settings_show_hitches) {
@@ -354,6 +365,10 @@ fun SettingsScreen(
     }
     SettingsGroup(category == SettingsCategory.GRAPHICS) {
       Section(stringResource(R.string.settings_section_graphics))
+      GraphicsProfileRow(com.rfandango.haku_x.data.GraphicsOptions(scale, fxaa, upscale, frameRateLimit)) { profile ->
+        prefs.applyGraphicsProfile(profile)
+        scale = prefs.renderScale; fxaa = prefs.fxaa; upscale = prefs.upscaleFilter; frameRateLimit = prefs.frameRateLimit
+      }
       SettingsTarget(R.string.settings_scale) {
         ListItem(
           headlineContent = { Text(stringResource(R.string.settings_scale)) },
@@ -416,6 +431,7 @@ fun SettingsScreen(
       }
 
     }
+    SettingsGroup(category == SettingsCategory.GRAPHICS) { PictureSettingsSection(prefs) }
     SettingsGroup(category == SettingsCategory.APP) {
       Section(stringResource(R.string.settings_section_updates))
       SettingsTarget(R.string.settings_update_check) {
@@ -595,6 +611,12 @@ private fun themeLabel(value: String) = when (value) {
 
 /** The render scales: native, then 2x to 4x. */
 internal val SCALES = (1..4).toList()
+
+internal val FRAME_LIMITS = listOf(0, 30, 60, 90, 120)
+
+@Composable
+internal fun fpsLimitLabel(value: Int) = if (value == 0) stringResource(R.string.settings_fps_no_limit)
+  else stringResource(R.string.settings_fps_value, value)
 
 @Composable
 internal fun scaleLabel(value: Int) = if (value == 1) stringResource(R.string.settings_scale_native) else "${value}x"

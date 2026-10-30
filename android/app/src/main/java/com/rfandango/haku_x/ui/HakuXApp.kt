@@ -33,6 +33,7 @@ import com.rfandango.haku_x.ui.library.LibraryScreen
 import com.rfandango.haku_x.ui.mods.ModsScreen
 import com.rfandango.haku_x.ui.settings.GameSettingsScreen
 import com.rfandango.haku_x.ui.settings.SettingsScreen
+import com.rfandango.haku_x.ui.settings.HudSettingsScreen
 import com.rfandango.haku_x.ui.setup.MigrateScreen
 import com.rfandango.haku_x.ui.setup.SetupScreen
 import kotlinx.coroutines.Dispatchers
@@ -49,6 +50,7 @@ private object Routes {
   const val CONTROLLERS = "controllers"
   const val HDD = "hdd"
   const val GPU_DRIVER = "gpu_driver"
+  const val HUD = "hud"
   /** One controller's mapping: its input device id. */
   const val MAPPING = "mapping/{id}"
 
@@ -175,6 +177,7 @@ fun HakuXApp(
         onControllers = { nav.navigate(Routes.CONTROLLERS) },
         onHardDisk = { nav.navigate(Routes.HDD) },
         onGpuDriver = { nav.navigate(Routes.GPU_DRIVER) },
+        onHudSettings = { nav.navigate(Routes.HUD) },
         onMigrate = { nav.navigate(Routes.MIGRATE_AGAIN) },
         onGameSettings = if (settingsGameKey.isBlank()) null else ({
           val route = Routes.game(settingsGameKey, settingsGameTitle)
@@ -185,6 +188,7 @@ fun HakuXApp(
     composable(Routes.GPU_DRIVER) {
       GpuDriverScreen(onBack = { nav.popBackStack() })
     }
+    composable(Routes.HUD) { HudSettingsScreen(onBack = { nav.popBackStack() }) }
     composable(Routes.MIGRATE_AGAIN) {
       MigrateScreen(onDone = { nav.popBackStack() })
     }

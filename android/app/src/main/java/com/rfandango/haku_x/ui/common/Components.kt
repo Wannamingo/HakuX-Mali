@@ -233,16 +233,18 @@ fun <T> ChoiceDialog(
   onDismiss: () -> Unit,
 ) {
   val shown = rememberFocusOnShow()
+  val focusedIndex = options.indexOfFirst { it.first == current }.coerceAtLeast(0)
   AlertDialog(
     onDismissRequest = onDismiss,
     title = { Text(title) },
     text = {
       Column {
-        for ((value, label) in options) {
+        for ((index, option) in options.withIndex()) {
+          val (value, label) = option
           Row(
             Modifier
               .fillMaxWidth()
-              .then(if (value == current) Modifier.focusRequester(shown) else Modifier)
+              .then(if (index == focusedIndex) Modifier.focusRequester(shown) else Modifier)
               .selectable(selected = value == current, role = Role.RadioButton) { onPick(value) }
               .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,

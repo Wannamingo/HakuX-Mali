@@ -14,6 +14,9 @@ struct ANativeWindow;
  * Snapdragon Game Super Resolution (a larger one is always averaged down). */
 enum { HLE_UPSCALE_BILINEAR, HLE_UPSCALE_SGSR };
 
+/* Window thread only. Percentages: 100 is neutral/original SGSR strength; no extra pass. */
+void hle_present_set_picture(int brightness, int contrast, int saturation, int gamma, int sharpness);
+
 /* This refresh would put up what win already shows (the same front frame,
  * gamma ramp, window and swapchain, and key: the caller's placement and
  * filters, as at the last present that went through): the caller may skip

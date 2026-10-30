@@ -1,0 +1,40 @@
+<resources>
+  <string name="extra_profile">Графический профиль</string>
+  <string name="extra_profile_desc">Задаёт разрешение, FXAA, фильтр увеличения и лимит FPS для следующего запуска. Остальные настройки сохраняются.</string>
+  <string name="extra_profile_performance">Производительность</string>
+  <string name="extra_profile_balanced">Баланс</string>
+  <string name="extra_profile_quality">Качество</string>
+  <string name="extra_profile_custom">Свой</string>
+  <string name="extra_profile_performance_desc">1× · FXAA выкл. · Bilinear · лимит 60 FPS</string>
+  <string name="extra_profile_balanced_desc">1× · FXAA выкл. · SGSR · лимит 120 FPS</string>
+  <string name="extra_profile_quality_desc">2× · FXAA вкл. · SGSR · лимит 120 FPS</string>
+  <string name="extra_hud">Вид HUD и датчики</string>
+  <string name="extra_hud_desc">Одна строка FPS, времени кадра и выбранных температур. Изменения применяются при возврате в игру.</string>
+  <string name="extra_save_failed">Не удалось сохранить настройки. Проверьте свободное место.</string>
+  <string name="extra_hud_appearance">Оформление</string>
+  <string name="extra_hud_size">Размер текста</string>
+  <string name="extra_hud_position">Положение</string>
+  <string name="extra_hud_background">Непрозрачность фона</string>
+  <string name="extra_hud_temperatures">Датчики температуры</string>
+  <string name="extra_hud_cpu">CPU / SoC</string>
+  <string name="extra_hud_gpu">GPU</string>
+  <string name="extra_hud_battery">Батарея</string>
+  <string name="extra_hud_top_left">Сверху слева</string>
+  <string name="extra_hud_top_right">Сверху справа</string>
+  <string name="extra_hud_bottom_left">Снизу слева</string>
+  <string name="extra_hud_bottom_right">Снизу справа</string>
+  <string name="extra_percent">%1$d%%</string>
+  <string name="extra_picture">Настройка изображения</string>
+  <string name="extra_picture_desc" formatted="false">100% сохраняет исходное изображение. Изменения применяются при следующем запуске игры.</string>
+  <string name="extra_picture_reset">Вернуть исходное изображение</string>
+  <string name="extra_picture_global">Использовать общие настройки изображения</string>
+  <string name="extra_picture_use_global_value">Использовать общее значение</string>
+  <string name="extra_picture_inherited">Используется общее значение</string>
+  <string name="extra_picture_override">Задано отдельно для этой игры</string>
+  <string name="extra_brightness">Яркость</string>
+  <string name="extra_contrast">Контраст</string>
+  <string name="extra_saturation">Насыщенность</string>
+  <string name="extra_gamma">Гамма</string>
+  <string name="extra_sharpness">Резкость SGSR</string>
+  <string name="extra_sharpness_desc" formatted="false">0% — мягкое изображение, 100% — исходная резкость SGSR. Работает только при увеличении изображения через SGSR.</string>
+</resources>

@@ -20,8 +20,9 @@ class HudTemperatureMonitor(context: Context) : AutoCloseable {
   private data class Zone(val kind: TemperaturePolicy.Kind, val temperature: File)
   private var zones: List<Zone>? = null
   private var logged = false
-  @Volatile var hudText: String = " | TEMP --"
+  @Volatile var readings = TemperaturePolicy.Readings(null, null, null, null)
     private set
+  val hudText get() = readings.hudText()
 
   @Synchronized fun start() {
     if (polling == null && !worker.isShutdown)
@@ -59,7 +60,7 @@ class HudTemperatureMonitor(context: Context) : AutoCloseable {
           ?.getIntExtra(BatteryManager.EXTRA_TEMPERATURE, Int.MIN_VALUE)
           ?.let(TemperaturePolicy::batteryTenths)
       }.getOrNull()
-      hudText = TemperaturePolicy.readings(values, battery).hudText()
+      readings = TemperaturePolicy.readings(values, battery)
       if (!logged) {
         Log.i("hakuX-temperature", "HUD sensors:$hudText (app access; 2 s interval)")
         logged = true

@@ -3,6 +3,13 @@ package com.rfandango.haku_x.ui.settings
 import com.rfandango.haku_x.R
 
 internal val GlobalSettingsIndex = listOf(
+  SettingsEntry(R.string.extra_profile, SettingsCategory.GRAPHICS, "performance balanced quality preset profile производительность баланс качество профиль"),
+  SettingsEntry(R.string.extra_hud, SettingsCategory.DISPLAY, "hud position size opacity temperature положение размер прозрачность температура"),
+  SettingsEntry(R.string.extra_brightness, SettingsCategory.GRAPHICS, "brightness picture image яркость изображение"),
+  SettingsEntry(R.string.extra_contrast, SettingsCategory.GRAPHICS, "contrast picture контраст изображение"),
+  SettingsEntry(R.string.extra_saturation, SettingsCategory.GRAPHICS, "saturation color colour насыщенность цвет"),
+  SettingsEntry(R.string.extra_gamma, SettingsCategory.GRAPHICS, "gamma dark shadow гамма темно тени"),
+  SettingsEntry(R.string.extra_sharpness, SettingsCategory.GRAPHICS, "sgsr sharpness резкость четкость"),
   SettingsEntry(R.string.settings_games_folder_add, SettingsCategory.GAMES, "games folder iso xiso default.xbe папка игры образы"),
   SettingsEntry(R.string.settings_overlay, SettingsCategory.CONTROLS, "touch controls overlay экранные кнопки"),
   SettingsEntry(R.string.controllers_title, SettingsCategory.CONTROLS, "gamepad controller mapping геймпад кнопки управление"),

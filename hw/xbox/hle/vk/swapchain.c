@@ -42,6 +42,7 @@
 #define PS_FRAMES 3             /* the presenter's submits in flight */
 #define PS_IMAGES 8             /* swapchain images at most */
 #define PS_RAMP 1024            /* a frame's share of the ramp buffer (768 used) */
+#define PS_PUSH_BYTES (20 * sizeof(float))
 
 enum { P_BILINEAR, P_AREA, P_SGSR, P_FXAA, P_COUNT };
 
@@ -105,6 +106,19 @@ static struct {
     uint64_t shown_key;
 } g_ps;
 
+/* Kept outside the surface's lifetime. Neutral values retain the old gamma/SGSR path exactly. */
+static float g_picture[5] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
+
+void hle_present_set_picture(int brightness, int contrast, int saturation, int gamma, int sharpness)
+{
+    g_picture[0] = MAX(50, MIN(brightness, 150)) / 100.0f;
+    g_picture[1] = MAX(50, MIN(contrast, 150)) / 100.0f;
+    g_picture[2] = MAX(0, MIN(saturation, 200)) / 100.0f;
+    g_picture[3] = MAX(50, MIN(gamma, 200)) / 100.0f;
+    g_picture[4] = MAX(0, MIN(sharpness, 100)) / 100.0f;
+    g_ps.shown = false;
+}
+
 /* ---- shaders ---- */
 
 /* rect: x0, y0, x1, y1 in the window's clip space; rot: that space turned
@@ -112,7 +126,7 @@ static struct {
  * rot.y y, y' = rot.z x + rot.w y */
 static const char k_vs[] =
     "#version 450\n"
-    "layout(push_constant) uniform P { vec4 rect; vec4 extra; vec4 rot; } pc;\n"
+    "layout(push_constant) uniform P { vec4 rect; vec4 extra; vec4 rot; vec4 picture; vec4 tune; } pc;\n"
     "layout(location = 0) out vec2 v_uv;\n"
     "void main() {\n"
     "  vec2 c = vec2(gl_VertexIndex & 1, gl_VertexIndex >> 1);\n"
@@ -124,7 +138,7 @@ static const char k_vs[] =
  * a channel's 256 after another's, as gamma.c's) */
 static const char k_fs_head[] =
     "#version 450\n"
-    "layout(push_constant) uniform P { vec4 rect; vec4 extra; vec4 rot; } pc;\n"
+    "layout(push_constant) uniform P { vec4 rect; vec4 extra; vec4 rot; vec4 picture; vec4 tune; } pc;\n"
     "layout(set = 0, binding = 0) uniform sampler2D u_tex;\n"
     "layout(set = 0, binding = 1, std140) uniform G { uvec4 w[48]; } g;\n"
     "layout(location = 0) in vec2 v_uv;\n"
@@ -135,7 +149,14 @@ static const char k_fs_head[] =
     "}\n"
     "vec4 ramp(vec3 c) {\n"
     "  uvec3 v = uvec3(clamp(c, 0.0, 1.0) * 255.0 + 0.5);\n"
-    "  return vec4(float(lut(v.r)), float(lut(256u + v.g)), float(lut(512u + v.b)), 255.0) / 255.0;\n"
+    "  vec3 rgb = vec3(float(lut(v.r)), float(lut(256u + v.g)), float(lut(512u + v.b))) / 255.0;\n"
+    "  if (any(notEqual(pc.picture, vec4(1.0)))) {\n"
+    "    rgb = ((rgb - 0.5) * pc.picture.y + 0.5) * pc.picture.x;\n"
+    "    float luma = dot(rgb, vec3(0.2126, 0.7152, 0.0722));\n"
+    "    rgb = mix(vec3(luma), rgb, pc.picture.z);\n"
+    "    rgb = pow(clamp(rgb, 0.0, 1.0), vec3(1.0 / pc.picture.w));\n"
+    "  }\n"
+    "  return vec4(rgb, 1.0);\n"
     "}\n";
 static const char k_fs_bilinear[] =
     "void main() {\n"
@@ -260,6 +281,7 @@ static const char k_fs_sgsr[] =
     "  vec4 ViewportInfo = pc.extra;\n"
     "  vec4 color;\n"
     "  color.xyz = textureLod(u_tex, v_uv, 0.0).xyz;\n"
+    "  vec3 original = color.xyz;\n"
     "  vec2 imgCoord = ((v_uv * ViewportInfo.zw) + vec2(-0.5, 0.5));\n"
     "  vec2 imgCoordPixel = floor(imgCoord);\n"
     "  vec2 coord = (imgCoordPixel * ViewportInfo.xy);\n"
@@ -303,6 +325,7 @@ static const char k_fs_sgsr[] =
     "    color.y = clamp((color.y + deltaY), 0.0, 1.0);\n"
     "    color.z = clamp((color.z + deltaY), 0.0, 1.0);\n"
     "  }\n"
+    "  if (pc.tune.x < 1.0) color.xyz = mix(original, color.xyz, pc.tune.x);\n"
     "  o = ramp(color.xyz);\n"
     "}\n";
 
@@ -393,7 +416,7 @@ static bool init(void)
         T.vkCreateDescriptorSetLayout(g_hvk.dev, &dci, NULL, &g_ps.dsl) != VK_SUCCESS) {
         return false;
     }
-    VkPushConstantRange pcr = { VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 48 };
+    VkPushConstantRange pcr = { VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, PS_PUSH_BYTES };
     VkPipelineLayoutCreateInfo lci = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, .setLayoutCount = 1,
         .pSetLayouts = &g_ps.dsl, .pushConstantRangeCount = 1, .pPushConstantRanges = &pcr };
@@ -848,7 +871,7 @@ static void barrier(VkCommandBuffer cb, VkImage img, VkImageLayout from, VkImage
 
 /* A quad of pipeline p over rect (clip space) into the rendering open. */
 static void quad(VkCommandBuffer cb, PsFrame *f, unsigned set, VkPipeline p, VkImageView src,
-                 const float pc[12], uint32_t w, uint32_t h)
+                 const float pc[20], uint32_t w, uint32_t h)
 {
     VkDescriptorImageInfo ii = { g_ps.smp, src, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
     VkDescriptorBufferInfo bi = { g_ps.ubo, (VkDeviceSize)(f - g_ps.fr) * PS_RAMP, 768 };
@@ -864,7 +887,7 @@ static void quad(VkCommandBuffer cb, PsFrame *f, unsigned set, VkPipeline p, VkI
     T.vkCmdSetViewport(cb, 0, 1, &vp);
     T.vkCmdSetScissor(cb, 0, 1, &sc);
     T.vkCmdBindDescriptorSets(cb, VK_PIPELINE_BIND_POINT_GRAPHICS, g_ps.pl, 0, 1, &f->set[set], 0, NULL);
-    T.vkCmdPushConstants(cb, g_ps.pl, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, 48, pc);
+    T.vkCmdPushConstants(cb, g_ps.pl, VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT, 0, PS_PUSH_BYTES, pc);
     T.vkCmdDraw(cb, 4, 1, 0, 0);
 }
 
@@ -941,7 +964,8 @@ void hle_present_end(float sx, float sy, bool fxaa, int upscale, bool average, u
                         VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, 0,
                         VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
                 rendering(cb, g_ps.fx_view, g_ps.f.w, g_ps.f.h, false);
-                static const float whole[12] = { -1.0f, -1.0f, 1.0f, 1.0f, 0, 0, 0, 0, 1.0f, 0, 0, 1.0f };
+                static const float whole[20] = { -1.0f, -1.0f, 1.0f, 1.0f, 0, 0, 0, 0, 1.0f, 0, 0, 1.0f,
+                                                  1.0f, 1.0f, 1.0f, 1.0f, 1.0f, 0, 0, 0 };
                 quad(cb, f, 1, g_ps.pipe[P_FXAA], g_ps.f.view, whole, g_ps.f.w, g_ps.f.h);
                 T.vkCmdEndRendering(cb);
                 barrier(cb, g_ps.fx_img, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
@@ -965,12 +989,13 @@ void hle_present_end(float sx, float sy, bool fxaa, int upscale, bool average, u
         const float vw = sx * (float)ww, vh = sy * (float)wh;
         const float rx = (float)g_ps.f.w / vw, ry = (float)g_ps.f.h / vh;
         unsigned p = P_BILINEAR;
-        float pc[12] = { -sx, -sy, sx, sy, 0.0f, 0.0f, 0.0f, 0.0f, g_ps.rot[0], g_ps.rot[1], g_ps.rot[2], g_ps.rot[3] };
+        float pc[20] = { -sx, -sy, sx, sy, 0.0f, 0.0f, 0.0f, 0.0f, g_ps.rot[0], g_ps.rot[1], g_ps.rot[2], g_ps.rot[3],
+                         g_picture[0], g_picture[1], g_picture[2], g_picture[3], g_picture[4], 0, 0, 0 };
         if ((rx > 1.01f || ry > 1.01f) && average && g_ps.pipe[P_AREA]) {
             p = P_AREA;
             pc[4] = rx;
             pc[5] = ry;
-        } else if ((rx < 0.99f || ry < 0.99f) && upscale == HLE_UPSCALE_SGSR && g_ps.pipe[P_SGSR]) {
+        } else if ((rx < 0.99f || ry < 0.99f) && upscale == HLE_UPSCALE_SGSR && g_picture[4] > 0.0f && g_ps.pipe[P_SGSR]) {
             p = P_SGSR;
             pc[4] = 1.0f / (float)g_ps.f.w;
             pc[5] = 1.0f / (float)g_ps.f.h;

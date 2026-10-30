@@ -18,6 +18,8 @@ import com.rfandango.haku_x.R
 import com.rfandango.haku_x.data.AppPrefs
 import com.rfandango.haku_x.data.GameOverrides
 import com.rfandango.haku_x.data.GameSetting
+import com.rfandango.haku_x.data.GraphicsOptions
+import com.rfandango.haku_x.data.PictureControl
 import com.rfandango.haku_x.ui.common.ChoiceDialog
 import com.rfandango.haku_x.ui.common.ConfirmDialog
 import com.rfandango.haku_x.ui.common.Hint
@@ -40,6 +42,8 @@ private fun onOff(value: String) =
 
 private val SECTIONS: List<Pair<Int, List<Overridable>>> = listOf(
   R.string.settings_section_display to listOf(
+    Overridable(GameSetting.FPS_LIMIT, R.string.settings_fps_limit, FRAME_LIMITS.map { it.toString() },
+      { it.frameRateLimit.toString() }, { fpsLimitLabel(it.toInt()) }),
     Overridable(GameSetting.UNCAPPED, R.string.settings_uncap, ON_OFF, { it.uncapped.toString() }, { onOff(it) }),
     Overridable(GameSetting.ASPECT, R.string.settings_aspect, ASPECTS, { it.aspectRatio }, { stringResource(aspectLabel(it)) }),
   ),
@@ -86,7 +90,7 @@ fun GameSettingsScreen(gameKey: String, title: String, onBack: () -> Unit, onOpe
     onBack = onBack,
     entries = SECTIONS.flatMap { (section, items) -> items.map { item ->
       SettingsEntry(item.title, category(section), GlobalSettingsIndex.firstOrNull { it.title == item.title }?.aliases.orEmpty())
-    } },
+    } } + GlobalSettingsIndex.filter { it.title == R.string.extra_profile || it.title in PictureControl.entries.map { pictureLabel(it) } },
     categories = listOf(SettingsCategory.GRAPHICS, SettingsCategory.DISPLAY, SettingsCategory.SYSTEM),
     scopeLabel = stringResource(R.string.ui_scope_game),
     otherScopeLabel = stringResource(R.string.ui_scope_global), onOtherScope = onOpenGlobal,
@@ -98,6 +102,17 @@ fun GameSettingsScreen(gameKey: String, title: String, onBack: () -> Unit, onOpe
     },
   ) { selected ->
     Hint(stringResource(R.string.game_settings_desc))
+    SettingsGroup(selected == SettingsCategory.GRAPHICS) {
+      GraphicsProfileRow(GraphicsOptions(
+        values[GameSetting.RENDER_SCALE]?.toIntOrNull() ?: prefs.renderScale,
+        values[GameSetting.FXAA]?.toBooleanStrictOrNull() ?: prefs.fxaa,
+        values[GameSetting.UPSCALE] ?: prefs.upscaleFilter,
+        values[GameSetting.FPS_LIMIT]?.toIntOrNull() ?: prefs.frameRateLimit,
+      )) { profile ->
+        overrides.applyGraphicsProfile(profile)
+        GameSetting.entries.forEach { values[it] = overrides[it] }
+      }
+    }
     for ((section, items) in SECTIONS) {
       SettingsGroup(selected == category(section)) {
         Section(stringResource(section))
@@ -120,6 +135,11 @@ fun GameSettingsScreen(gameKey: String, title: String, onBack: () -> Unit, onOpe
             )
           }
         }
+      }
+    }
+    SettingsGroup(selected == SettingsCategory.GRAPHICS) {
+      PictureSettingsSection(prefs, game = true, values = values) { setting, value ->
+        overrides[setting] = value; values[setting] = value
       }
     }
   }
