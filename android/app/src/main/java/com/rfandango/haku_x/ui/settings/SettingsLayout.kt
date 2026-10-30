@@ -23,7 +23,6 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.runtime.saveable.rememberSaveable
-import androidx.compose.runtime.saveable.rememberSaveableStateHolder
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.focus.FocusRequester
@@ -73,7 +72,12 @@ fun SettingsLayout(
   var jump by remember { mutableStateOf<SettingsJump?>(null) }
   val searchFocus = remember { FocusRequester() }
   LaunchedEffect(searching) { if (searching) searchFocus.requestFocus() }
-  val holder = rememberSaveableStateHolder()
+  // Keep scroll positions without reusing the categories' layout/render nodes.
+  // A reused scrolling subtree can retain the previous category's drawing even
+  // though its semantics and click targets already belong to the new category.
+  val scrollStates = categories.map { tab ->
+    key(tab.name) { tab to rememberScrollState() }
+  }.toMap()
   val keyboard = LocalSoftwareKeyboardController.current
   val focus = LocalFocusManager.current
   fun closeSearch() { searching = false; query = ""; keyboard?.hide(); focus.clearFocus() }
@@ -128,8 +132,8 @@ fun SettingsLayout(
             }
           }
         }
-      } else holder.SaveableStateProvider(category.name) {
-        val scroll = rememberScrollState()
+      } else key(category.name) {
+        val scroll = scrollStates.getValue(category)
         CompositionLocalProvider(LocalSettingsJump provides jump) {
           Column(Modifier.weight(1f).fillMaxWidth().verticalScroll(scroll).padding(12.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
             content(category)
