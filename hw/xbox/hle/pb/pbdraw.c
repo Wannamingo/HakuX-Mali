@@ -1963,22 +1963,27 @@ void hle_pbd_blit(uint32_t sbase, uint32_t sp, uint32_t dbase, uint32_t dp, uint
          * back over the blur's source between passes, and copies its frame
          * for the colour passes: both took the memory's rows over the
          * copies, and its glow drew black. */
-        PbObj *dd = obj_of(dst);
-        if (dd && dd->d.pitch) {
-            hle_mem_written(dd->d.pa, dd->d.pitch * dd->d.h);
-        }
-        if (dd) {
-            dd->written = ++g_pd.wseq;
-        }
     } else if (dst) {
         /* into a render target from memory: its rows, as copied, uploaded */
         const HleRect r = { (int32_t)ox, (int32_t)oy, (int32_t)(ox + w), (int32_t)(oy + h) };
         const int32_t pt[1][2] = { { (int32_t)ox, (int32_t)oy } };
         hle_res_upload(dst, dbase, dp, 1, &r, pt);
-        PbObj *dd = obj_of(dst);
-        if (dd) {
-            dd->written = ++g_pd.wseq;
+    }
+    PbObj *dd = obj_of(dst);
+    if (dd) {
+        /* blit_begin synced earlier CPU writes; this blit's rows are now
+         * in the image (a copy or an upload). Consume their dirty state in
+         * both cases. Without imported RAM the upload snapshots its rows
+         * into the arena and does not arm a guest-memory read barrier, so
+         * it leaves the CPU blit's dirty pages behind. A later decoder
+         * boundary then uploads the stale memory over intervening draws:
+         * Syberia's background erased parts of its 3D characters and menu.
+         * Refresh the edge hashes too, as rt_cpu_upload does. */
+        if (dd->d.pitch) {
+            hle_mem_written(dd->d.pa, dd->d.pitch * dd->d.h);
+            obj_edges_set(dd);
         }
+        dd->written = ++g_pd.wseq;
     }
 }
 
@@ -2878,7 +2883,15 @@ void hle_pbd_idle(void)
         g_pd.vis_kicks++;
         kick();
     }
-    g_pd.rt_fresh = true;                   /* the CPU may write the target now (rt_first_write) */
+    /* Syberia's Bink menu updates guest memory between the background and
+     * UI kicks. With copied RAM an idle-boundary upload replaced the newly
+     * drawn background with the old frame, retaining previous menu pages.
+     * Its normal bind/sample/flip sync points still upload CPU frames;
+     * avoid the extra whole-target upload between those kicks. Other
+     * titles (Chaos Theory's loading pictures) need the idle sync. */
+    if (g_hram.zero_copy || g_hle.title.xbe.title_id != 0x4D490006u) {
+        g_pd.rt_fresh = true;
+    }
     keep_serve();
 }
 

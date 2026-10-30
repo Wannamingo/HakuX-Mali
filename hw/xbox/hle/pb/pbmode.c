@@ -502,6 +502,21 @@ static void blit(const uint32_t *r)
         return;
     }
     hle_pbd_blit_begin(sbase, dbase);       /* the CPU's writes before the blit's */
+    /* This host copy bypasses the guest's first-write trap. Finish earlier
+     * uses of its rows first, including readbacks that land in guest RAM:
+     * a late readback must not overwrite the new background with the old
+     * rendered character (Syberia's trails after a scene change). The
+     * decoder itself must submit an open boundary before waiting for it. */
+    const uint32_t sa = sbase + iy * sp + ix * bpp, da = dbase + oy * dp + ox * bpp;
+    const uint64_t slen = (uint64_t)(h - 1) * sp + row, dlen = (uint64_t)(h - 1) * dp + row;
+    uint64_t wait = slen <= UINT32_MAX ? hle_mem_write_fence(sa, (uint32_t)slen) : 0;
+    if (dlen <= UINT32_MAX) {
+        wait = MAX(wait, hle_mem_write_fence(da, (uint32_t)dlen));
+    }
+    if (wait) {
+        hle_pbd_boundary(wait);
+        hle_mem_wait_fence(wait);
+    }
     for (uint32_t y = 0; y < h; y++) {
         const uint32_t so = sbase + (iy + y) * sp + ix * bpp, d = dbase + (oy + y) * dp + ox * bpp;
         uint8_t *sr = hle_pa_ptr(so, row), *dr = hle_pa_ptr(d, row);
