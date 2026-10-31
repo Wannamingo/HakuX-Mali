@@ -28,6 +28,10 @@ object GpuDriverHelper {
   private const val BUNDLED_ASSET = "gpu_drivers/malisx2-0.2.3-b85d5f7f36.zip"
   private const val BUNDLED_SHA256 = "133c35a49c4197e9177969e69e4dba41ea2433598810277b4f37597c8751a78f"
   private const val BUNDLED_MARKER = "bundled:malisx2-0.2.3"
+  private const val COMBINED_FILE = "hakux-bundled-malisx2-m2-ds1-b05da0fa.zip"
+  private const val COMBINED_ASSET = "gpu_drivers/malisx2-0.2.3-m2-ds1-b05da0fa.zip"
+  private const val COMBINED_SHA256 = "b12a5d95e2ea6c9b5e4f4d39d7e8ed5baceeba1a3a9fe8e45261abfa45deef61"
+  private const val COMBINED_MARKER = "bundled:malisx2-0.2.3:m2-ds1:b05da0fa"
   private const val BOOTSTRAPPED = "bundled_malisx2_bootstrapped"
   private var bundledPrepared = false
 
@@ -46,13 +50,22 @@ object GpuDriverHelper {
   }
 
   private val bundledFile: File get() = File(appContext.filesDir, "bundled_drivers/$BUNDLED_FILE")
+  private val combinedFile: File get() = File(appContext.filesDir, "bundled_drivers/$COMBINED_FILE")
+  // M2+DS1 was qualified on G615/RG477M with the API 34 toolchain. Keep
+  // the official bundle for older Android versions and other handhelds.
+  private fun offersCombinedBundle(): Boolean = Build.VERSION.SDK_INT >= 34 && rg477mMali
+  private val bundledFiles: List<File> get() =
+    if (offersCombinedBundle()) listOf(combinedFile, bundledFile) else listOf(bundledFile)
   private val choices get() = appContext.getSharedPreferences("gpu_driver_choices", Context.MODE_PRIVATE)
 
   private fun prepareBundledDriver(): Boolean {
     if (!isMaliSX2Device()) return true
     return try {
-      val bundled = bundledFile
-      BundledDriverArchive.ensure(bundled, BUNDLED_SHA256) { appContext.assets.open(BUNDLED_ASSET) }
+      BundledDriverArchive.ensure(bundledFile, BUNDLED_SHA256) { appContext.assets.open(BUNDLED_ASSET) }
+      if (offersCombinedBundle()) {
+        BundledDriverArchive.ensure(combinedFile, COMBINED_SHA256) { appContext.assets.open(COMBINED_ASSET) }
+      }
+      val bundled = bundledFiles.first()
       val done = choices.getBoolean(BOOTSTRAPPED, false)
       val active = getActiveDriver()
       val library = File(driverInstallDir, GpuDriverPolicy.MALISX2_LIBRARY)
@@ -64,10 +77,10 @@ object GpuDriverHelper {
         }
       if (GpuDriverPolicy.selectBundled(done, AppPrefs(appContext).setupComplete, active != null, identical)) {
         if (!useDriver(bundled)) throw IOException("Could not select bundled MaliSX2")
-        Log.i(TAG, "Bundled MaliSX2 0.2.3 selected for a supported Mali handheld")
+        Log.i(TAG, "Bundled ${readMetadata(bundled)?.name} selected for a supported Mali handheld")
       }
       choices.edit().putBoolean(BOOTSTRAPPED, true).commit()
-      Log.i(TAG, "Bundled MaliSX2 0.2.3 ready (checksum verified)")
+      Log.i(TAG, "Bundled MaliSX2 ready: ${bundledFiles.joinToString { it.name }} (checksums verified)")
       true
     } catch (e: Exception) {
       Log.e(TAG, "Could not prepare bundled MaliSX2", e)
@@ -75,9 +88,13 @@ object GpuDriverHelper {
     }
   }
 
-  fun isBundledDriver(file: File): Boolean = file.absolutePath == bundledFile.absolutePath
-  private fun packageId(file: File): String = if (isBundledDriver(file)) BUNDLED_MARKER else file.name
-  fun isBundledInUse(): Boolean = isInUse(bundledFile)
+  fun isBundledDriver(file: File): Boolean = bundledFiles.any { it.absolutePath == file.absolutePath }
+  private fun packageId(file: File): String = when (file.absolutePath) {
+    bundledFile.absolutePath -> BUNDLED_MARKER
+    combinedFile.absolutePath -> COMBINED_MARKER
+    else -> file.name
+  }
+  fun isBundledInUse(): Boolean = bundledFiles.any(::isInUse)
 
   fun supportsCustomDriverLoading(): Boolean {
     return isAdreno() || isMaliSX2Device()
@@ -314,8 +331,8 @@ object GpuDriverHelper {
       ?.mapNotNull { readMetadata(it)?.copy(path = it.absolutePath) }
       ?.sortedBy { it.name?.lowercase() }
       ?: emptyList()
-    val bundled = if (isMaliSX2Device()) readMetadata(bundledFile) else null
-    return listOfNotNull(bundled) + stored
+    val bundled = if (isMaliSX2Device()) bundledFiles.mapNotNull(::readMetadata) else emptyList()
+    return bundled + stored
   }
 
   /** A package's meta.json (the first .json if none is called that), or null. */

@@ -5,3 +5,10 @@ Source: https://github.com/bmdhacks/malisx2/tree/b85d5f7f366994a403fcc14bc6a0813
 Mesa components retain their original licenses and copyright notices.
 Mesa snapshot used by the pinned MaliSX2 source: db9bce6c3d36570ef996a898f53cbcde08db39e8.
 Its license texts are included under mesa-licenses/; individual components retain their original terms.
+
+Additional locally modified bundle: MaliSX2 0.2.3 Unified M2+DS1 (RG477M, Android 14+).
+Library SHA-256: b05da0faba919d2310ed8f22af0fa6a7632d25d9fc69278659c554b76757dfa1.
+Runtime identifier: unified-m2-ds.s2685180360ae.
+Includes the Unified M1/M2 and DS1 patches; this is not the unmodified official archive.
+Original copyright and license terms are retained. Provenance and test scope are in the bundle.
+Qualified on RG477M/Mali-G615; the official 0.2.3 bundle remains available for rollback and other devices.

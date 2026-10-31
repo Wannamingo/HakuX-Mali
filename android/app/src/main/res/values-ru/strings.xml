@@ -48,7 +48,7 @@
   <string name="settings_gpu_driver_active_version">%1$s (%2$s)</string>
   <string name="settings_gpu_driver_not_supported">Системный драйвер. Пользовательские драйверы доступны для Adreno, а также для RG477M / Dimensity 8300 с MaliSX2.</string>
   <string name="gpu_driver_desc">Драйвер Vulkan для графики Xbox. Выбирайте совместимый пакет: Turnip для Adreno, MaliSX2 для поддерживаемых устройств Mali. Изменение применяется при следующем запуске игры.</string>
-  <string name="gpu_driver_malisx2">MaliSX2 0.2.3 встроен для RG477M / Dimensity 8300 (MT6897, Mali-G615). Выберите встроенный драйвер ниже; отдельный импорт не требуется. При новой установке он выбирается автоматически. Начните с разрешения 1×. Можно выбрать системный драйвер или импортировать другой совместимый пакет MaliSX2.</string>
+  <string name="gpu_driver_malisx2">MaliSX2 встроен для RG477M / Dimensity 8300 (MT6897, Mali-G615). На RG477M с Android 14+ доступен проверочный M2+DS1; официальный 0.2.3 сохранён для отката. Новая установка выбирает встроенный пакет автоматически, обновление сохраняет прежний выбор. Начните с разрешения 1× и перезапустите игру после смены драйвера.</string>
   <string name="gpu_driver_err_gpu">Этот пакет не подходит устройству. Для RG477M / Dimensity 8300 нужна libvulkan_malisx2.so, для Adreno — драйвер Adreno.</string>
   <string name="gpu_driver_bundled">Встроен в приложение. Отдельная загрузка или импорт не требуются.</string>
   <string name="gpu_driver_malisx2_vita">Экспериментальная поддержка RG VITA Pro (RK3576, Mali-G52). MaliSX2 0.2.3 встроен; для сравнения можно выбрать системный драйвер. Начните с разрешения 1×. После смены драйвера перезапустите игру.</string>
