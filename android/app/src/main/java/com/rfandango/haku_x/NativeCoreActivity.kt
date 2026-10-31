@@ -427,7 +427,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   private var nativePaused: Boolean? = null
 
   private fun syncPause() {
-    val want = activityPaused || menuDialogs > 0
+    val want = activityPaused || menuDialogs > 0 || editorBar != null
     if (nativePaused != want) {
       nativePaused = want
       nativeSetPaused(want)
@@ -990,6 +990,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     }
     mLayout?.addView(bar, params)
     editorBar = bar
+    syncPause()
   }
 
   /** A frontend (ES-DE...) launched the game: there's no library to go back to. */
@@ -1158,6 +1159,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     onScreenController?.editing = false
     editorBar?.let { mLayout?.removeView(it) }
     editorBar = null
+    syncPause()
     updateControllerVisibility()
   }
 

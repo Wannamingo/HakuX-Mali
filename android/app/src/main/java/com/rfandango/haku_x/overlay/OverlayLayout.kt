@@ -1,6 +1,7 @@
 package com.rfandango.haku_x.overlay
 
 import android.content.Context
+import android.util.AtomicFile
 import org.json.JSONObject
 import java.io.File
 
@@ -61,12 +62,12 @@ object OverlayStore {
 
   fun load(context: Context, w: Float, h: Float): OverlayLayout {
     val layout = defaults(w, h)
-    val file = File(context.filesDir, FILE)
-    if (!file.isFile) {
+    val file = AtomicFile(File(context.filesDir, FILE))
+    if (!file.baseFile.isFile && !File(context.filesDir, "$FILE.bak").isFile) {
       return layout
     }
     try {
-      val root = JSONObject(file.readText())
+      val root = JSONObject(file.openRead().bufferedReader().use { it.readText() })
       val controls = root.optJSONObject("controls") ?: return layout
       for (id in ControlId.entries) {
         val c = controls.optJSONObject(id.name) ?: continue
@@ -83,7 +84,9 @@ object OverlayStore {
     return layout
   }
 
-  fun save(context: Context, layout: OverlayLayout, w: Float, h: Float) {
+  fun save(context: Context, layout: OverlayLayout, w: Float, h: Float): Boolean {
+    if (!w.isFinite() || !h.isFinite() || w <= 0 || h <= 0) return false
+    if (layout.controls.values.any { !it.cx.isFinite() || !it.cy.isFinite() || !it.radius.isFinite() || !it.opacity.isFinite() }) return false
     val controls = JSONObject()
     for ((id, spec) in layout.controls) {
       controls.put(id.name, JSONObject().apply {
@@ -98,10 +101,17 @@ object OverlayStore {
       put("version", 2)
       put("controls", controls)
     }
-    val file = File(context.filesDir, FILE)
-    val tmp = File(context.filesDir, "$FILE.tmp")
-    tmp.writeText(root.toString())
-    tmp.renameTo(file)
+    val file = AtomicFile(File(context.filesDir, FILE))
+    var stream: java.io.FileOutputStream? = null
+    return try {
+      stream = file.startWrite()
+      stream.write(root.toString().toByteArray(Charsets.UTF_8))
+      file.finishWrite(stream)
+      true
+    } catch (_: Exception) {
+      file.failWrite(stream)
+      false
+    }
   }
 
   /** Back to the defaults (the file goes). */

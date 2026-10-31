@@ -1,0 +1,18 @@
+<resources>
+  <string name="overlay_editor_all">Все кнопки</string>
+  <string name="overlay_editor_all_short">Все</string>
+  <string name="overlay_editor_selection">%1$s · Далее ›</string>
+  <string name="overlay_editor_reset_one">Сброс кнопки</string>
+  <string name="overlay_editor_size_value">Размер: %1$d%%</string>
+  <string name="overlay_editor_save">Сохранить</string>
+  <string name="overlay_editor_save_failed">Не удалось сохранить раскладку. Изменения остаются открытыми.</string>
+  <string name="overlay_editor_workflow">Касание — выбор · Перетаскивание — место · «Далее» выбирает перекрытые кнопки. Отмена возвращает и сбросы.</string>
+  <string name="overlay_control_lt">Левый триггер</string>
+  <string name="overlay_control_rt">Правый триггер</string>
+  <string name="overlay_control_ls">Левый стик</string>
+  <string name="overlay_control_rs">Правый стик</string>
+  <string name="overlay_control_dpad">Крестовина</string>
+  <string name="overlay_control_menu">Меню</string>
+  <string name="overlay_control_white">Белая</string>
+  <string name="overlay_control_black">Чёрная</string>
+</resources>

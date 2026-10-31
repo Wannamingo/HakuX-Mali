@@ -1,0 +1,18 @@
+<resources>
+  <string name="overlay_editor_all">All controls</string>
+  <string name="overlay_editor_all_short">All</string>
+  <string name="overlay_editor_selection">%1$s · Next ›</string>
+  <string name="overlay_editor_reset_one">Reset control</string>
+  <string name="overlay_editor_size_value">Size: %1$d%%</string>
+  <string name="overlay_editor_save">Save</string>
+  <string name="overlay_editor_save_failed">Could not save the layout. Your edits are still open.</string>
+  <string name="overlay_editor_workflow">Tap to select · Drag to move · Next reaches covered controls. Cancel also undoes resets.</string>
+  <string name="overlay_control_lt">Left trigger</string>
+  <string name="overlay_control_rt">Right trigger</string>
+  <string name="overlay_control_ls">Left stick</string>
+  <string name="overlay_control_rs">Right stick</string>
+  <string name="overlay_control_dpad">D-pad</string>
+  <string name="overlay_control_menu">Menu</string>
+  <string name="overlay_control_white">White</string>
+  <string name="overlay_control_black">Black</string>
+</resources>

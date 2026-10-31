@@ -21,6 +21,7 @@ import com.rfandango.haku_x.overlay.ControlPainter
 import com.rfandango.haku_x.overlay.ControlSpec
 import com.rfandango.haku_x.overlay.OverlayLayout
 import com.rfandango.haku_x.overlay.OverlayStore
+import com.rfandango.haku_x.overlay.OverlayEditSession
 import kotlin.math.abs
 import kotlin.math.atan2
 import kotlin.math.ceil
@@ -124,10 +125,13 @@ class OnScreenController @JvmOverloads constructor(
   )
 
   // ---------------------------------------------------------------- editing
+  private val editSession = OverlayEditSession()
   /** Editing the layout instead of playing: touches move and size the controls. */
   var editing = false
     set(value) {
       if (field == value) return
+      if (value) layout?.let { editSession.begin(it) }
+      else editSession.cancel()?.let { layout = it }
       field = value
       resetAllInputs()
       select(null)
@@ -164,6 +168,7 @@ class OnScreenController @JvmOverloads constructor(
       // Keep (unsaved) edits through a size change: everything scales with the view.
       val sx = w.toFloat() / oldw
       val sy = h.toFloat() / oldh
+      editSession.resized(sx, sy)
       for (s in current.controls.values) {
         s.cx *= sx
         s.cy *= sy
@@ -171,6 +176,8 @@ class OnScreenController @JvmOverloads constructor(
       }
     }
     defaults = OverlayStore.defaults(w.toFloat(), h.toFloat())
+    if (editing) layout?.let { editSession.begin(it) }
+    onLayoutChanged?.invoke()
   }
 
   // =========================================================== drawing
@@ -520,6 +527,7 @@ class OnScreenController @JvmOverloads constructor(
   }
 
   override fun onDetachedFromWindow() {
+    editing = false
     removeCallbacks(retryRedraw)
     wantedSince = 0L
     resetAllInputs()
@@ -726,6 +734,52 @@ class OnScreenController @JvmOverloads constructor(
   /** The control being edited, or null. */
   fun selectedControl(): ControlId? = selected
 
+  /** Also reaches a hidden control or one covered by the editor panel. Null is the legacy all-controls scope. */
+  fun selectNextControl() {
+    val at = selected?.ordinal ?: -1
+    select(ControlId.entries.getOrNull(at + 1))
+    invalidate()
+  }
+
+  fun selectAllControls() { select(null); invalidate() }
+
+  fun setScalePercent(percent: Int) {
+    val l = layout ?: return
+    val d = defaults ?: return
+    val targets = selected?.let { listOf(l[it]) } ?: l.controls.values
+    for (s in targets) setRadius(s, d[s.id].radius * percent / 100f)
+    invalidate()
+  }
+
+  /** Retain legal legacy sizes outside the usual 40..160% slider span. */
+  fun scaleBounds(): IntRange {
+    val d = defaults ?: return 40..160
+    val ids = selected?.let { listOf(it) } ?: ControlId.entries
+    val low = ids.maxOf { ceil(OverlayStore.minRadius(height.toFloat()) / d[it].radius * 100).toInt() }
+    val high = ids.minOf { floor(OverlayStore.maxRadius(height.toFloat()) / d[it].radius * 100).toInt() }
+    val current = scalePercent() ?: 100
+    return minOf(maxOf(40, low), current)..maxOf(minOf(160, high), current)
+  }
+
+  fun setOpacityPercent(percent: Int) {
+    val l = layout ?: return
+    val targets = selected?.let { listOf(l[it]) } ?: l.controls.values
+    for (s in targets) s.opacity = (percent / 100f).coerceIn(OverlayStore.MIN_OPACITY, 1f)
+    onLayoutChanged?.invoke()
+    invalidate()
+  }
+
+  /** Reset this control's appearance; its position and visibility are deliberately retained. */
+  fun resetSelectedAppearance() {
+    val id = selected ?: return
+    val s = layout?.get(id) ?: return
+    val d = defaults?.get(id) ?: return
+    s.radius = d.radius
+    s.opacity = d.opacity
+    onLayoutChanged?.invoke()
+    invalidate()
+  }
+
   /**
    * The selected control's size against its default, in percent; none
    * selected, every control's if they share one, else null (they differ).
@@ -791,9 +845,11 @@ class OnScreenController @JvmOverloads constructor(
   }
 
   /** Keeps the layout for the next game and the next edit. */
-  fun saveLayout() {
-    val l = layout ?: return
-    OverlayStore.save(context, l, width.toFloat(), height.toFloat())
+  fun saveLayout(): Boolean {
+    val l = layout ?: return false
+    if (!editing) return OverlayStore.save(context, l, width.toFloat(), height.toFloat())
+    editSession.begin(l)
+    return editSession.save { OverlayStore.save(context, l, width.toFloat(), height.toFloat()) }
   }
 
   /** The default layout (kept once saved). */
@@ -808,7 +864,7 @@ class OnScreenController @JvmOverloads constructor(
   /** Drops unsaved edits. */
   fun reloadLayout() {
     if (width == 0 || height == 0) return
-    layout = OverlayStore.load(context, width.toFloat(), height.toFloat())
+    layout = editSession.cancel() ?: OverlayStore.load(context, width.toFloat(), height.toFloat())
     select(null)
     onLayoutChanged?.invoke()
     invalidate()
