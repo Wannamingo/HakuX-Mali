@@ -79,6 +79,11 @@ int main(void)
     hle_dynamic_reset(&drs,0);
     for(unsigned i=10;i<14;i++)assert(hle_dynamic_window(&drs,i,60,.2,true,1,1,2,30)==1);
     assert(hle_dynamic_window(&drs,14,60,.2,true,1,1,2,30)==2);
+    assert(hle_dynamic_window(&drs,18,45,.5,true,2,1,2,30)==2); /* upscale meets target */
+    hle_dynamic_reset(&drs,0);
+    for(unsigned i=10;i<14;i++)assert(hle_dynamic_window(&drs,i,60,.2,true,1,1,2,30)==1);
+    assert(hle_dynamic_window(&drs,14,60,.2,true,1,1,2,30)==2);
+    assert(hle_dynamic_window(&drs,18,20,.9,true,2,1,2,30)==1); /* upscale missed target: rollback */
     hle_dynamic_reset(&drs,0);
     for(unsigned i=10;i<30;i++)assert(hle_dynamic_window(&drs,i,60,.6,true,1,1,2,60)==1); /* no projected headroom */
     puts("PASS: filter, movie metadata/lifetime, DRS warmup, CPU-bound rollback, hysteresis and headroom policies");

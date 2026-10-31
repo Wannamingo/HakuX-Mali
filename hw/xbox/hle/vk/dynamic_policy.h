@@ -8,6 +8,7 @@
 typedef struct HleDynamicPolicy {
     double ready,blocked,baseline,verify;
     unsigned low,high,restore;
+    bool upgrading;
 } HleDynamicPolicy;
 static inline void hle_dynamic_reset(HleDynamicPolicy *p,double now)
 { memset(p,0,sizeof(*p));p->ready=now+10; }
@@ -19,7 +20,8 @@ static inline unsigned hle_dynamic_window(HleDynamicPolicy *p,double now,double 
     if(p->restore) {
         if(now<p->verify)return current;
         unsigned old=p->restore;p->restore=0;p->ready=now+8;
-        if(fps<p->baseline*1.05) {p->blocked=now+30;return old;}
+        bool useful=p->upgrading?fps>=goal*.95:fps>=p->baseline*1.05;
+        if(!useful) {p->blocked=now+30;return old;}
         return current;
     }
     if(now<p->blocked)return current;
@@ -30,14 +32,17 @@ static inline unsigned hle_dynamic_window(HleDynamicPolicy *p,double now,double 
     if(current>min && fps<goal*.92 && queue>.25) {
         p->high=0;
         if(++p->low>=3) {
-            p->low=0;p->baseline=fps;p->restore=current;p->verify=now+4;p->ready=now+1;
+            p->low=0;p->baseline=fps;p->restore=current;p->upgrading=false;p->verify=now+4;p->ready=now+1;
             return current-1;
         }
     }else p->low=0;
     double ratio=(double)(current+1)/current;
     double projected=queue*goal/fps*ratio*ratio;
-    if(current<max && fps>=goal*.98 && projected<.70) {
-        if(++p->high>=5) {p->high=0;p->ready=now+10;return current+1;}
+    if(current<max && fps>=goal*.98 && projected<.85) {
+        if(++p->high>=5) {
+            p->high=0;p->restore=current;p->upgrading=true;p->verify=now+4;p->ready=now+1;
+            return current+1;
+        }
     }else p->high=0;
     return current;
 }
