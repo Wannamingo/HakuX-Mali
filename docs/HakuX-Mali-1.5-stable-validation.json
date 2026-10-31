@@ -1,0 +1,29 @@
+{
+  "status": "PASS_SIGNED_STABLE_RELEASE",
+  "apk": "HakuX-Mali-1.5-release.apk",
+  "sha256": "11a0a83488bebc3e1b6339a590deacbcbfef47b7199df6536d3767407c6cb71f",
+  "package": "com.rfandango.haku_x.debug",
+  "versionName": "1.5",
+  "versionCode": 24,
+  "certificate_sha256": "1cdd12b743a90c5e1224b11d46ca79189662bd023b2c63686dacfdd5530a590e",
+  "signature_v3": true,
+  "alignment16k": true,
+  "debuggable": false,
+  "approved_source_commit": "8079bddb49c5d5d078499d5606fd53f083bbc721",
+  "approved_preview_sha256": "21b97319857baca57709c6fca2506bd052cba4951f1694d1229c6882da395917",
+  "native_core_sha256": "bf05cdbc810a739c33de02e9f86573e2564435d8fb4b0df627dfbb13672841e0",
+  "all_native_libraries_exact_from_approved_preview": true,
+  "native_library_count": 8,
+  "driver_assets_and_icon_preserved": true,
+  "unit_tests": {
+    "tests": 74,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lintVitalRelease": true,
+  "production_shader_compilations": 16,
+  "user_visual_approval": true,
+  "new_feature_device_validation": "RG477M; prior Vita Pro/Rotate support retained, not retested",
+  "new_release_installed_on_device": false
+}

@@ -4,13 +4,19 @@
 
 ![HakuX-Mali](assets/branding/hakux-mali-banner.png)
 
-An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **One 1.4/code22 release supports ANBERNIC RG477M, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
+An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **One 1.5/code24 release supports ANBERNIC RG477M, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
 
-**[Release 1.4: APK, source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.4)** · **[Detailed changes](releases/1.4.en.md)**
+**[Release 1.5: APK, source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.5)** · **[Detailed changes](releases/1.5.en.md)**
 
-## New in 1.4
+## New in 1.5
 
-Next validation build: [1.5/code23 — up to 16× anisotropy, movie aspect modes and dynamic resolution](releases/1.5.en.md). New controls are being validated on RG477M; the published stable release remains 1.4.
+- Shaders: light/soft CRT, composite NTSC and temporal CRT; five mask styles with size, strength, scanline, glow, blur and curvature controls. Available from the library and pause menu with global and per-game settings. Off by default.
+- Anisotropic filtering up to 16×, bounded by the selected driver.
+- Separate movie aspect modes: automatic recognition, 4:3, 16:9 and manual switching.
+- Experimental live internal resolution from 1× to 2× with measured probes and rollback; off by default.
+- Bundled Unified M2+DS1 for RG477M on Android 14+, retaining official MaliSX2 0.2.3. Explicit existing driver selections survive updates.
+
+Details, results and test scope: [release 1.5](releases/1.5.en.md). New features were checked on RG477M; Vita Pro and Rotate checks belong to the 1.4 line. Retained 1.4 features:
 
 - Measured calibration: several configurations from one temporary checkpoint, actual FPS/P95, game-specific results and cancellation/crash recovery.
 - Automatic settings that preserve manual values, plus a 30 FPS Economy preset.
@@ -25,7 +31,7 @@ Next validation build: [1.5/code23 — up to 16× anisotropy, movie aspect modes
 
 | Handheld | Platform | Starting settings |
 |---|---|---|
-| RG477M | Dimensity 8300 / Mali-G615 | Bundled MaliSX2 0.2.3, 1×, Bilinear, FXAA Off |
+| RG477M | Dimensity 8300 / Mali-G615 | M2+DS1 (Android 14+) / MaliSX2 0.2.3, 1×, Bilinear, FXAA Off |
 | RG Vita Pro | RK3576 / Mali-G52, Android 14 / GammaOS Next Lite | System driver, 1×, Bilinear, FXAA Off |
 | RG Rotate | T618 / Mali-G52, Android 12 | System driver / Vulkan 1.1, 1×, Bilinear, FXAA Off |
 
@@ -35,9 +41,9 @@ A full 1.4 calibration cycle on RG477M measured about 60 FPS at 1× versus 48 at
 
 ## Installation
 
-1. Install **HakuX-Mali-1.4-release.apk** over our previous release. Package ID and signing identity are retained; do not uninstall to update.
+1. Install **HakuX-Mali-1.5-release.apk** over our previous release. Package ID and signing identity are retained; do not uninstall to update.
 2. Select your own ISO/XISO directory or game folders containing `default.xbe`. Release source archives are for developers.
-3. MaliSX2 is bundled for RG477M; an explicit existing driver choice is retained on update. Rotate was checked with its system driver. Restart games after switching drivers.
+3. M2+DS1 and official MaliSX2 0.2.3 are available on RG477M with Android 14+; an explicit existing driver choice is retained on update. Rotate was checked with its system driver. Restart games after switching drivers.
 4. Auto is off by default. Use a stable gameplay scene and **Calibrate performance** in the pause menu to measure settings.
 5. A new installation defaults to a 120 FPS ceiling; existing manual limits are preserved. Games retain their own lower 30/60 FPS caps.
 
@@ -64,7 +70,7 @@ The T-Rus Ryudo folder package has a [launcher workaround](docs/SERIOUS-SAM.en.m
 - The supplied artwork is used for legacy, adaptive and monochrome icons across five densities, preserving its aspect ratio.
 - Updated to hakuX 1.2.0, retaining upstream audio, memory, thread-stack, controller and System Link changes. present_cpu_wait and rop_pass_split have distinct bits; fpslimit uses the shared parser, and the adrenotools hooks are built together.
 
-See the complete [release notes](releases/1.4.en.md) and [technical details](android/RG477M.md).
+See the complete [release notes](releases/1.5.en.md) and [technical details](android/RG477M.md).
 
 ## Successfully launched games on RG477M
 
