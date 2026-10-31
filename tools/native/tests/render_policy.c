@@ -74,7 +74,7 @@ int main(void)
     assert(hle_dynamic_window(&drs,16,30,.4,true,1,1,2,60)==2); /* CPU-bound/fixed game cap */
     assert(hle_dynamic_window(&drs,25,30,.99,true,2,1,2,60)==2); /* retry blocked */
     hle_dynamic_reset(&drs,0);
-    for(unsigned i=10;i<20;i++)assert(hle_dynamic_window(&drs,i,30,.3,true,2,1,2,60)==2);
+    for(unsigned i=10;i<20;i++)assert(hle_dynamic_window(&drs,i,30,.1,true,2,1,2,60)==2);
     for(unsigned i=20;i<30;i++)assert(hle_dynamic_window(&drs,i,30,.99,false,2,1,2,60)==2); /* 2D/video */
     hle_dynamic_reset(&drs,0);
     for(unsigned i=10;i<14;i++)assert(hle_dynamic_window(&drs,i,60,.2,true,1,1,2,30)==1);

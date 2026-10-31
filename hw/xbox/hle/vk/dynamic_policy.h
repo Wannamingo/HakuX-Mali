@@ -23,7 +23,11 @@ static inline unsigned hle_dynamic_window(HleDynamicPolicy *p,double now,double 
         return current;
     }
     if(now<p->blocked)return current;
-    if(current>min && fps<goal*.92 && queue>.80) {
+    /* Fence queue occupancy includes gaps caused by CPU/GPU dependencies.
+     * A moderate pending fraction can still be GPU-sensitive (Syberia on
+     * G615: ~55%). Treat it only as permission to probe; FPS response below
+     * decides whether the smaller scale is useful. */
+    if(current>min && fps<goal*.92 && queue>.25) {
         p->high=0;
         if(++p->low>=3) {
             p->low=0;p->baseline=fps;p->restore=current;p->verify=now+4;p->ready=now+1;
