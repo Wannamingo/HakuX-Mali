@@ -26,6 +26,7 @@ class GameExperience(private val activity: NativeCoreActivity, private val captu
     val store = ExperienceStore(activity)
     options = store.effective(game); bindings = store.hotkeys()
     NativeCoreActivity.nativeSetOutputVolume(options[ExperienceSetting.VOLUME], options.enabled(ExperienceSetting.MUTE))
+    NativeCoreActivity.nativeSetPostShader(options[ExperienceSetting.POST_SHADER])
     NativeCoreActivity.nativeSetMoviePolicy(options[ExperienceSetting.MOVIE_ASPECT])
     NativeCoreActivity.nativeSetDynamicResolution(
       if(options.enabled(ExperienceSetting.DYNAMIC)&&!GameCalibration.isTrial(activity)) options[ExperienceSetting.DYNAMIC_MIN] else 0,

@@ -28,7 +28,7 @@ static struct {
     HleCond cond;
     HleMutex use;               /* hle_disp_use_begin/end */
     bool inited;
-    uint32_t w, h, gen;
+    uint32_t w, h, gen, signal_w, signal_h;
     HleDispSlot s[HLE_DISP_SLOTS];
     HleDispStats st;
     bool present_late;          /* hle_disp_present_late */
@@ -94,10 +94,10 @@ void hle_disp_setup(void)
     }
 }
 
-int hle_disp_init(uint32_t w, uint32_t h)
+int hle_disp_init(uint32_t w, uint32_t h, uint32_t signal_w, uint32_t signal_h)
 {
     hle_disp_setup();
-    if (g_disp.w == w && g_disp.h == h && g_disp.s[0].img) {
+    if (g_disp.w == w && g_disp.h == h && g_disp.signal_w == signal_w && g_disp.signal_h == signal_h && g_disp.s[0].img) {
         return 0;
     }
     /* Allocate first: a failed live resize must leave the previous front
@@ -127,6 +127,8 @@ int hle_disp_init(uint32_t w, uint32_t h)
     }
     g_disp.w = w;
     g_disp.h = h;
+    g_disp.signal_w = signal_w;
+    g_disp.signal_h = signal_h;
     g_disp.gen++;
     hle_mutex_unlock(&g_disp.lock);
     hle_mutex_unlock(&g_disp.use);
@@ -364,7 +366,7 @@ bool hle_disp_acquire(HleDispFrame *f)
                 shown = s_last_shown;
             }
             s->held = true;
-            *f = (HleDispFrame){ i, g_disp.gen, s->swap_id, g_disp.w, g_disp.h, s->value, s->img, s->view };
+            *f = (HleDispFrame){ i, g_disp.gen, s->swap_id, g_disp.w, g_disp.h, s->value, s->img, s->view, g_disp.signal_w, g_disp.signal_h };
             found = true;
             break;
         }

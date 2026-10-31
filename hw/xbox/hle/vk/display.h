@@ -20,7 +20,7 @@
 /* Once, before the presenter may come (hle_back_start). */
 void hle_disp_setup(void);
 /* Render thread (CONFIG_VULKAN builds only). */
-int hle_disp_init(uint32_t w, uint32_t h);
+int hle_disp_init(uint32_t w, uint32_t h, uint32_t signal_w, uint32_t signal_h);
 int hle_disp_begin_write(uint32_t swap_id, uint64_t value);
 void hle_disp_size(uint32_t *w, uint32_t *h);
 /* Watcher thread. */

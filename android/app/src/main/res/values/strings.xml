@@ -527,4 +527,11 @@
   <string name="cal_open_game">Open a gameplay scene, then choose Calibrate performance from the pause menu.</string>
   <string name="cal_pending">An unfinished comparison has a recovery checkpoint. Recover it before starting another comparison.</string>
   <string name="cal_recover">Recover unfinished comparison</string>
+  <string name="shader_title">Shaders</string>
+  <string name="shader_off">Off</string>
+  <string name="shader_crt_light">CRT — light</string>
+  <string name="shader_crt_soft">CRT — soft, curved</string>
+  <string name="shader_ntsc">Composite NTSC</string>
+  <string name="shader_temporal">CRT — flicker and jitter</string>
+  <string name="shader_desc">Test presets with their own filtering. Change live from the pause menu.</string>
 </resources>

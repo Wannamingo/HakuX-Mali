@@ -984,7 +984,7 @@ static void cmd_device(const HleCmdDevice *c, bool reset)
     g_back.disp_w = c->disp_w;
     g_back.disp_h = c->disp_h;
     g_back.present_id = c->present_id;
-    hle_disp_init(c->disp_w * scale, c->disp_h * scale);
+    hle_disp_init(c->disp_w * scale, c->disp_h * scale, c->disp_w, c->disp_h);
     hle_log("hakuX-hle-back", "DEVICE_%s %ux%u surfaces=%u present=%u scale=%u",
             reset ? "RESET" : "CREATE", c->disp_w, c->disp_h, c->nsurf, c->present_id,
             scale);

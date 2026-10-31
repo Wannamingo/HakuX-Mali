@@ -61,6 +61,9 @@ static double process_cpu_ms(void)
 }
 static double g_measure_cpu;
 
+EXPORT JNIEXPORT void JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeSetPostShader(JNIEnv *env,jclass cls,jint mode)
+{ nc_present_set_shader(mode); }
+
 EXPORT JNIEXPORT void JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeSetMoviePolicy(JNIEnv *env,jclass cls,jint mode)
 { nc_present_set_movie(mode); }
 EXPORT JNIEXPORT jboolean JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeToggleMovie(JNIEnv *env,jclass cls)
@@ -655,6 +658,7 @@ EXPORT int SDL_main(int argc, char *argv[])
             if(sscanf(argv[i]+8,"%u,%u,%u%c",&min,&max,&target,&tail)!=3)min=0;
             hle_back_set_dynamic(min,max,target);nc_movie_enable(hle_back_movie_tracking_on());
         }
+        if (!strncmp(argv[i], "postshader=", 11)) nc_present_set_shader(atoi(argv[i]+11));
         if (!strncmp(argv[i], "fxaa=", 5)) {
             nc_present_set_fxaa(atoi(argv[i] + 5) != 0);
         }

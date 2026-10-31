@@ -546,4 +546,11 @@
   <string name="cal_open_game">Откройте игровую сцену, затем выберите «Подобрать настройки по замерам» в меню паузы.</string>
   <string name="cal_pending">У незавершённой проверки есть контрольная точка. Восстановите её перед новой проверкой.</string>
   <string name="cal_recover">Восстановить незавершённую проверку</string>
+  <string name="shader_title">Шейдеры</string>
+  <string name="shader_off">Выключено</string>
+  <string name="shader_crt_light">ЭЛТ — лёгкий</string>
+  <string name="shader_crt_soft">ЭЛТ — мягкий, выпуклый</string>
+  <string name="shader_ntsc">Композитный NTSC</string>
+  <string name="shader_temporal">ЭЛТ — мерцание и дрожание</string>
+  <string name="shader_desc">Тестовые эффекты со своей фильтрацией. Можно менять в меню паузы.</string>
 </resources>

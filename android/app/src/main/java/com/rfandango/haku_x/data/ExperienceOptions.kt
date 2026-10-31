@@ -12,6 +12,7 @@ enum class ExperienceSetting(val key: String, val default: Int, val minimum: Int
   CROP_TOP("crop_top", 0, 0, 15), CROP_BOTTOM("crop_bottom", 0, 0, 15),
   ZOOM("zoom", 100, 100, 200), SHIFT_X("shift_x", 0, -20, 20), SHIFT_Y("shift_y", 0, -20, 20),
   MOVIE_ASPECT("movie_aspect",0,0,3),
+  POST_SHADER("post_shader",0,0,4),
   REFRESH_RATE("refresh_rate", 0, 0, 240), AUTO_SAVE("auto_save", 0, 0, 1),
   OFFER_RESUME("offer_resume", 0, 0, 1), THERMAL_WARNING("thermal_warning", 0, 0, 1),
   SOC_WARNING("soc_warning", 90, 60, 110), BATTERY_WARNING("battery_warning", 45, 35, 55);

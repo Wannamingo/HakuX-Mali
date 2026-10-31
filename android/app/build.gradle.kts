@@ -32,7 +32,7 @@ android {
     targetSdk = 36
 
     versionCode = 23
-    versionName = "1.5"
+    versionName = "1.5-shaders-test"
 
     ndk {
       abiFilters += listOf("arm64-v8a")

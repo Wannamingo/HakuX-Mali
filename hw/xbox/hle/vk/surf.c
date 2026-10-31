@@ -723,7 +723,7 @@ bool hle_surf_rescale(uint32_t scale,uint32_t display_w,uint32_t display_h)
          * process owns them until Android tears down its Vulkan device. */
         hle_vk_lose(r,"vkWaitForFences (resolution copy)");g_free(next);return false;
     }
-    if(hle_disp_init(display_w*scale,display_h*scale))goto fail;
+    if(hle_disp_init(display_w*scale,display_h*scale,display_w,display_h))goto fail;
     /* Invalidate child views before freeing their owners. */
     for(unsigned i=0;i<HLE_MAX_VK_SURF;i++) {
         HleVkSurf *v=&g_surf[i];if(!v->alive||!v->d.parent||v->destroy_after)continue;

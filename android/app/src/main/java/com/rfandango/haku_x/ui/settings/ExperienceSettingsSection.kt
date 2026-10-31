@@ -29,6 +29,7 @@ internal fun experienceLabel(field: ExperienceSetting): Int = when (field) {
   ExperienceSetting.DYNAMIC_MIN -> R.string.renderer_dynamic_min
   ExperienceSetting.DYNAMIC_MAX -> R.string.renderer_dynamic_max
   ExperienceSetting.DYNAMIC_TARGET -> R.string.renderer_dynamic_target
+  ExperienceSetting.POST_SHADER -> R.string.shader_title
   ExperienceSetting.MOVIE_ASPECT -> R.string.renderer_movie_aspect
   ExperienceSetting.VOLUME -> R.string.exp_volume
   ExperienceSetting.MUTE -> R.string.exp_mute
@@ -102,11 +103,12 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
       SettingsTarget(experienceLabel(field)) {
         when (field) {
           ExperienceSetting.DYNAMIC_MIN,ExperienceSetting.DYNAMIC_MAX,ExperienceSetting.DYNAMIC_TARGET,
-          ExperienceSetting.MOVIE_ASPECT,ExperienceSetting.ANISOTROPY,ExperienceSetting.AUDIO_BUFFER, ExperienceSetting.REFRESH_RATE -> ListItem(
+          ExperienceSetting.POST_SHADER,ExperienceSetting.MOVIE_ASPECT,ExperienceSetting.ANISOTROPY,ExperienceSetting.AUDIO_BUFFER, ExperienceSetting.REFRESH_RATE -> ListItem(
             headlineContent = { Text(title) }, supportingContent = { Text(
               (if (inherited) stringResource(R.string.exp_inherited) + " " else "") +
                 if(field==ExperienceSetting.DYNAMIC_TARGET) "$value FPS"
                 else if(field==ExperienceSetting.DYNAMIC_MIN||field==ExperienceSetting.DYNAMIC_MAX) "${value}×"
+                else if(field==ExperienceSetting.POST_SHADER) stringResource(PostShaders.label(value))+" · "+stringResource(R.string.shader_desc)
                 else if(field==ExperienceSetting.MOVIE_ASPECT) stringResource(movieLabel(value))+" · "+stringResource(R.string.renderer_movie_desc)
                 else if(field==ExperienceSetting.ANISOTROPY) (if(value==0) stringResource(R.string.renderer_original) else "${value}×") +
                   if(capabilities==null) " · "+stringResource(R.string.renderer_caps_unknown) else ""
@@ -145,6 +147,7 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
     val values = if(field==ExperienceSetting.DYNAMIC_TARGET) listOf(30,60,90,120)
     else if(field==ExperienceSetting.DYNAMIC_MIN) listOf(1,2)
     else if(field==ExperienceSetting.DYNAMIC_MAX) (effective[ExperienceSetting.DYNAMIC_MIN]..2).toList()
+    else if(field==ExperienceSetting.POST_SHADER) (0..4).toList()
     else if(field==ExperienceSetting.MOVIE_ASPECT) listOf(0,1,2,3)
     else if(field==ExperienceSetting.ANISOTROPY) capabilities?.anisotropyChoices?:listOf(0)
     else if (field == ExperienceSetting.AUDIO_BUFFER) listOf(0, 1, 2) else {
@@ -157,6 +160,7 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
       (if (gameKey != null) listOf<Int?>(null) else emptyList()) .map { it to stringResource(R.string.extra_picture_use_global_value) } +
         values.map { it as Int? to if(field==ExperienceSetting.DYNAMIC_TARGET) "$it FPS"
           else if(field==ExperienceSetting.DYNAMIC_MIN||field==ExperienceSetting.DYNAMIC_MAX) "${it}×"
+          else if(field==ExperienceSetting.POST_SHADER) stringResource(PostShaders.label(it))
           else if(field==ExperienceSetting.MOVIE_ASPECT) stringResource(movieLabel(it))
           else if(field==ExperienceSetting.ANISOTROPY) (if(it==0) stringResource(R.string.renderer_original) else "${it}×")
           else if (field == ExperienceSetting.AUDIO_BUFFER) stringResource(bufferLabel(it))

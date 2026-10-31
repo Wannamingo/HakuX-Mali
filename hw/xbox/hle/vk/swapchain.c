@@ -44,7 +44,7 @@
 #define PS_RAMP 1024            /* a frame's share of the ramp buffer (768 used) */
 #define PS_PUSH_BYTES (24 * sizeof(float))
 
-enum { P_BILINEAR, P_AREA, P_SGSR, P_FXAA, P_COUNT };
+enum { P_BILINEAR, P_AREA, P_SGSR, P_CRT, P_NTSC, P_TEMPORAL, P_FXAA, P_COUNT };
 
 typedef struct PsFrame {
     VkCommandPool pool;
@@ -107,6 +107,11 @@ static struct {
 } g_ps;
 
 /* Kept outside the surface's lifetime. Neutral values retain the old gamma/SGSR path exactly. */
+static int g_post_shader;
+void hle_present_set_shader(int mode)
+{ __atomic_store_n(&g_post_shader, mode >= 0 && mode <= 4 ? mode : 0, __ATOMIC_RELEASE); }
+int hle_present_shader_mode(void)
+{ return __atomic_load_n(&g_post_shader, __ATOMIC_ACQUIRE); }
 static float g_picture[5] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 static float g_uv[4] = {0.0f, 0.0f, 1.0f, 1.0f};
 static float g_zoom = 1.0f, g_shift_x, g_shift_y;
@@ -151,7 +156,7 @@ static const char k_fs_head[] =
     "#version 450\n"
     "layout(push_constant) uniform P { vec4 rect; vec4 extra; vec4 rot; vec4 picture; vec4 tune; vec4 uv; } pc;\n"
     "layout(set = 0, binding = 0) uniform sampler2D u_tex;\n"
-    "layout(set = 0, binding = 1, std140) uniform G { uvec4 w[48]; } g;\n"
+    "layout(set = 0, binding = 1, std140) uniform G { uvec4 w[48]; vec4 shader_sizes; vec4 shader_output; vec4 shader_effect; vec4 shader_tune; vec4 shader_temporal; } g;\n"
     "layout(location = 0) in vec2 v_uv;\n"
     "layout(location = 0) out vec4 o;\n"
     "uint lut(uint i) {\n"
@@ -169,6 +174,8 @@ static const char k_fs_head[] =
     "  }\n"
     "  return vec4(rgb, 1.0);\n"
     "}\n";
+#include "hw/xbox/hle/vk/post_shaders.h"
+
 static const char k_fs_bilinear[] =
     "void main() {\n"
     "  o = ramp(texture(u_tex, v_uv).rgb);\n"
@@ -486,7 +493,7 @@ static bool init(void)
     hle_log("hakuX-hle-back", "present: completion via %s",
             g_hvk.caps.timeline ? "timeline semaphore" : "Vulkan fences");
     g_ps.vs = module(HLE_SHADER_VERTEX, k_vs, "");
-    static const char *const body[P_COUNT] = { k_fs_bilinear, k_fs_area, k_fs_sgsr, k_fs_fxaa };
+    static const char *const body[P_COUNT] = { k_fs_bilinear, k_fs_area, k_fs_sgsr, k_fs_crt, k_fs_ntsc, k_fs_temporal, k_fs_fxaa };
     for (unsigned i = 0; i < P_COUNT; i++) {
         g_ps.fs[i] = module(HLE_SHADER_FRAGMENT, k_fs_head, body[i]);
     }
@@ -885,7 +892,7 @@ static void quad(VkCommandBuffer cb, PsFrame *f, unsigned set, VkPipeline p, VkI
                  const float pc[24], uint32_t w, uint32_t h)
 {
     VkDescriptorImageInfo ii = { g_ps.smp, src, VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL };
-    VkDescriptorBufferInfo bi = { g_ps.ubo, (VkDeviceSize)(f - g_ps.fr) * PS_RAMP, 768 };
+    VkDescriptorBufferInfo bi = { g_ps.ubo, (VkDeviceSize)(f - g_ps.fr) * PS_RAMP, PS_RAMP };
     VkWriteDescriptorSet wr[2] = {
         { .sType = VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET, .dstSet = f->set[set], .dstBinding = 0,
           .descriptorCount = 1, .descriptorType = VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, .pImageInfo = &ii },
@@ -933,9 +940,37 @@ static void log_path(unsigned p, bool fxaa, uint32_t vw, uint32_t vh)
             p == P_AREA ? "averaged down" : p == P_SGSR ? "scaled up by SGSR" : "bilinear");
 }
 
+static const float shader_presets[5][12] = {
+    {0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f},
+    {1.00000000f, 0.24000000f, 0.14000000f, 0.00000000f, 0.00000000f, 1.04000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f},
+    {1.00000000f, 0.30000000f, 0.18000000f, 0.06000000f, 0.12000000f, 1.05000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f},
+    {0.65000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 1.00000000f, 0.40000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f},
+    {1.00000000f, 0.24000000f, 0.14000000f, 0.03000000f, 0.00000000f, 1.04000000f, 0.00000000f, 0.00000000f, 0.03500000f, 8.00000000f, 0.12000000f, 12.00000000f},
+};
+_Static_assert(768 + 20 * sizeof(float) <= PS_RAMP, "shader controls must fit per-frame UBO");
+static void shader_controls(const PsFrame *frame, int mode, float width, float height)
+{
+    static int64_t origin;
+    const int64_t now = hle_now_ns();
+    if (!origin) origin = now;
+    float data[20] = {g_ps.f.w, g_ps.f.h, g_ps.f.signal_w, g_ps.f.signal_h,
+                      width, height, (float)((now-origin)/1e9), (float)(g_ps.submitted % 65536)};
+    memcpy(data + 8, shader_presets[mode], 12 * sizeof(float));
+    memcpy(g_ps.ubo_map + (size_t)(frame-g_ps.fr)*PS_RAMP + 768, data, sizeof(data));
+    static int last = -1;
+    static uint64_t dimensions;
+    const uint64_t current = (uint64_t)g_ps.f.signal_w<<32 | g_ps.f.signal_h;
+    if (mode != last || current != dimensions) {
+        hle_log("hakuX-hle-back", "post shader: %d source %ux%u signal %ux%u; display gamma once", mode,
+            g_ps.f.w,g_ps.f.h,g_ps.f.signal_w,g_ps.f.signal_h);
+        last=mode;dimensions=current;
+    }
+}
+
 void hle_present_end(float sx, float sy, bool fxaa, int upscale, bool average, uint64_t key)
 {
     g_ps.shown = false;
+    const int shader = hle_present_shader_mode();
     PsFrame *f = &g_ps.fr[g_ps.cur];
     const uint32_t ww = g_ps.wsize.width, wh = g_ps.wsize.height, iw = g_ps.ext.width, ih = g_ps.ext.height;
     uint8_t rgb[3][256];
@@ -1016,6 +1051,11 @@ void hle_present_end(float sx, float sy, bool fxaa, int upscale, bool average, u
             pc[5] = 1.0f / (float)g_ps.f.h;
             pc[6] = (float)g_ps.f.w;
             pc[7] = (float)g_ps.f.h;
+        }
+        const unsigned effect = shader == 3 ? P_NTSC : shader == 4 ? P_TEMPORAL : P_CRT;
+        if (shader && g_ps.pipe[effect]) {
+            p = effect;
+            shader_controls(f, shader, vw, vh);
         }
         quad(cb, f, 0, g_ps.pipe[p], src, pc, iw, ih);
         log_path(p, fxaa_done, (uint32_t)(vw + 0.5f), (uint32_t)(vh + 0.5f));

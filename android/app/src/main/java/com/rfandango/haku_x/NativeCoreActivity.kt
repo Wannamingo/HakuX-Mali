@@ -315,6 +315,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
         ?: com.rfandango.haku_x.data.AutomaticPerformance.forDevice(this) else null
     args += "fpslimit=${automatic?.fpsLimit ?: settings.frameRateLimit}"
     if (automatic != null) Log.i(TAG, "automatic performance: ${GameCalibration.describe(automatic)}; manual settings retained")
+    args += "postshader=${extra[com.rfandango.haku_x.data.ExperienceSetting.POST_SHADER]}"
     args += extra.audioArgument()
     args += extra.framingArgument()
     args += "anisotropy=${extra[com.rfandango.haku_x.data.ExperienceSetting.ANISOTROPY]}"
@@ -870,6 +871,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
       },
       getString(R.string.overlay_menu_controllers) to ::showPlayers,
     )
+    items += getString(R.string.shader_title) to ::showPostShaders
     if (states) {
       items += getString(R.string.cal_title) to ::beginCalibration
       items += getString(R.string.overlay_menu_save_state) to { saveStates.showSlots(save = true) }
@@ -887,6 +889,18 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     val dialog = showMenuDialog(AlertDialog.Builder(this).setView(panel.view))
     panel.onAction = { action -> action(); dialog.dismiss() }
     panel.attach(dialog)
+  }
+
+  private fun showPostShaders() {
+    val store = com.rfandango.haku_x.data.ExperienceStore(this)
+    val setting = com.rfandango.haku_x.data.ExperienceSetting.POST_SHADER
+    val labels = com.rfandango.haku_x.data.PostShaders.labels.map { getString(it) }.toTypedArray()
+    showMenuDialog(AlertDialog.Builder(this).setTitle(R.string.shader_title)
+      .setSingleChoiceItems(labels, store.effective(gameKey())[setting]) { dialog, choice ->
+        store.set(setting, choice, gameKey())
+        nativeSetPostShader(choice)
+        dialog.dismiss()
+      }.setNegativeButton(android.R.string.cancel, null))
   }
 
   /** The players the core has a controller plugged in for (bit n: player n + 1). */
@@ -1324,6 +1338,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     @JvmStatic external fun nativeMeasureStart()
     @JvmStatic external fun nativeMeasureEnd(): DoubleArray
     @JvmStatic external fun nativeRendererCapabilities(): String?
+    @JvmStatic external fun nativeSetPostShader(mode:Int)
     @JvmStatic external fun nativeSetMoviePolicy(mode:Int)
     @JvmStatic external fun nativeSetDynamicResolution(min:Int,max:Int,target:Int)
     @JvmStatic external fun nativeToggleMovie():Boolean

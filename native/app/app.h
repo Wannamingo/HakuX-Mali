@@ -28,6 +28,7 @@ bool nc_present_toggle_movie(void);  /* manual override for unrecognized/in-engi
 void nc_present_set_widescreen(bool on);
 /* FXAA over each frame before it's scaled to the window. */
 void nc_present_set_fxaa(bool on);
+void nc_present_set_shader(int mode);
 /* A frame smaller than its place in the window: scaled up bilinearly, or by
  * Snapdragon Game Super Resolution (a larger one is always averaged down). */
 enum { NC_UPSCALE_BILINEAR, NC_UPSCALE_SGSR };   /* swapchain.h HLE_UPSCALE_*'s */
