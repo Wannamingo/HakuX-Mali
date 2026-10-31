@@ -315,7 +315,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
         ?: com.rfandango.haku_x.data.AutomaticPerformance.forDevice(this) else null
     args += "fpslimit=${automatic?.fpsLimit ?: settings.frameRateLimit}"
     if (automatic != null) Log.i(TAG, "automatic performance: ${GameCalibration.describe(automatic)}; manual settings retained")
-    args += "postshader=${extra[com.rfandango.haku_x.data.ExperienceSetting.POST_SHADER]}"
+    args += com.rfandango.haku_x.data.PostShaders.argument(extra)
     args += extra.audioArgument()
     args += extra.framingArgument()
     args += "anisotropy=${extra[com.rfandango.haku_x.data.ExperienceSetting.ANISOTROPY]}"
@@ -893,13 +893,15 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
 
   private fun showPostShaders() {
     val store = com.rfandango.haku_x.data.ExperienceStore(this)
-    val setting = com.rfandango.haku_x.data.ExperienceSetting.POST_SHADER
-    val labels = com.rfandango.haku_x.data.PostShaders.labels.map { getString(it) }.toTypedArray()
+    val game = gameKey()
+    val panel = com.rfandango.haku_x.ui.settings.PostShaderPanel(this, store.effective(game), store.effective())
     showMenuDialog(AlertDialog.Builder(this).setTitle(R.string.shader_title)
-      .setSingleChoiceItems(labels, store.effective(gameKey())[setting]) { dialog, choice ->
-        store.set(setting, choice, gameKey())
-        nativeSetPostShader(choice)
-        dialog.dismiss()
+      .setView(panel.view)
+      .setPositiveButton(R.string.shader_apply) { _, _ ->
+        runCatching {
+          store.setAll(panel.changes, game)
+          nativeSetPostShaderControls(com.rfandango.haku_x.data.PostShaders.controls(store.effective(game)))
+        }.onFailure { android.widget.Toast.makeText(this, R.string.extra_save_failed, android.widget.Toast.LENGTH_LONG).show() }
       }.setNegativeButton(android.R.string.cancel, null))
   }
 
@@ -1339,6 +1341,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     @JvmStatic external fun nativeMeasureEnd(): DoubleArray
     @JvmStatic external fun nativeRendererCapabilities(): String?
     @JvmStatic external fun nativeSetPostShader(mode:Int)
+    @JvmStatic external fun nativeSetPostShaderControls(values:IntArray)
     @JvmStatic external fun nativeSetMoviePolicy(mode:Int)
     @JvmStatic external fun nativeSetDynamicResolution(min:Int,max:Int,target:Int)
     @JvmStatic external fun nativeToggleMovie():Boolean

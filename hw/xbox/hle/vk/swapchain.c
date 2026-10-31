@@ -37,6 +37,7 @@
 #include "hw/xbox/hle/vk/swapchain.h"
 
 #include <android/native_window.h>
+#include <pthread.h>
 
 #define T (g_ps.t)
 #define PS_FRAMES 3             /* the presenter's submits in flight */
@@ -107,11 +108,40 @@ static struct {
 } g_ps;
 
 /* Kept outside the surface's lifetime. Neutral values retain the old gamma/SGSR path exactly. */
-static int g_post_shader;
+/* UI changes pending controls; only the present thread reads applied controls. */
+static pthread_mutex_t g_shader_lock = PTHREAD_MUTEX_INITIALIZER;
+static int g_shader_pending[8] = {0,1,1,14,24,0,0,0};
+static int g_shader_applied[8] = {0,1,1,14,24,0,0,0};
+static uint32_t g_shader_pending_gen = 1, g_shader_applied_gen;
+void hle_present_set_shader_controls(const int values[8])
+{
+    static const int low[8]={0,0,1,0,0,0,0,0}, high[8]={4,5,8,100,80,30,100,30};
+    int v[8];
+    for(unsigned i=0;i<8;i++)v[i]=MAX(low[i],MIN(values[i],high[i]));
+    pthread_mutex_lock(&g_shader_lock);
+    if(memcmp(v,g_shader_pending,sizeof(v))) {
+        memcpy(g_shader_pending,v,sizeof(v));g_shader_pending_gen++;
+    }
+    pthread_mutex_unlock(&g_shader_lock);
+}
 void hle_present_set_shader(int mode)
-{ __atomic_store_n(&g_post_shader, mode >= 0 && mode <= 4 ? mode : 0, __ATOMIC_RELEASE); }
-int hle_present_shader_mode(void)
-{ return __atomic_load_n(&g_post_shader, __ATOMIC_ACQUIRE); }
+{
+    int v[8]={mode,1,1,14,24,0,0,0};
+    if(mode==2){v[3]=18;v[4]=30;v[5]=12;v[7]=6;}
+    if(mode==4)v[7]=3;
+    hle_present_set_shader_controls(v);
+}
+void hle_present_prepare_shader(void)
+{
+    pthread_mutex_lock(&g_shader_lock);
+    if(g_shader_applied_gen!=g_shader_pending_gen) {
+        memcpy(g_shader_applied,g_shader_pending,sizeof(g_shader_applied));
+        g_shader_applied_gen=g_shader_pending_gen;
+    }
+    pthread_mutex_unlock(&g_shader_lock);
+}
+int hle_present_shader_mode(void) { return g_shader_applied[0]; }
+uint32_t hle_present_shader_generation(void) { return g_shader_applied_gen; }
 static float g_picture[5] = { 1.0f, 1.0f, 1.0f, 1.0f, 1.0f };
 static float g_uv[4] = {0.0f, 0.0f, 1.0f, 1.0f};
 static float g_zoom = 1.0f, g_shift_x, g_shift_y;
@@ -156,7 +186,7 @@ static const char k_fs_head[] =
     "#version 450\n"
     "layout(push_constant) uniform P { vec4 rect; vec4 extra; vec4 rot; vec4 picture; vec4 tune; vec4 uv; } pc;\n"
     "layout(set = 0, binding = 0) uniform sampler2D u_tex;\n"
-    "layout(set = 0, binding = 1, std140) uniform G { uvec4 w[48]; vec4 shader_sizes; vec4 shader_output; vec4 shader_effect; vec4 shader_tune; vec4 shader_temporal; } g;\n"
+    "layout(set = 0, binding = 1, std140) uniform G { uvec4 w[48]; vec4 shader_sizes; vec4 shader_output; vec4 shader_effect; vec4 shader_tune; vec4 shader_temporal; vec4 shader_mask; } g;\n"
     "layout(location = 0) in vec2 v_uv;\n"
     "layout(location = 0) out vec4 o;\n"
     "uint lut(uint i) {\n"
@@ -947,15 +977,21 @@ static const float shader_presets[5][12] = {
     {0.65000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 1.00000000f, 0.40000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f, 0.00000000f},
     {1.00000000f, 0.24000000f, 0.14000000f, 0.03000000f, 0.00000000f, 1.04000000f, 0.00000000f, 0.00000000f, 0.03500000f, 8.00000000f, 0.12000000f, 12.00000000f},
 };
-_Static_assert(768 + 20 * sizeof(float) <= PS_RAMP, "shader controls must fit per-frame UBO");
+_Static_assert(768 + 24 * sizeof(float) <= PS_RAMP, "shader controls must fit per-frame UBO");
 static void shader_controls(const PsFrame *frame, int mode, float width, float height)
 {
     static int64_t origin;
     const int64_t now = hle_now_ns();
     if (!origin) origin = now;
-    float data[20] = {g_ps.f.w, g_ps.f.h, g_ps.f.signal_w, g_ps.f.signal_h,
+    float data[24] = {g_ps.f.w, g_ps.f.h, g_ps.f.signal_w, g_ps.f.signal_h,
                       width, height, (float)((now-origin)/1e9), (float)(g_ps.submitted % 65536)};
     memcpy(data + 8, shader_presets[mode], 12 * sizeof(float));
+    data[9]=g_shader_applied[4]/100.0f;   /* scanlines */
+    data[10]=g_shader_applied[3]/100.0f;  /* mask strength */
+    data[11]=g_shader_applied[7]/100.0f;  /* curvature */
+    data[12]=g_shader_applied[5]/100.0f;  /* glow */
+    data[20]=g_shader_applied[1];data[21]=g_shader_applied[2];
+    data[22]=g_shader_applied[6]/100.0f;  /* source blur */
     memcpy(g_ps.ubo_map + (size_t)(frame-g_ps.fr)*PS_RAMP + 768, data, sizeof(data));
     static int last = -1;
     static uint64_t dimensions;

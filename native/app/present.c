@@ -105,6 +105,8 @@ bool nc_present_init(void)
 
 void nc_present_set_shader(int mode)
 { hle_present_set_shader(mode); }
+void nc_present_set_shader_controls(const int values[8])
+{ hle_present_set_shader_controls(values); }
 
 void nc_present_set_fxaa(bool on)
 {
@@ -256,6 +258,7 @@ static void wait_next_vsync(void)
 
 bool nc_present_frame(struct ANativeWindow *win)
 {
+    hle_present_prepare_shader();
     apply_framing();
     movie_layout();
     count_frames();
@@ -264,9 +267,9 @@ bool nc_present_frame(struct ANativeWindow *win)
     const int upscale = g_dbg.upscale < 0 ? g_upscale : g_dbg.upscale;
     const int shader = hle_present_shader_mode();
     /* what places and filters the frame, beside it and the window */
-    const uint64_t key = (uint64_t)fxaa | (uint64_t)upscale << 1 | (uint64_t)g_dbg.average << 4 |
+    const uint64_t key = ((uint64_t)hle_present_shader_generation()*0x9e3779b97f4a7c15ull) ^ ((uint64_t)fxaa | (uint64_t)upscale << 1 | (uint64_t)g_dbg.average << 4 |
                          (uint64_t)g_widescreen << 5 | (uint64_t)(uint32_t)g_aspect << 8 | (uint64_t)shader << 12 |
-                         (uint64_t)g_movie_w<<24 | (uint64_t)g_movie_h<<40;
+                         (uint64_t)g_movie_w<<24 | (uint64_t)g_movie_h<<40);
     if (shader != 4 && hle_present_unchanged(win, key)) {
         nc_dev_nv2a_display_pickup(now_ns()); /* it looked: the vblank keeps clear of it */
         wait_next_vsync();

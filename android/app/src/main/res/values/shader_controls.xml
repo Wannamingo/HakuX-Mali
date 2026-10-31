@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shader_controls_desc">Display effects. Mask, scanlines, glow, blur and curvature apply to CRT presets. Mask size uses screen pixels and stays stable when rendering resolution changes. Choosing Off keeps your adjustments.</string>
+  <string name="shader_mask_type">Mask pattern</string>
+  <string name="shader_mask_size">Mask size</string>
+  <string name="shader_mask_strength">Mask strength</string>
+  <string name="shader_scanline_strength">Scanline strength</string>
+  <string name="shader_glow">Glow</string>
+  <string name="shader_blur">Image blur</string>
+  <string name="shader_curvature">Screen curvature</string>
+  <string name="shader_mask_none">No mask</string>
+  <string name="shader_mask_stripes">RGB stripes — LCD style</string>
+  <string name="shader_mask_dots">Round dots — CRT monitor</string>
+  <string name="shader_mask_slots">Slots — CRT television</string>
+  <string name="shader_mask_diagonal">Diagonal — XO-1 style</string>
+  <string name="shader_mask_sparse">Sparse — OLED style</string>
+  <string name="shader_from_preset">Preset default</string>
+  <string name="shader_reset_parameters">Reset parameters to preset</string>
+  <string name="shader_use_global">Use global shader settings</string>
+  <string name="shader_apply">Apply</string>
+  <string name="shader_pixels">%1$d px</string>
+  <string name="shader_percent">%1$d%%</string>
+</resources>

@@ -61,6 +61,12 @@ static double process_cpu_ms(void)
 }
 static double g_measure_cpu;
 
+EXPORT JNIEXPORT void JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeSetPostShaderControls(JNIEnv *env,jclass cls,jintArray input)
+{
+    if(!input || (*env)->GetArrayLength(env,input)!=8)return;
+    jint values[8];(*env)->GetIntArrayRegion(env,input,0,8,values);
+    if(!(*env)->ExceptionCheck(env))nc_present_set_shader_controls(values);
+}
 EXPORT JNIEXPORT void JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeSetPostShader(JNIEnv *env,jclass cls,jint mode)
 { nc_present_set_shader(mode); }
 
@@ -658,7 +664,12 @@ EXPORT int SDL_main(int argc, char *argv[])
             if(sscanf(argv[i]+8,"%u,%u,%u%c",&min,&max,&target,&tail)!=3)min=0;
             hle_back_set_dynamic(min,max,target);nc_movie_enable(hle_back_movie_tracking_on());
         }
-        if (!strncmp(argv[i], "postshader=", 11)) nc_present_set_shader(atoi(argv[i]+11));
+        if (!strncmp(argv[i], "postshader=", 11)) {
+            int v[8];char tail;
+            if(sscanf(argv[i]+11,"%d,%d,%d,%d,%d,%d,%d,%d%c",&v[0],&v[1],&v[2],&v[3],&v[4],&v[5],&v[6],&v[7],&tail)==8)
+                nc_present_set_shader_controls(v);
+            else nc_present_set_shader(atoi(argv[i]+11));
+        }
         if (!strncmp(argv[i], "fxaa=", 5)) {
             nc_present_set_fxaa(atoi(argv[i] + 5) != 0);
         }

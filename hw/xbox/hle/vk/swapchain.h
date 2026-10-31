@@ -16,6 +16,9 @@ enum { HLE_UPSCALE_BILINEAR, HLE_UPSCALE_SGSR };
 
 /* Window thread only. Percentages: 100 is neutral/original SGSR strength; no extra pass. */
 void hle_present_set_shader(int mode);
+void hle_present_set_shader_controls(const int values[8]);
+void hle_present_prepare_shader(void);
+uint32_t hle_present_shader_generation(void);
 int hle_present_shader_mode(void);
 void hle_present_set_picture(int brightness, int contrast, int saturation, int gamma, int sharpness);
 void hle_present_set_framing(int left, int right, int top, int bottom, int zoom, int shift_x, int shift_y);

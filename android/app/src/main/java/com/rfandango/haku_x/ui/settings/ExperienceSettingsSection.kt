@@ -30,6 +30,9 @@ internal fun experienceLabel(field: ExperienceSetting): Int = when (field) {
   ExperienceSetting.DYNAMIC_MAX -> R.string.renderer_dynamic_max
   ExperienceSetting.DYNAMIC_TARGET -> R.string.renderer_dynamic_target
   ExperienceSetting.POST_SHADER -> R.string.shader_title
+  ExperienceSetting.POST_MASK, ExperienceSetting.POST_MASK_SIZE, ExperienceSetting.POST_MASK_STRENGTH,
+  ExperienceSetting.POST_SCANLINES, ExperienceSetting.POST_GLOW, ExperienceSetting.POST_BLUR,
+  ExperienceSetting.POST_CURVATURE -> PostShaders.title(field)
   ExperienceSetting.MOVIE_ASPECT -> R.string.renderer_movie_aspect
   ExperienceSetting.VOLUME -> R.string.exp_volume
   ExperienceSetting.MUTE -> R.string.exp_mute
@@ -59,7 +62,8 @@ internal fun experienceCategory(field: ExperienceSetting) = when (field) {
 }
 
 internal val ExperienceIndex = ExperienceSetting.entries.map {
-  SettingsEntry(experienceLabel(it), experienceCategory(it), it.key.replace('_', ' '))
+  SettingsEntry(experienceLabel(it), experienceCategory(it), it.key.replace('_', ' ') +
+    if (it in PostShaders.allFields) " shader mask crt lcd oled pixels scanline glow blur curvature шейдер маска пиксели строки свечение размытие выпуклость" else "")
 } + listOf(SettingsEntry(R.string.exp_hotkeys, SettingsCategory.CONTROLS, "hotkey shortcut screenshot quick save сочетания снимок быстрое сохранение"),
   SettingsEntry(R.string.exp_profiles, SettingsCategory.APP, "profile export import copy профиль экспорт импорт копировать"))
 
@@ -77,7 +81,8 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
     runCatching { store.set(field, value, gameKey) }.onSuccess { revision++ }
       .onFailure { Toast.makeText(context, R.string.extra_save_failed, Toast.LENGTH_LONG).show() }
   }
-  val fields = ExperienceSetting.entries.filter { experienceCategory(it) == category &&
+  if (!autoOnly && category == SettingsCategory.DISPLAY) PostShaderSettingsSection(gameKey)
+  val fields = ExperienceSetting.entries.filter { it !in PostShaders.allFields && experienceCategory(it) == category &&
     (if (autoOnly) it == ExperienceSetting.AUTO_PERFORMANCE else it != ExperienceSetting.AUTO_PERFORMANCE) }
   if (fields.isNotEmpty()) SettingsGroup(true) {
     Section(stringResource(when (category) {

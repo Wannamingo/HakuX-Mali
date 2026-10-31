@@ -5,7 +5,7 @@ import android.util.AtomicFile
 import org.json.JSONObject
 import java.io.File
 
-/** Main process writes; game process reads afresh on resume. No per-frame disk access. */
+/** UI writes atomically; the game reads afresh on resume. No per-frame disk access. */
 class ExperienceStore(context: Context) {
   private val file = AtomicFile(File(context.filesDir, "experience-settings.json"))
   private fun read(): JSONObject = runCatching {
@@ -32,11 +32,19 @@ class ExperienceStore(context: Context) {
     })
   }
 
-  fun set(setting: ExperienceSetting, value: Int?, game: String? = null) = update { json ->
-    val parent = if (game == null) json else json.optJSONObject("games") ?: JSONObject().also { json.put("games", it) }
-    val key = game ?: "global"
-    val target = parent.optJSONObject(key) ?: JSONObject().also { parent.put(key, it) }
-    if (value == null) target.remove(setting.key) else target.put(setting.key, setting.sanitize(value))
+  fun set(setting: ExperienceSetting, value: Int?, game: String? = null) = setAll(mapOf(setting to value), game)
+
+  /** A shader dialog commits once, after Apply; Cancel performs no file writes. */
+  fun setAll(values: Map<ExperienceSetting, Int?>, game: String? = null) {
+    if (values.isEmpty()) return
+    update { json ->
+      val parent = if (game == null) json else json.optJSONObject("games") ?: JSONObject().also { json.put("games", it) }
+      val key = game ?: "global"
+      val target = parent.optJSONObject(key) ?: JSONObject().also { parent.put(key, it) }
+      for ((setting, value) in values) {
+        if (value == null) target.remove(setting.key) else target.put(setting.key, setting.sanitize(value))
+      }
+    }
   }
 
   fun clear(game: String) = update { it.optJSONObject("games")?.remove(game); Unit }

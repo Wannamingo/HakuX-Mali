@@ -78,7 +78,7 @@ class CalibrationStore(private val context: Context) {
     val options=ExperienceStore(context).effective(game)
     return digest(deviceKey(context)+"|aniso="+options[ExperienceSetting.ANISOTROPY]+"|movie="+options[ExperienceSetting.MOVIE_ASPECT]+
       "|"+options.dynamicArgument()+
-      if(options[ExperienceSetting.POST_SHADER]==0) "" else "|postshader=v1:"+options[ExperienceSetting.POST_SHADER])
+      PostShaders.calibrationSuffix(options))
   }
   companion object {
     fun active(context:Context,game:String) {

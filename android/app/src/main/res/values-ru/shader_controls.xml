@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="shader_controls_desc">Эффекты изображения. Маска, строки, свечение, размытие и выпуклость действуют в ЭЛТ-пресетах. Размер маски задан в пикселях экрана и остаётся стабильным при смене разрешения рендеринга. Отключение шейдера сохраняет регулировки.</string>
+  <string name="shader_mask_type">Тип маски</string>
+  <string name="shader_mask_size">Размер маски</string>
+  <string name="shader_mask_strength">Интенсивность маски</string>
+  <string name="shader_scanline_strength">Сила строк развёртки</string>
+  <string name="shader_glow">Свечение</string>
+  <string name="shader_blur">Размытие изображения</string>
+  <string name="shader_curvature">Выпуклость экрана</string>
+  <string name="shader_mask_none">Без маски</string>
+  <string name="shader_mask_stripes">RGB-полосы — стиль LCD</string>
+  <string name="shader_mask_dots">Круглые точки — ЭЛТ-монитор</string>
+  <string name="shader_mask_slots">Щелевая — ЭЛТ-телевизор</string>
+  <string name="shader_mask_diagonal">Диагональная — стиль XO-1</string>
+  <string name="shader_mask_sparse">Разреженная — стиль OLED</string>
+  <string name="shader_from_preset">По пресету</string>
+  <string name="shader_reset_parameters">Параметры по пресету</string>
+  <string name="shader_use_global">Общие настройки шейдеров</string>
+  <string name="shader_apply">Применить</string>
+  <string name="shader_pixels">%1$d пикс.</string>
+  <string name="shader_percent">%1$d%%</string>
+</resources>

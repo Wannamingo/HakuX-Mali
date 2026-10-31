@@ -13,6 +13,13 @@ enum class ExperienceSetting(val key: String, val default: Int, val minimum: Int
   ZOOM("zoom", 100, 100, 200), SHIFT_X("shift_x", 0, -20, 20), SHIFT_Y("shift_y", 0, -20, 20),
   MOVIE_ASPECT("movie_aspect",0,0,3),
   POST_SHADER("post_shader",0,0,4),
+  POST_MASK("post_mask", -1, -1, 5),
+  POST_MASK_SIZE("post_mask_size", 0, 0, 8),
+  POST_MASK_STRENGTH("post_mask_strength", -1, -1, 100),
+  POST_SCANLINES("post_scanlines", -1, -1, 80),
+  POST_GLOW("post_glow", -1, -1, 30),
+  POST_BLUR("post_blur", -1, -1, 100),
+  POST_CURVATURE("post_curvature", -1, -1, 30),
   REFRESH_RATE("refresh_rate", 0, 0, 240), AUTO_SAVE("auto_save", 0, 0, 1),
   OFFER_RESUME("offer_resume", 0, 0, 1), THERMAL_WARNING("thermal_warning", 0, 0, 1),
   SOC_WARNING("soc_warning", 90, 60, 110), BATTERY_WARNING("battery_warning", 45, 35, 55);
