@@ -30,6 +30,22 @@
 
 #define T (g_hvk.t)
 
+static unsigned g_anisotropy;
+void hle_back_set_anisotropy(unsigned value)
+{
+    g_anisotropy = value == 2 || value == 4 || value == 8 ? value : 0;
+}
+unsigned hle_back_anisotropy(void) { return g_anisotropy; }
+
+bool hle_back_capabilities(char *json, size_t size)
+{
+    if (!hle_vk_ready()) return false;
+    const unsigned max_aniso = g_hvk.caps.aniso ? (unsigned)g_hvk.props.limits.maxSamplerAnisotropy : 1;
+    snprintf(json, size, "{\"maxAnisotropy\":%u,\"vendor\":%u,\"device\":%u,\"driver\":%u}",
+             max_aniso, g_hvk.props.vendorID, g_hvk.props.deviceID, g_hvk.props.driverVersion);
+    return true;
+}
+
 typedef struct HleFrame {
     VkCommandPool pool;
     VkCommandBuffer cb;

@@ -45,7 +45,7 @@ class SettingsProfileStore(private val context: Context) {
     }
     val options = json.getJSONObject("options")
     for (field in ExperienceSetting.entries) if (options.has(field.key)) {
-      require(options.getInt(field.key) in field.minimum..field.maximum)
+      require(field.accepts(options.getInt(field.key)))
     }
     // Everything is validated before changing either store.
     if (game != null) {

@@ -76,6 +76,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
   private var exitSaving = false
   private val calibration by lazy { GameCalibration(this) { updateControllerVisibility() } }
   private var calibrationRequested = false
+  private var capabilitiesPublished=false
   private var calibrationPrompted = false
   private val calibrationPrompt:Runnable=object:Runnable {
     override fun run() {
@@ -227,6 +228,11 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
         return
       }
       nativeTakeTwinConsole()?.let(::showTwinConsole)
+      if(!capabilitiesPublished && nativeGetFrameShown()) nativeRendererCapabilities()?.let { json ->
+        capabilitiesPublished=true
+        Thread { runCatching { com.rfandango.haku_x.data.RendererCapabilitiesStore(this@NativeCoreActivity).write(json) }
+          .onFailure { Log.w(TAG,"Could not store renderer capabilities",it) } }.start()
+      }
       fpsHandler.postDelayed(this, FPS_INTERVAL_MS)
     }
   }
@@ -311,6 +317,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     if (automatic != null) Log.i(TAG, "automatic performance: ${GameCalibration.describe(automatic)}; manual settings retained")
     args += extra.audioArgument()
     args += extra.framingArgument()
+    args += "anisotropy=${extra[com.rfandango.haku_x.data.ExperienceSetting.ANISOTROPY]}"
     /* Every frame presented at once, no vblank wait: on by default. */
     if (settings.uncapped) {
       args += "uncap"
@@ -1311,6 +1318,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
 
     @JvmStatic external fun nativeMeasureStart()
     @JvmStatic external fun nativeMeasureEnd(): DoubleArray
+    @JvmStatic external fun nativeRendererCapabilities(): String?
 
     /** Why the game can't run on this device (the GPU driver, or the game), or null. */
     @JvmStatic

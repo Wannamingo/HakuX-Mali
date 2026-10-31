@@ -60,6 +60,12 @@ static double process_cpu_ms(void)
 }
 static double g_measure_cpu;
 
+EXPORT JNIEXPORT jstring JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeRendererCapabilities(JNIEnv *env, jclass cls)
+{
+    char json[256];
+    return hle_back_capabilities(json, sizeof(json)) ? (*env)->NewStringUTF(env, json) : NULL;
+}
+
 EXPORT JNIEXPORT void JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeMeasureStart(JNIEnv *env, jclass cls)
 {
     g_measure_cpu = process_cpu_ms();

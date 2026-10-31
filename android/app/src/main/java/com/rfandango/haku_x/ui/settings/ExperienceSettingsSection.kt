@@ -24,6 +24,7 @@ import kotlinx.coroutines.withContext
 
 internal fun experienceLabel(field: ExperienceSetting): Int = when (field) {
   ExperienceSetting.AUTO_PERFORMANCE -> R.string.exp_auto_performance
+  ExperienceSetting.ANISOTROPY -> R.string.renderer_anisotropy
   ExperienceSetting.VOLUME -> R.string.exp_volume
   ExperienceSetting.MUTE -> R.string.exp_mute
   ExperienceSetting.AUDIO_BUFFER -> R.string.exp_audio_buffer
@@ -44,7 +45,7 @@ internal fun experienceLabel(field: ExperienceSetting): Int = when (field) {
 }
 
 internal fun experienceCategory(field: ExperienceSetting) = when (field) {
-  ExperienceSetting.AUTO_PERFORMANCE -> SettingsCategory.GRAPHICS
+  ExperienceSetting.AUTO_PERFORMANCE,ExperienceSetting.ANISOTROPY -> SettingsCategory.GRAPHICS
   ExperienceSetting.VOLUME, ExperienceSetting.MUTE, ExperienceSetting.AUDIO_BUFFER, ExperienceSetting.HRTF -> SettingsCategory.AUDIO
   ExperienceSetting.AUTO_SAVE, ExperienceSetting.OFFER_RESUME -> SettingsCategory.GAMES
   else -> SettingsCategory.DISPLAY
@@ -62,6 +63,8 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
   var revision by remember { mutableIntStateOf(0) }
   val effective = remember(revision) { store.effective(gameKey) }
   val own = remember(revision) { store.own(gameKey) }
+  var capabilities by remember { mutableStateOf<RendererCapabilities?>(null) }
+  LaunchedEffect(Unit) { capabilities=withContext(Dispatchers.IO) { RendererCapabilitiesStore(context).read() } }
   var choosing by remember { mutableStateOf<ExperienceSetting?>(null) }
   fun update(field: ExperienceSetting, value: Int?) {
     runCatching { store.set(field, value, gameKey) }.onSuccess { revision++ }
@@ -72,13 +75,13 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
   if (fields.isNotEmpty()) SettingsGroup(true) {
     Section(stringResource(when (category) {
       SettingsCategory.AUDIO -> R.string.exp_audio
-      SettingsCategory.GRAPHICS -> R.string.exp_auto_heading
+      SettingsCategory.GRAPHICS -> if(autoOnly) R.string.exp_auto_heading else R.string.renderer_heading
       SettingsCategory.GAMES -> R.string.exp_states
       else -> R.string.exp_framing
     }))
     Hint(stringResource(when (category) {
       SettingsCategory.AUDIO -> R.string.exp_audio_desc
-      SettingsCategory.GRAPHICS -> R.string.exp_auto_performance_desc
+      SettingsCategory.GRAPHICS -> if(autoOnly) R.string.exp_auto_performance_desc else R.string.settings_applies_next_start
       else -> R.string.exp_runtime_desc
     }))
     if (category == SettingsCategory.DISPLAY) TextButton(onClick = {
@@ -90,10 +93,12 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
       val inherited = gameKey != null && field !in own
       SettingsTarget(experienceLabel(field)) {
         when (field) {
-          ExperienceSetting.AUDIO_BUFFER, ExperienceSetting.REFRESH_RATE -> ListItem(
+          ExperienceSetting.ANISOTROPY,ExperienceSetting.AUDIO_BUFFER, ExperienceSetting.REFRESH_RATE -> ListItem(
             headlineContent = { Text(title) }, supportingContent = { Text(
               (if (inherited) stringResource(R.string.exp_inherited) + " " else "") +
-                if (field == ExperienceSetting.AUDIO_BUFFER) stringResource(bufferLabel(value))
+                if(field==ExperienceSetting.ANISOTROPY) (if(value==0) stringResource(R.string.renderer_original) else "${value}×") +
+                  if(capabilities==null) " · "+stringResource(R.string.renderer_caps_unknown) else ""
+                else if (field == ExperienceSetting.AUDIO_BUFFER) stringResource(bufferLabel(value))
                 else if (value == 0) stringResource(R.string.exp_auto) else "$value Hz"
             ) }, modifier = Modifier.clickable { choosing = field })
           ExperienceSetting.AUTO_PERFORMANCE, ExperienceSetting.MUTE, ExperienceSetting.HRTF, ExperienceSetting.AUTO_SAVE,
@@ -124,7 +129,8 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
     SettingsGroup(true) { SettingsProfilesSection(gameKey) { revision++ } }
   }
   choosing?.let { field ->
-    val values = if (field == ExperienceSetting.AUDIO_BUFFER) listOf(0, 1, 2) else {
+    val values = if(field==ExperienceSetting.ANISOTROPY) capabilities?.anisotropyChoices?:listOf(0)
+    else if (field == ExperienceSetting.AUDIO_BUFFER) listOf(0, 1, 2) else {
       @Suppress("DEPRECATION") val display = context.getSystemService(android.view.WindowManager::class.java).defaultDisplay
       listOf(0) + display.supportedModes.filter {
         it.physicalWidth == display.mode.physicalWidth && it.physicalHeight == display.mode.physicalHeight
@@ -132,7 +138,8 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
     }
     ChoiceDialog(title = stringResource(experienceLabel(field)), options =
       (if (gameKey != null) listOf<Int?>(null) else emptyList()) .map { it to stringResource(R.string.extra_picture_use_global_value) } +
-        values.map { it as Int? to if (field == ExperienceSetting.AUDIO_BUFFER) stringResource(bufferLabel(it))
+        values.map { it as Int? to if(field==ExperienceSetting.ANISOTROPY) (if(it==0) stringResource(R.string.renderer_original) else "${it}×")
+          else if (field == ExperienceSetting.AUDIO_BUFFER) stringResource(bufferLabel(it))
           else if (it == 0) stringResource(R.string.exp_auto) else "$it Hz" },
       current = if (gameKey != null && field !in own) null else effective[field],
       onPick = { update(field, it); choosing = null }, onDismiss = { choosing = null })

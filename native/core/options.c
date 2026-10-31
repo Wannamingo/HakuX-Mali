@@ -9,6 +9,7 @@
 #include "native/kernel/kernel.h"
 #include "native/net/net.h"
 #include "native/state/save.h"
+#include "hw/xbox/hle/vk/back.h"
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -47,6 +48,9 @@ bool nc_option(NcOptions *o, const char *arg)
     } else if ((v = value(arg, "scale="))) {
         nc_hle_set_render_scale(atoi(v));
         nc_log("hakuX-app", "render scale %sx", v);
+    } else if ((v = value(arg, "anisotropy="))) {
+        hle_back_set_anisotropy((unsigned)atoi(v));
+        nc_log("hakuX-app", "anisotropy override: %u (0: original)", hle_back_anisotropy());
     } else if ((v = value(arg, "asyncpipe="))) {
         o->async_pipe = atoi(v) != 0;
     } else if ((v = value(arg, "prebuild="))) {

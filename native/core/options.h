@@ -10,6 +10,7 @@
  *   mods=FILE        the run's mods and cheats (native/core/mods.h)
  *   version=NAME     the core's version, recorded in savestates
  *   scale=N          the render scale
+ *   anisotropy=N     0 original, 2/4/8 for eligible 3D mipmapped textures
  *   asyncpipe=0|1    asynchronous shader compilation (on when absent)
  *   prebuild=0|1     the cached shaders built before the game (on)
  *   pads=MASK        the players with a controller plugged in (hex, bit n

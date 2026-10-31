@@ -29,6 +29,7 @@
 #include "hw/xbox/hle/vk/guest_ram.h"
 #include "hw/xbox/hle/vk/pcache.h"
 #include "hw/xbox/hle/vk/pipeasync.h"
+#include "hw/xbox/hle/vk/filter_policy.h"
 
 #define T (g_hvk.t)
 #define HLE_MAX_TEX      2048
@@ -1585,7 +1586,7 @@ static VkSamplerAddressMode addr_mode(uint32_t a)
 
 /* sampler_index's lod_down: how many levels finer the stage must sample (the
  * source surface's resolution scale over the target's, as log2 in 1/16ths). */
-static uint32_t sampler_index(const uint32_t *tss, uint32_t lod_down)
+static uint32_t sampler_index(const uint32_t *tss, uint32_t lod_down, unsigned anisotropy)
 {
     uint32_t base = MIN(tss[TSS_MAXMIPLEVEL], 15u);
     uint64_t key = (uint64_t)(tss[TSS_ADDRESSU] & 7) | (uint64_t)(tss[TSS_ADDRESSV] & 7) << 3 |
@@ -1594,7 +1595,7 @@ static uint32_t sampler_index(const uint32_t *tss, uint32_t lod_down)
                    (uint64_t)(tss[TSS_MIPFILTER] & 7) << 12 |
                    (uint64_t)(tss[TSS_ADDRESSW] & 7) << 15 | (uint64_t)base << 18 |
                    (uint64_t)tss[TSS_BORDERCOLOR] << 32;
-    uint64_t key2 = tss[TSS_MIPMAPLODBIAS] | (uint64_t)lod_down << 32;
+    uint64_t key2 = hle_filter_key2(tss[TSS_MIPMAPLODBIAS], lod_down, anisotropy);
     /* one per stage a draw: the index last found for the key's hash, before the scan */
     static uint16_t hot[64];
     unsigned h = (unsigned)(((key ^ key2 * 0x9E3779B97F4A7C15ull) * 0xFF51AFD7ED558CCDull) >> 58);
@@ -1649,6 +1650,8 @@ static uint32_t sampler_index(const uint32_t *tss, uint32_t lod_down)
         .addressModeW = addr_mode(tss[TSS_ADDRESSW]),
         .mipLodBias = bias, .minLod = (float)base,
         .maxLod = mip ? VK_LOD_CLAMP_NONE : base + 0.25f,
+        .anisotropyEnable = anisotropy > 1,
+        .maxAnisotropy = anisotropy > 1 ? (float)anisotropy : 1.0f,
         .borderColor = border };
     VkSampler s;
     if (T.vkCreateSampler(g_hvk.dev, &sci, NULL, &s) != VK_SUCCESS) {
@@ -1659,6 +1662,11 @@ static uint32_t sampler_index(const uint32_t *tss, uint32_t lod_down)
     g_dr.smp[i].key = key;
     g_dr.smp[i].key2 = key2;
     g_dr.smp[i].s = s;
+    if (anisotropy > 1) {
+        static unsigned logged;
+        if (logged++ < 12) hle_log("hakuX-hle-back", "anisotropy: sampler %u enabled %ux (device limit %.0f)",
+                                   i, anisotropy, g_hvk.props.limits.maxSamplerAnisotropy);
+    }
     if (g_hvk.caps.bindless) {          /* else the draws' sets take it from smp[] */
         VkDescriptorImageInfo ii = { .sampler = s };
         VkWriteDescriptorSet w = {
@@ -2391,6 +2399,25 @@ static uint32_t stage_lod_down(const HleCmdDraw *c, unsigned st, uint32_t rt_id)
         return 0;
     }
     return (uint32_t)lrintf(log2f((float)ts->scale / (float)rt->scale) * 16.0f);
+}
+
+/* Apply the override only to ordinary, mipmapped 3D colour textures. Linear
+ * video, pretransformed UI, points, palette/alpha textures and render targets
+ * retain the game's sampling. The selected level is part of the sampler key. */
+static unsigned stage_anisotropy(const HleCmdDraw *c, unsigned st)
+{
+    const unsigned requested = hle_back_anisotropy();
+    if (!requested) return 0;
+    const uint32_t *t = g_dr.st.tss[st];
+    HleVkTex *tx = tex_find(c->tex[st]);
+    if (!tx) return 0; /* Render targets retain their original sampler. */
+    const HleFilterFacts facts = {
+        .xfmt=tx->xfmt, .levels=tx->levels, .faces=tx->faces,
+        .min_filter=t[TSS_MINFILTER]&7, .mag_filter=t[TSS_MAGFILTER]&7, .mip_filter=t[TSS_MIPFILTER]&7,
+        .linear=tx->linear, .volume=tx->vol, .depth_test=g_dr.st.rs[RS_ZENABLE]!=0,
+        .pretransformed=!c->vsh && (c->fvf&HLE_FVF_POSITION_MASK)==HLE_FVF_XYZRHW,
+        .point_sprite=g_dr.st.rs[RS_POINTSPRITEENABLE]!=0 };
+    return hle_filter_override(requested,g_hvk.props.limits.maxSamplerAnisotropy,g_hvk.caps.aniso,&facts);
 }
 
 /* Surfaces sampled as textures, each told once (the first 64 ids below 8192) */
@@ -3430,7 +3457,7 @@ void hle_draw_cmd_draw(const HleCmdDraw *c, VkCommandBuffer cb, uint32_t rt_id, 
         fs->texture = c->tex[st] != 0;
         fs->unset = c->tex_unset >> st & 1;
         fs->alpha_kill = fs->texture && t[TSS_ALPHAKILL] != 0;
-        pc.tex[ki] = slot | sampler_index(t, stage_lod_down(c, st, rt_id)) << 16;
+        pc.tex[ki] = slot | sampler_index(t, stage_lod_down(c, st, rt_id), stage_anisotropy(c, st)) << 16;
         k.vs.texcoord[ki] = t[TSS_TEXCOORDINDEX] & 7;
         k.ps.nstages = ki + 1;
         k.vs.ntex = ki + 1;
@@ -3443,7 +3470,7 @@ void hle_draw_cmd_draw(const HleCmdDraw *c, VkCommandBuffer cb, uint32_t rt_id, 
         pc.flags = 0;
         for (unsigned st = 0; st < HLE_FF_STAGES; st++) {
             pc.tex[st] = stage_slot(c, st, rt_id, &pc.flags) |
-                         sampler_index(s->tss[st], stage_lod_down(c, st, rt_id)) << 16;
+                         sampler_index(s->tss[st], stage_lod_down(c, st, rt_id), stage_anisotropy(c, st)) << 16;
             k.vs.texcoord[st] = s->tss[st][TSS_TEXCOORDINDEX] & 7;
         }
         k.vs.ntex = HLE_FF_STAGES;

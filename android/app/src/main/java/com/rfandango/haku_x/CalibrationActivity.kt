@@ -77,7 +77,7 @@ class CalibrationActivity:Activity() {
   }
   private fun startTrial(s:CalibrationSession) {
     if(!store.checkpoint(s.id).isFile) { s.phase="restore_failed";s.error=getString(R.string.cal_no_checkpoint);store.write(s);showResults(s);return }
-    if(s.device!=CalibrationStore.deviceKey(this)) { s.error=getString(R.string.cal_device_changed);s.phase="result";store.write(s);showResults(s);return }
+    if(s.device!=store.configurationKey(s.game)) { s.error=getString(R.string.cal_device_changed);s.phase="result";store.write(s);showResults(s);return }
     s.phase="running";store.write(s);launched=true
     launchNative(s,false)
   }

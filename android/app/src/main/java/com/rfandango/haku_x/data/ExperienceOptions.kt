@@ -3,6 +3,7 @@ package com.rfandango.haku_x.data
 /** Output/input conveniences; defaults preserve the existing emulator behaviour. */
 enum class ExperienceSetting(val key: String, val default: Int, val minimum: Int, val maximum: Int) {
   AUTO_PERFORMANCE("auto_performance", 0, 0, 1),
+  ANISOTROPY("anisotropy", 0, 0, 8),
   VOLUME("volume", 100, 0, 100), MUTE("mute", 0, 0, 1),
   AUDIO_BUFFER("audio_buffer", 1, 0, 2), HRTF("hrtf", 1, 0, 1),
   CROP_LEFT("crop_left", 0, 0, 15), CROP_RIGHT("crop_right", 0, 0, 15),
@@ -12,7 +13,8 @@ enum class ExperienceSetting(val key: String, val default: Int, val minimum: Int
   OFFER_RESUME("offer_resume", 0, 0, 1), THERMAL_WARNING("thermal_warning", 0, 0, 1),
   SOC_WARNING("soc_warning", 90, 60, 110), BATTERY_WARNING("battery_warning", 45, 35, 55);
 
-  fun sanitize(value: Int) = value.coerceIn(minimum, maximum)
+  fun sanitize(value: Int) = if(this==ANISOTROPY && value !in listOf(0,2,4,8)) default else value.coerceIn(minimum, maximum)
+  fun accepts(value:Int)=value in minimum..maximum && sanitize(value)==value
 }
 
 data class ExperienceOptions(val values: Map<ExperienceSetting, Int> = emptyMap()) {

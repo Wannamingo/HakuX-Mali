@@ -26,7 +26,7 @@ class CalibrationStore(private val context: Context) {
   fun thumb(id: String) = File(directory(id),"checkpoint.jpg")
   private fun sessionFile(id: String) = AtomicFile(File(directory(id),"session.json"))
   fun create(game: String,title: String,disc: String, original: GraphicsOptions, ceiling: Int): CalibrationSession {
-    val s=CalibrationSession(UUID.randomUUID().toString(),game,title,disc,deviceKey(context),original,
+    val s=CalibrationSession(UUID.randomUUID().toString(),game,title,disc,configurationKey(game),original,
       CalibrationPolicy.candidates(original,ceiling),System.currentTimeMillis())
     require(pending()?.phase in listOf(null,"complete","discarded"))
     directory(s.id).mkdirs();write(s);File(root,"pending").writeText(s.id);return s
@@ -59,11 +59,11 @@ class CalibrationStore(private val context: Context) {
   private fun profileFile(game:String) = AtomicFile(File(root,"profiles/${digest(game)}.json"))
   fun measured(game: String): CalibrationRun? = runCatching {
     val j=profileFile(game).openRead().bufferedReader().use { JSONObject(it.readText()) }
-    require(j.getString("device")==deviceKey(context) && j.getInt("schema")==CalibrationPolicy.SCHEMA)
+    require(j.getString("device")==configurationKey(game) && j.getInt("schema")==CalibrationPolicy.SCHEMA)
     CalibrationRun(graphics(j.getJSONObject("options")),metrics(j.getJSONObject("metrics"))).also { require(it.metrics!!.valid) }
   }.getOrNull()
   fun publish(s: CalibrationSession, winner: CalibrationRun) {
-    require(s.device==deviceKey(context) && winner.metrics?.valid==true)
+    require(s.device==configurationKey(s.game) && winner.metrics?.valid==true)
     atomicWrite(profileFile(s.game),JSONObject().put("schema",CalibrationPolicy.SCHEMA).put("device",s.device)
       .put("game",s.game).put("measuredAt",System.currentTimeMillis()).put("options",graphics(winner.options))
       .put("metrics",metrics(winner.metrics!!)).put("session",s.id))
@@ -74,6 +74,8 @@ class CalibrationStore(private val context: Context) {
     checkpoint(id).delete();thumb(id).delete();File(dir,"blobs").deleteRecursively()
     if (runCatching { File(root,"pending").readText().trim()==id }.getOrDefault(false)) File(root,"pending").delete()
   }
+  fun configurationKey(game:String):String=digest(deviceKey(context)+"|aniso="+
+    ExperienceStore(context).effective(game)[ExperienceSetting.ANISOTROPY])
   companion object {
     fun active(context:Context,game:String) {
       val file=File(context.filesDir,"performance/active.json");file.parentFile?.mkdirs()

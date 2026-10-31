@@ -7,6 +7,7 @@
 
 #include <stdbool.h>
 #include <stdint.h>
+#include <stddef.h>
 
 /* Vulkan device (floor), guest-RAM import, arena, ring, timeline, threads.
  * 0 = ok; negative = the title must use LLE. */
@@ -76,6 +77,12 @@ void hle_back_save_caches(void);
  * profile. Existing driver quirks still apply. Never waits for query results. */
 void hle_back_measure_start(void);
 void hle_back_measure_end(double *ms, uint64_t *buffers);
+
+/* Startup-only output enhancements. Zero preserves the original sampling. */
+void hle_back_set_anisotropy(unsigned value);
+unsigned hle_back_anisotropy(void);
+/* Device capabilities after Vulkan init; false before the device is ready. */
+bool hle_back_capabilities(char *json, size_t size);
 
 
 #endif
