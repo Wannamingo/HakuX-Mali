@@ -34,6 +34,7 @@ class OverlayEditorBar(context: Context, private val controller: OnScreenControl
   private val opacitySlider = SeekBar(context)
   private var refreshing = false
   private var previousSelection: ControlId? = null
+  private var rangeInitialized = false
   private var sizeRange = 40..160
 
   init {
@@ -100,8 +101,9 @@ class OverlayEditorBar(context: Context, private val controller: OnScreenControl
     selection.text = context.getString(R.string.overlay_editor_selection,
       selected?.let(::controlTitle) ?: context.getString(R.string.overlay_editor_all))
     val bounds = controller.scaleBounds()
-    sizeRange = if (selected != previousSelection) bounds else
+    sizeRange = if (!rangeInitialized || selected != previousSelection) bounds else
       minOf(sizeRange.first, bounds.first)..maxOf(sizeRange.last, bounds.last)
+    rangeInitialized = controller.width > 0 && controller.height > 0
     previousSelection = selected
     val percent = controller.scalePercent()
     sizeTitle.text = if (percent == null) context.getString(R.string.overlay_editor_size_mixed)

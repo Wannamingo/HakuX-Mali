@@ -209,7 +209,7 @@ class OnScreenController @JvmOverloads constructor(
       val sel = selected
       if (sel != null) {
         drawSelection(canvas, l[sel])
-      } else {
+      } else if (onSelectionChanged == null) {
         editPaint.style = Paint.Style.FILL
         editPaint.textSize = 15f * density
         editPaint.textAlign = Paint.Align.CENTER

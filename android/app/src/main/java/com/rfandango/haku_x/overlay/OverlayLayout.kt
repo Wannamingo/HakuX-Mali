@@ -104,10 +104,11 @@ object OverlayStore {
     val file = AtomicFile(File(context.filesDir, FILE))
     var stream: java.io.FileOutputStream? = null
     return try {
+      val bytes = root.toString().toByteArray(Charsets.UTF_8)
       stream = file.startWrite()
-      stream.write(root.toString().toByteArray(Charsets.UTF_8))
+      stream.write(bytes)
       file.finishWrite(stream)
-      true
+      file.openRead().use { it.readBytes().contentEquals(bytes) }
     } catch (_: Exception) {
       file.failWrite(stream)
       false
