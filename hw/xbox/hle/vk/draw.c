@@ -109,6 +109,7 @@ typedef struct HleVkTex {
     VkImageView cube_view;      /* cubes: the six faces as a cube (binding 2) */
     uint32_t slot;              /* sampled_images[] index */
     bool linear;                /* Xbox linear format: texel coordinates */
+    uint64_t uploaded_swap;
 } HleVkTex;
 
 /* A pipeline table entry's state: made (VK_NULL_HANDLE: it failed, not tried
@@ -1019,6 +1020,7 @@ void hle_draw_cmd_tex(const HleCmdTex *c, VkCommandBuffer cb)
         t->linear = (hle_fmt_info(c->xfmt)->flags & HLE_FI_LIN) != 0;
         write_tex_slot(t);
     }
+    t->uploaded_swap=hle_back_swap_count()+1;
     VkImageMemoryBarrier2 b = {
         .sType = VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER_2,
         .srcStageMask = VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
@@ -2418,6 +2420,23 @@ static unsigned stage_anisotropy(const HleCmdDraw *c, unsigned st)
         .pretransformed=!c->vsh && (c->fvf&HLE_FVF_POSITION_MASK)==HLE_FVF_XYZRHW,
         .point_sprite=g_dr.st.rs[RS_POINTSPRITEENABLE]!=0 };
     return hle_filter_override(requested,g_hvk.props.limits.maxSamplerAnisotropy,g_hvk.caps.aniso,&facts);
+}
+
+bool hle_draw_scene3d(const HleCmdDraw *c)
+{
+    return g_dr.st_valid && g_dr.st.rs[RS_ZENABLE] &&
+      (c->vsh || (c->fvf&HLE_FVF_POSITION_MASK)!=HLE_FVF_XYZRHW);
+}
+
+bool hle_draw_movie_texture(const HleCmdDraw *c)
+{
+    if(hle_draw_scene3d(c))return false;
+    for(unsigned st=0;st<HLE_FF_STAGES;st++) {
+        HleVkTex *t=tex_find(c->tex[st]);
+        if(t&&t->linear&&!t->vol&&t->faces==1&&t->levels==1&&t->w>=256&&t->h>=128&&
+           t->uploaded_swap+2>=hle_back_swap_count()+1) return true;
+    }
+    return false;
 }
 
 /* Surfaces sampled as textures, each told once (the first 64 ids below 8192) */

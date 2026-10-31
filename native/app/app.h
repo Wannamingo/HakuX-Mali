@@ -21,6 +21,8 @@ bool nc_present_frame(struct ANativeWindow *win);
  * 4:3, 16:9 (a widescreen title's anamorphic 640x480), or the whole window. */
 enum { NC_ASPECT_AUTO, NC_ASPECT_4_3, NC_ASPECT_16_9, NC_ASPECT_STRETCH };
 void nc_present_set_aspect(int mode);
+void nc_present_set_movie(int mode); /* 0 original,1 4:3,2 16:9,3 source aspect */
+bool nc_present_toggle_movie(void);  /* manual override for unrecognized/in-engine scenes */
 /* The console is set to widescreen: auto shows a 4:3-sized frame as 16:9
  * (a widescreen title renders anamorphic into it). */
 void nc_present_set_widescreen(bool on);

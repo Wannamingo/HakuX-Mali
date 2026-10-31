@@ -83,6 +83,10 @@ void hle_back_set_anisotropy(unsigned value);
 unsigned hle_back_anisotropy(void);
 /* Device capabilities after Vulkan init; false before the device is ready. */
 bool hle_back_capabilities(char *json, size_t size);
+void hle_back_movie_tracking(bool enabled);
+bool hle_back_movie_tracking_on(void);
+/* Packed recognized source width | height<<16 | kind<<32; zero: gameplay/unknown. */
+uint64_t hle_back_movie_status(void);
 
 
 #endif

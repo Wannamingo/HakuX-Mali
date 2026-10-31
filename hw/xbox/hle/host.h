@@ -122,6 +122,8 @@ void hle_host_gpu_lost(const char *why);
 const char *hle_host_base_path(void);
 /* The render scale, 1-4 times the title's resolution. */
 int hle_host_render_scale(void);
+/* Recognized open Bink movie metadata; unknown/menu/loading files return false. */
+bool hle_host_movie_source(uint32_t *width, uint32_t *height);
 /* vkGetInstanceProcAddr of the Vulkan driver to use (a custom driver's or
  * the system's), as a void pointer; NULL if none. */
 void *hle_host_vk_loader(void);

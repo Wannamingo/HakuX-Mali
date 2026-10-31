@@ -26,6 +26,7 @@ class GameExperience(private val activity: NativeCoreActivity, private val captu
     val store = ExperienceStore(activity)
     options = store.effective(game); bindings = store.hotkeys()
     NativeCoreActivity.nativeSetOutputVolume(options[ExperienceSetting.VOLUME], options.enabled(ExperienceSetting.MUTE))
+    NativeCoreActivity.nativeSetMoviePolicy(options[ExperienceSetting.MOVIE_ASPECT])
     NativeCoreActivity.nativeSetFraming(listOf(ExperienceSetting.CROP_LEFT, ExperienceSetting.CROP_RIGHT,
       ExperienceSetting.CROP_TOP, ExperienceSetting.CROP_BOTTOM, ExperienceSetting.ZOOM,
       ExperienceSetting.SHIFT_X, ExperienceSetting.SHIFT_Y).map { options[it] }.toIntArray())

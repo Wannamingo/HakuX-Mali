@@ -5,6 +5,7 @@
  * is dirty.c's, the GPU device's interrupts and display timing dev/nv2a.c's.
  */
 #include "native/hle/hle_native.h"
+#include "native/core/movie.h"
 
 #include "hw/xbox/hle/host.h"
 
@@ -130,6 +131,8 @@ int hle_host_render_scale(void)
 {
     return g_render_scale;
 }
+
+bool hle_host_movie_source(uint32_t *width,uint32_t *height) { return nc_movie_source(width,height); }
 
 /* A custom Vulkan driver's entry point (the app loads Turnip through
  * adrenotools), or the system driver's. */

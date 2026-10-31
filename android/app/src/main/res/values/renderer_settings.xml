@@ -3,4 +3,13 @@
   <string name="renderer_anisotropy">Anisotropic filtering</string>
   <string name="renderer_original">Original sampling</string>
   <string name="renderer_caps_unknown">Start a game to detect supported levels</string>
+  <string name="renderer_movie_aspect">Movie aspect ratio</string>
+  <string name="renderer_movie_original">Use game layout</string>
+  <string name="renderer_movie_43">4:3 for recognized movies</string>
+  <string name="renderer_movie_169">16:9 for recognized movies</string>
+  <string name="renderer_movie_auto">Auto — recognized source aspect</string>
+  <string name="renderer_movie_desc">Applies to recognized Bink movies and video overlays. Unknown scenes keep the game layout; use the pause-menu action or a shortcut to switch manually.</string>
+  <string name="renderer_movie_toggle">Toggle movie layout</string>
+  <string name="renderer_movie_on">Manual movie layout enabled</string>
+  <string name="renderer_movie_off">Manual movie layout disabled</string>
 </resources>

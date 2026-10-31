@@ -25,6 +25,7 @@ import kotlinx.coroutines.withContext
 internal fun experienceLabel(field: ExperienceSetting): Int = when (field) {
   ExperienceSetting.AUTO_PERFORMANCE -> R.string.exp_auto_performance
   ExperienceSetting.ANISOTROPY -> R.string.renderer_anisotropy
+  ExperienceSetting.MOVIE_ASPECT -> R.string.renderer_movie_aspect
   ExperienceSetting.VOLUME -> R.string.exp_volume
   ExperienceSetting.MUTE -> R.string.exp_mute
   ExperienceSetting.AUDIO_BUFFER -> R.string.exp_audio_buffer
@@ -85,7 +86,9 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
       else -> R.string.exp_runtime_desc
     }))
     if (category == SettingsCategory.DISPLAY) TextButton(onClick = {
-      for (field in fields.take(7)) update(field, if (gameKey != null) null else field.default)
+      for (field in listOf(ExperienceSetting.CROP_LEFT,ExperienceSetting.CROP_RIGHT,ExperienceSetting.CROP_TOP,
+        ExperienceSetting.CROP_BOTTOM,ExperienceSetting.ZOOM,ExperienceSetting.SHIFT_X,ExperienceSetting.SHIFT_Y))
+        update(field, if (gameKey != null) null else field.default)
     }) { Text(stringResource(R.string.exp_reset_framing)) }
     for (field in fields) {
       val value = effective[field]
@@ -93,10 +96,11 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
       val inherited = gameKey != null && field !in own
       SettingsTarget(experienceLabel(field)) {
         when (field) {
-          ExperienceSetting.ANISOTROPY,ExperienceSetting.AUDIO_BUFFER, ExperienceSetting.REFRESH_RATE -> ListItem(
+          ExperienceSetting.MOVIE_ASPECT,ExperienceSetting.ANISOTROPY,ExperienceSetting.AUDIO_BUFFER, ExperienceSetting.REFRESH_RATE -> ListItem(
             headlineContent = { Text(title) }, supportingContent = { Text(
               (if (inherited) stringResource(R.string.exp_inherited) + " " else "") +
-                if(field==ExperienceSetting.ANISOTROPY) (if(value==0) stringResource(R.string.renderer_original) else "${value}×") +
+                if(field==ExperienceSetting.MOVIE_ASPECT) stringResource(movieLabel(value))+" · "+stringResource(R.string.renderer_movie_desc)
+                else if(field==ExperienceSetting.ANISOTROPY) (if(value==0) stringResource(R.string.renderer_original) else "${value}×") +
                   if(capabilities==null) " · "+stringResource(R.string.renderer_caps_unknown) else ""
                 else if (field == ExperienceSetting.AUDIO_BUFFER) stringResource(bufferLabel(value))
                 else if (value == 0) stringResource(R.string.exp_auto) else "$value Hz"
@@ -129,7 +133,8 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
     SettingsGroup(true) { SettingsProfilesSection(gameKey) { revision++ } }
   }
   choosing?.let { field ->
-    val values = if(field==ExperienceSetting.ANISOTROPY) capabilities?.anisotropyChoices?:listOf(0)
+    val values = if(field==ExperienceSetting.MOVIE_ASPECT) listOf(0,1,2,3)
+    else if(field==ExperienceSetting.ANISOTROPY) capabilities?.anisotropyChoices?:listOf(0)
     else if (field == ExperienceSetting.AUDIO_BUFFER) listOf(0, 1, 2) else {
       @Suppress("DEPRECATION") val display = context.getSystemService(android.view.WindowManager::class.java).defaultDisplay
       listOf(0) + display.supportedModes.filter {
@@ -138,7 +143,8 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
     }
     ChoiceDialog(title = stringResource(experienceLabel(field)), options =
       (if (gameKey != null) listOf<Int?>(null) else emptyList()) .map { it to stringResource(R.string.extra_picture_use_global_value) } +
-        values.map { it as Int? to if(field==ExperienceSetting.ANISOTROPY) (if(it==0) stringResource(R.string.renderer_original) else "${it}×")
+        values.map { it as Int? to if(field==ExperienceSetting.MOVIE_ASPECT) stringResource(movieLabel(it))
+          else if(field==ExperienceSetting.ANISOTROPY) (if(it==0) stringResource(R.string.renderer_original) else "${it}×")
           else if (field == ExperienceSetting.AUDIO_BUFFER) stringResource(bufferLabel(it))
           else if (it == 0) stringResource(R.string.exp_auto) else "$it Hz" },
       current = if (gameKey != null && field !in own) null else effective[field],
@@ -179,6 +185,9 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
 private fun bufferLabel(value: Int) = when (value) {
   0 -> R.string.exp_audio_low; 2 -> R.string.exp_audio_stable; else -> R.string.exp_audio_balanced
 }
+private fun movieLabel(value:Int)=when(value) {
+  1->R.string.renderer_movie_43;2->R.string.renderer_movie_169;3->R.string.renderer_movie_auto;else->R.string.renderer_movie_original
+}
 internal fun hotkeyLabel(action: HotkeyAction) = when (action) {
   HotkeyAction.MENU -> R.string.exp_key_menu
   HotkeyAction.SCREENSHOT -> R.string.exp_key_screenshot
@@ -186,6 +195,7 @@ internal fun hotkeyLabel(action: HotkeyAction) = when (action) {
   HotkeyAction.QUICK_LOAD -> R.string.exp_key_load
   HotkeyAction.SAVE_MENU -> R.string.overlay_menu_save_state
   HotkeyAction.LOAD_MENU -> R.string.overlay_menu_load_state
+  HotkeyAction.MOVIE_ASPECT -> R.string.renderer_movie_toggle
 }
 
 @Composable private fun HotkeysSection(store: ExperienceStore) {

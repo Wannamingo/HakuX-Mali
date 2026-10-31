@@ -6,7 +6,7 @@ import org.json.JSONObject
 import java.io.File
 
 data class RendererCapabilities(val maxAnisotropy:Int) {
-  val anisotropyChoices get() = listOf(0)+listOf(2,4,8).filter { it<=maxAnisotropy }
+  val anisotropyChoices get() = listOf(0)+listOf(2,4,8,16).filter { it<=maxAnisotropy }
   companion object { fun bounded(value:Int)=RendererCapabilities(value.coerceIn(1,16)) }
 }
 

@@ -14,6 +14,7 @@
 #include "native/kernel/kernel.h"
 #include "native/core/irq.h"
 #include "native/core/xdvdfs.h"
+#include "native/core/movie.h"
 
 #include <ctype.h>
 #include <dirent.h>
@@ -526,6 +527,7 @@ void nc_io_close(NcKernel *k, uint32_t object)
     uint32_t i = nc_vm_rd32(k->vm, object + FO_INDEX);
     if (i < MAX_FILES && g_files[i].used) {
         NcFile *nf = &g_files[i];
+        nc_movie_close(nf);
         if (nf->fd >= 0 && nf->wrote) {
             close_later(nf);
         } else {
@@ -625,6 +627,7 @@ typedef struct DiscJob {
     uint32_t thread_id;      /* its id then: the slot may hold another thread by the end */
     bool sync;               /* a synchronous handle's: the thread waits for it (nc_ke_block) */
     bool ok;
+    uint64_t movie;
     int err;
     char path[64]; /* for the log */
 } DiscJob;
@@ -664,6 +667,12 @@ static void *reader_thread(void *arg)
             o += g->len;
         }
         j.err = j.ok ? 0 : errno;
+        if(j.ok && j.movie) {
+            uint64_t offset=j.off;
+            for(unsigned i=0;i<j.nseg && (i==0||offset<36);i++) {
+                nc_movie_read(j.movie,offset,j.seg[i].host,j.seg[i].len);offset+=j.seg[i].len;
+            }
+        }
         pthread_mutex_lock(&g_reader.mu);
         g_reader.done[g_reader.ndone++] = j;
         pthread_mutex_unlock(&g_reader.mu);
@@ -715,6 +724,7 @@ static bool disc_read_later(NcKernel *k, const NcFile *nf, const uint32_t *a, ui
     DiscJob j = {.disc = k->disc, .file = nf->disc, .fd = -1, .off = off, .va = a[5], .n = n, .iosb = a[4],
                  .event = event, .apc = a[2], .apc_ctx = a[3], .thread = k->current,
                  .thread_id = k->current ? k->current->id : 0, .sync = sync};
+    j.movie=nc_movie_begin(nf,nf->path);
     snprintf(j.path, sizeof(j.path), "%s", nf->path);
     j.seg = malloc(sizeof(*j.seg) * ((n + NC_PAGE - 1) / NC_PAGE + 1));
     if (!j.seg) {
@@ -1283,6 +1293,8 @@ static uint64_t NtReadFile(NcKernel *k, NcFrame *f, const uint32_t *a)
                    a[5], strerror(errno));
             st = 0xC000009Cu; /* STATUS_DEVICE_DATA_ERROR */
             n = 0;
+        } else {
+            nc_movie_read(nc_movie_begin(nf,nf->path),off,nc_vm_host(k->vm,a[5]),n);
         }
     }
     nf->pos = off + n;
@@ -2510,6 +2522,7 @@ static void file_drop(NcFile *nf)
 
 bool nc_file_state_load(NcRd *r, unsigned v)
 {
+    nc_movie_reset();
     NcFileState st = {0};
     nc_rec_get(r, &nc_rec_NcFileState, &st, v);
     for (unsigned i = 0; i < MAX_FILES; i++) {

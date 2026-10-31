@@ -1,4 +1,6 @@
 #include "hw/xbox/hle/vk/filter_policy.h"
+#include "native/core/movie.h"
+#include "native/core/movie_policy.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -8,6 +10,7 @@ int main(void)
     const HleFilterFacts normal={.xfmt=HLE_XFMT_DXT1,.levels=8,.faces=1,
         .min_filter=2,.mag_filter=2,.mip_filter=2,.depth_test=true};
     assert(hle_filter_override(8,16,true,&normal)==8);
+    assert(hle_filter_override(16,16,true,&normal)==16);
     assert(hle_filter_override(8,4,true,&normal)==4);
     assert(hle_filter_override(0,16,true,&normal)==0);
     assert(hle_filter_override(3,16,true,&normal)==0);
@@ -31,6 +34,32 @@ int main(void)
     uint64_t original=hle_filter_key2(bias,32,0), enhanced=hle_filter_key2(bias,32,8);
     assert(original!=enhanced && (uint32_t)enhanced==bias && (uint16_t)(enhanced>>32)==32);
     assert(original==(bias|((uint64_t)32<<32)));
-    puts("PASS: 22 renderer filter policy cases");
+    assert(nc_movie_path("\\Device\\CdRom0\\video\\30fps\\CINE\\CINE0100.BIK"));
+    assert(!nc_movie_path("\\Device\\CdRom0\\video\\30fps\\LoadIn0.bik"));
+    assert(!nc_movie_path("\\Device\\CdRom0\\interface\\menu.bik"));
+    assert(!nc_movie_path("\\Device\\CdRom0\\video\\mainmenu.bik"));
+    assert(!nc_movie_path("\\Device\\CdRom0\\textures\\video.dds"));
+    uint8_t header[36]={ 'B','I','K','i' };uint32_t w=0,h=0;
+    uint32_t words[9]={0,0,300,0,0,640,480,30,1};memcpy(header+4,(uint8_t*)words+4,32);
+    assert(nc_movie_header(header,&w,&h)&&w==640&&h==480);
+    header[3]=0;assert(!nc_movie_header(header,&w,&h));header[3]='i';
+    header[32]=0;assert(!nc_movie_header(header,&w,&h));header[32]=1;
+    NcMovieVote vote={0};
+    assert(!nc_movie_vote(&vote,640,480,2));assert(!nc_movie_vote(&vote,640,480,2));
+    assert(nc_movie_vote(&vote,640,480,2));assert(nc_movie_vote(&vote,0,0,0));
+    assert(nc_movie_vote(&vote,640,480,2));
+    assert(nc_movie_vote(&vote,0,0,0));assert(nc_movie_vote(&vote,0,0,0));assert(!nc_movie_vote(&vote,0,0,0));
+    assert(!nc_movie_vote(&vote,UINT32_MAX,480,2));
+    const char *path="\\Device\\CdRom0\\video\\intro.bik";
+    assert(!nc_movie_begin((void*)1,path));nc_movie_enable(true);
+    uint64_t token=nc_movie_begin((void*)1,path);assert(token);
+    nc_movie_read(token,0,header,4);assert(!nc_movie_source(&w,&h));
+    nc_movie_read(token,4,header+4,32);assert(nc_movie_source(&w,&h)&&w==640&&h==480);
+    nc_movie_close((void*)1);assert(!nc_movie_source(&w,&h));
+    nc_movie_read(token,0,header,36);assert(!nc_movie_source(&w,&h));
+    assert(!nc_movie_begin((void*)2,"\\video\\menu.bik"));
+    token=nc_movie_begin((void*)3,path);nc_movie_read(token,0,header,36);
+    nc_movie_enable(false);assert(!nc_movie_source(&w,&h));
+    puts("PASS: renderer filter, movie metadata, hysteresis and file-lifetime policy cases");
     return 0;
 }

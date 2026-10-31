@@ -10,7 +10,7 @@ typedef struct HleFilterFacts {
 static inline unsigned hle_filter_override(unsigned requested, float limit, bool supported,
                                            const HleFilterFacts *f)
 {
-    if ((requested != 2 && requested != 4 && requested != 8) || !supported ||
+    if ((requested != 2 && requested != 4 && requested != 8 && requested != 16) || !supported ||
         !(limit >= 2 && limit <= 1024) || !f->depth_test || f->pretransformed ||
         f->point_sprite || f->linear || f->volume || f->faces != 1 || f->levels <= 1 ||
         f->min_filter < 2 || f->mag_filter < 2 || !f->mip_filter) return 0;

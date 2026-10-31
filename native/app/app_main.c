@@ -60,6 +60,11 @@ static double process_cpu_ms(void)
 }
 static double g_measure_cpu;
 
+EXPORT JNIEXPORT void JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeSetMoviePolicy(JNIEnv *env,jclass cls,jint mode)
+{ nc_present_set_movie(mode); }
+EXPORT JNIEXPORT jboolean JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeToggleMovie(JNIEnv *env,jclass cls)
+{ return nc_present_toggle_movie()?JNI_TRUE:JNI_FALSE; }
+
 EXPORT JNIEXPORT jstring JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeRendererCapabilities(JNIEnv *env, jclass cls)
 {
     char json[256];
@@ -641,6 +646,7 @@ EXPORT int SDL_main(int argc, char *argv[])
                                                           : NC_ASPECT_AUTO);
             nc_log("hakuX-app", "aspect ratio %s", a);
         }
+        if(!strncmp(argv[i],"movie=",6))nc_present_set_movie(atoi(argv[i]+6));
         if (!strncmp(argv[i], "fxaa=", 5)) {
             nc_present_set_fxaa(atoi(argv[i] + 5) != 0);
         }

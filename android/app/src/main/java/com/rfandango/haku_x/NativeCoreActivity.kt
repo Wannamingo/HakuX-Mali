@@ -318,6 +318,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     args += extra.audioArgument()
     args += extra.framingArgument()
     args += "anisotropy=${extra[com.rfandango.haku_x.data.ExperienceSetting.ANISOTROPY]}"
+    args += "movie=${extra[com.rfandango.haku_x.data.ExperienceSetting.MOVIE_ASPECT]}"
     /* Every frame presented at once, no vblank wait: on by default. */
     if (settings.uncapped) {
       args += "uncap"
@@ -878,6 +879,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     }
     val exit = if (launchedExternally) R.string.overlay_menu_exit_frontend else R.string.overlay_menu_exit
     items += getString(R.string.exp_key_screenshot) to { experience.screenshot() }
+    items += getString(R.string.renderer_movie_toggle) to { runHotkey(com.rfandango.haku_x.data.HotkeyAction.MOVIE_ASPECT) }
     items += getString(exit) to ::requestExitGame
     val title = getSharedPreferences(AppPrefs.NAME, MODE_PRIVATE).getString("current_game_title", null)
     val panel = com.rfandango.haku_x.ui.PauseMenu(this, title, items)
@@ -1011,6 +1013,8 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
       }
       com.rfandango.haku_x.data.HotkeyAction.SAVE_MENU -> if (nativeStatesAvailable()) saveStates.showSlots(save = true)
       com.rfandango.haku_x.data.HotkeyAction.LOAD_MENU -> if (nativeStatesAvailable()) saveStates.showSlots(save = false)
+      com.rfandango.haku_x.data.HotkeyAction.MOVIE_ASPECT -> Toast.makeText(this,
+        if(nativeToggleMovie()) R.string.renderer_movie_on else R.string.renderer_movie_off,Toast.LENGTH_SHORT).show()
     }
   }
 
@@ -1319,6 +1323,8 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     @JvmStatic external fun nativeMeasureStart()
     @JvmStatic external fun nativeMeasureEnd(): DoubleArray
     @JvmStatic external fun nativeRendererCapabilities(): String?
+    @JvmStatic external fun nativeSetMoviePolicy(mode:Int)
+    @JvmStatic external fun nativeToggleMovie():Boolean
 
     /** Why the game can't run on this device (the GPU driver, or the game), or null. */
     @JvmStatic

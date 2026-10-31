@@ -36,6 +36,7 @@ add_library(hakux_native STATIC
   core/xbe_media.c
   core/mods.c
   core/options.c
+  core/movie.c
   core/cheats.c
   core/memscan.c
   core/core.c

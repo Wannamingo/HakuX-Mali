@@ -3,4 +3,13 @@
   <string name="renderer_anisotropy">Анизотропная фильтрация</string>
   <string name="renderer_original">Исходная фильтрация</string>
   <string name="renderer_caps_unknown">Запустите игру для определения доступных уровней</string>
+  <string name="renderer_movie_aspect">Пропорции видеороликов</string>
+  <string name="renderer_movie_original">Как в игре</string>
+  <string name="renderer_movie_43">4:3 для распознанных роликов</string>
+  <string name="renderer_movie_169">16:9 для распознанных роликов</string>
+  <string name="renderer_movie_auto">Авто — пропорции распознанного источника</string>
+  <string name="renderer_movie_desc">Для распознанных Bink-роликов и видеоналожений. Неизвестные сцены сохраняют игровой формат; ручное переключение доступно в меню паузы и сочетаниях кнопок.</string>
+  <string name="renderer_movie_toggle">Переключить режим видеоролика</string>
+  <string name="renderer_movie_on">Ручной режим видеоролика включён</string>
+  <string name="renderer_movie_off">Ручной режим видеоролика выключен</string>
 </resources>

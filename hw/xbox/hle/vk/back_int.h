@@ -26,6 +26,8 @@ void hle_tl_gap_serve(void);
  * clear rects, readbacks, visibility counts) and are converted where the
  * image is used. */
 extern uint32_t g_hle_rscale;
+bool hle_draw_scene3d(const HleCmdDraw *draw);
+bool hle_draw_movie_texture(const HleCmdDraw *draw);
 
 /* surf.c */
 typedef struct HleVkSurf {

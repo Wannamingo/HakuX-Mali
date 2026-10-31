@@ -74,8 +74,10 @@ class CalibrationStore(private val context: Context) {
     checkpoint(id).delete();thumb(id).delete();File(dir,"blobs").deleteRecursively()
     if (runCatching { File(root,"pending").readText().trim()==id }.getOrDefault(false)) File(root,"pending").delete()
   }
-  fun configurationKey(game:String):String=digest(deviceKey(context)+"|aniso="+
-    ExperienceStore(context).effective(game)[ExperienceSetting.ANISOTROPY])
+  fun configurationKey(game:String):String {
+    val options=ExperienceStore(context).effective(game)
+    return digest(deviceKey(context)+"|aniso="+options[ExperienceSetting.ANISOTROPY]+"|movie="+options[ExperienceSetting.MOVIE_ASPECT])
+  }
   companion object {
     fun active(context:Context,game:String) {
       val file=File(context.filesDir,"performance/active.json");file.parentFile?.mkdirs()

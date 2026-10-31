@@ -11,6 +11,8 @@
 #include "native/dev/dev.h"
 #include "hw/xbox/hle/vk/display.h"
 #include "hw/xbox/hle/vk/swapchain.h"
+#include "hw/xbox/hle/vk/back.h"
+#include "native/core/movie.h"
 
 #include <string.h>
 #include <sys/system_properties.h>
@@ -23,6 +25,33 @@ static bool g_widescreen;
 static bool g_fxaa;
 static int g_upscale = NC_UPSCALE_BILINEAR;
 static bool g_shown;
+static int g_movie_mode;
+static bool g_movie_force;
+static uint32_t g_movie_w,g_movie_h;
+void nc_present_set_movie(int mode)
+{
+    mode=mode>=0&&mode<=3?mode:0;
+    int old=__atomic_exchange_n(&g_movie_mode,mode,__ATOMIC_ACQ_REL);
+    if(old!=mode)__atomic_store_n(&g_movie_force,false,__ATOMIC_RELEASE);
+    nc_movie_enable(mode!=0);hle_back_movie_tracking(mode!=0);
+}
+bool nc_present_toggle_movie(void)
+{
+    bool force=!__atomic_load_n(&g_movie_force,__ATOMIC_ACQUIRE);
+    __atomic_store_n(&g_movie_force,force,__ATOMIC_RELEASE);return force;
+}
+static void movie_layout(void)
+{
+    uint64_t source=hle_back_movie_status();
+    int mode=__atomic_load_n(&g_movie_mode,__ATOMIC_ACQUIRE);
+    bool force=__atomic_load_n(&g_movie_force,__ATOMIC_ACQUIRE);
+    g_movie_w=g_movie_h=0;
+    if(force||(mode&&source)) {
+        if(mode==2) {g_movie_w=16;g_movie_h=9;}
+        else if(mode==3&&source) {g_movie_w=source&0xffffu;g_movie_h=source>>16&0xffffu;}
+        else {g_movie_w=4;g_movie_h=3;}
+    }
+}
 static pthread_mutex_t g_framing_lock = PTHREAD_MUTEX_INITIALIZER;
 static int g_pending_framing[7] = {0, 0, 0, 0, 100, 0, 0};
 static int g_framing[7] = {0, 0, 0, 0, 100, 0, 0};
@@ -184,6 +213,7 @@ static void place(uint32_t fw, uint32_t fh, uint32_t ww, uint32_t wh, float *sx,
         }
         break;
     }
+    if(g_movie_w&&g_movie_h)fa=(float)g_movie_w/g_movie_h;
     fa *= (100.0f - g_framing[0] - g_framing[1]) / (100.0f - g_framing[2] - g_framing[3]);
     *sx = *sy = 1.0f;
     if (wa > fa) {
@@ -196,7 +226,7 @@ static void place(uint32_t fw, uint32_t fh, uint32_t ww, uint32_t wh, float *sx,
     static uint64_t last_frame, last_window;
     static int last_mode = -1;
     const uint64_t frame = (uint64_t)fw << 32 | fh, window = (uint64_t)ww << 32 | wh;
-    const int mode = g_aspect * 2 + g_widescreen;
+    const int mode = g_aspect * 2 + g_widescreen + (g_movie_w ? (g_movie_w*4096+g_movie_h)*16:0);
     if (frame != last_frame || window != last_window || mode != last_mode) {
         const char *aspect = g_aspect == NC_ASPECT_4_3 ? "4:3" :
                              g_aspect == NC_ASPECT_16_9 ? "16:9" :
@@ -207,6 +237,7 @@ static void place(uint32_t fw, uint32_t fh, uint32_t ww, uint32_t wh, float *sx,
         last_frame = frame;
         last_window = window;
         last_mode = mode;
+        if(g_movie_w)nc_log("hakuX-app","movie layout: %u:%u",g_movie_w,g_movie_h);
     }
 }
 
@@ -223,13 +254,15 @@ static void wait_next_vsync(void)
 bool nc_present_frame(struct ANativeWindow *win)
 {
     apply_framing();
+    movie_layout();
     count_frames();
     debug_poll();
     const bool fxaa = g_dbg.fxaa < 0 ? g_fxaa : g_dbg.fxaa != 0;
     const int upscale = g_dbg.upscale < 0 ? g_upscale : g_dbg.upscale;
     /* what places and filters the frame, beside it and the window */
     const uint64_t key = (uint64_t)fxaa | (uint64_t)upscale << 1 | (uint64_t)g_dbg.average << 4 |
-                         (uint64_t)g_widescreen << 5 | (uint64_t)(uint32_t)g_aspect << 8;
+                         (uint64_t)g_widescreen << 5 | (uint64_t)(uint32_t)g_aspect << 8 |
+                         (uint64_t)g_movie_w<<24 | (uint64_t)g_movie_h<<40;
     if (hle_present_unchanged(win, key)) {
         nc_dev_nv2a_display_pickup(now_ns()); /* it looked: the vblank keeps clear of it */
         wait_next_vsync();

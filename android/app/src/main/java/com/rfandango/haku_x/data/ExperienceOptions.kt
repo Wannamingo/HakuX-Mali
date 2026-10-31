@@ -3,17 +3,18 @@ package com.rfandango.haku_x.data
 /** Output/input conveniences; defaults preserve the existing emulator behaviour. */
 enum class ExperienceSetting(val key: String, val default: Int, val minimum: Int, val maximum: Int) {
   AUTO_PERFORMANCE("auto_performance", 0, 0, 1),
-  ANISOTROPY("anisotropy", 0, 0, 8),
+  ANISOTROPY("anisotropy", 0, 0, 16),
   VOLUME("volume", 100, 0, 100), MUTE("mute", 0, 0, 1),
   AUDIO_BUFFER("audio_buffer", 1, 0, 2), HRTF("hrtf", 1, 0, 1),
   CROP_LEFT("crop_left", 0, 0, 15), CROP_RIGHT("crop_right", 0, 0, 15),
   CROP_TOP("crop_top", 0, 0, 15), CROP_BOTTOM("crop_bottom", 0, 0, 15),
   ZOOM("zoom", 100, 100, 200), SHIFT_X("shift_x", 0, -20, 20), SHIFT_Y("shift_y", 0, -20, 20),
+  MOVIE_ASPECT("movie_aspect",0,0,3),
   REFRESH_RATE("refresh_rate", 0, 0, 240), AUTO_SAVE("auto_save", 0, 0, 1),
   OFFER_RESUME("offer_resume", 0, 0, 1), THERMAL_WARNING("thermal_warning", 0, 0, 1),
   SOC_WARNING("soc_warning", 90, 60, 110), BATTERY_WARNING("battery_warning", 45, 35, 55);
 
-  fun sanitize(value: Int) = if(this==ANISOTROPY && value !in listOf(0,2,4,8)) default else value.coerceIn(minimum, maximum)
+  fun sanitize(value: Int) = if(this==ANISOTROPY && value !in listOf(0,2,4,8,16)) default else value.coerceIn(minimum, maximum)
   fun accepts(value:Int)=value in minimum..maximum && sanitize(value)==value
 }
 
@@ -38,7 +39,7 @@ object StickTransform {
   }
 }
 
-enum class HotkeyAction { MENU, SCREENSHOT, QUICK_SAVE, QUICK_LOAD, SAVE_MENU, LOAD_MENU }
+enum class HotkeyAction { MENU, SCREENSHOT, QUICK_SAVE, QUICK_LOAD, SAVE_MENU, LOAD_MENU, MOVIE_ASPECT }
 
 /** Select is deferred until we know whether the press is a shortcut or Xbox Back. */
 class HotkeyGate {

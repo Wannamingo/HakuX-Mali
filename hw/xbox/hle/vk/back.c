@@ -27,13 +27,28 @@
 #include "hw/xbox/hle/vk/quirks.h"
 #include "hw/xbox/hle/vk/vis_result.h"
 #include "hw/xbox/hle/vk/rop_pass.h"
+#include "native/core/movie_policy.h"
 
 #define T (g_hvk.t)
 
 static unsigned g_anisotropy;
+static bool g_movie_tracking;
+static uint64_t g_movie_status;
+static unsigned g_movie_reset;
+static unsigned g_movie_scene_draws;
+static bool g_movie_pixels;
+static NcMovieVote g_movie_vote;
+void hle_back_movie_tracking(bool on)
+{
+    bool old=__atomic_exchange_n(&g_movie_tracking,on,__ATOMIC_ACQ_REL);
+    if(old!=on) __atomic_add_fetch(&g_movie_reset,1,__ATOMIC_RELEASE);
+    if(!on) __atomic_store_n(&g_movie_status,0,__ATOMIC_RELEASE);
+}
+bool hle_back_movie_tracking_on(void) { return __atomic_load_n(&g_movie_tracking,__ATOMIC_ACQUIRE); }
+uint64_t hle_back_movie_status(void) { return __atomic_load_n(&g_movie_status,__ATOMIC_ACQUIRE); }
 void hle_back_set_anisotropy(unsigned value)
 {
-    g_anisotropy = value == 2 || value == 4 || value == 8 ? value : 0;
+    g_anisotropy = value == 2 || value == 4 || value == 8 || value == 16 ? value : 0;
 }
 unsigned hle_back_anisotropy(void) { return g_anisotropy; }
 
@@ -41,7 +56,7 @@ bool hle_back_capabilities(char *json, size_t size)
 {
     if (!hle_vk_ready()) return false;
     const unsigned max_aniso = g_hvk.caps.aniso ? (unsigned)g_hvk.props.limits.maxSamplerAnisotropy : 1;
-    snprintf(json, size, "{\"maxAnisotropy\":%u,\"vendor\":%u,\"device\":%u,\"driver\":%u}",
+    snprintf(json, size, "{\"maxAnisotropy\":%u,\"vendor\":%u,\"deviceId\":%u,\"driver\":%u}",
              max_aniso, g_hvk.props.vendorID, g_hvk.props.deviceID, g_hvk.props.driverVersion);
     return true;
 }
@@ -1957,6 +1972,22 @@ static void cmd_swap_present(const HleCmdSwap *c);
 
 static void cmd_swap(const HleCmdSwap *c)
 {
+    static unsigned movie_generation;
+    unsigned generation=__atomic_load_n(&g_movie_reset,__ATOMIC_ACQUIRE);
+    if(generation!=movie_generation) { memset(&g_movie_vote,0,sizeof(g_movie_vote));movie_generation=generation; }
+    if(hle_back_movie_tracking_on()) {
+        uint32_t w=0,h=0,kind=0;
+        if(g_ovl.on && g_ovl.fb_w && g_ovl.fb_h &&
+           (int64_t)(g_ovl.dst[2]-g_ovl.dst[0])*(g_ovl.dst[3]-g_ovl.dst[1])*10 >= (int64_t)g_ovl.fb_w*g_ovl.fb_h*7) {
+            w=g_ovl.src[2]-g_ovl.src[0];h=g_ovl.src[3]-g_ovl.src[1];kind=1;
+        } else if(g_movie_pixels && g_movie_scene_draws<3 && hle_host_movie_source(&w,&h)) kind=2;
+        uint64_t status=nc_movie_vote(&g_movie_vote,w,h,kind);
+        uint64_t old=__atomic_exchange_n(&g_movie_status,status,__ATOMIC_ACQ_REL);
+        if(old!=status) hle_log("hakuX-app","movie detector: %s source=%ux%u kind=%u scene draws=%u",
+          status?"video":"game",(unsigned)(status&0xffffu),(unsigned)(status>>16&0xffffu),
+          (unsigned)(status>>32),g_movie_scene_draws);
+    }
+    g_movie_scene_draws=0;g_movie_pixels=false;
     rtd_poll();
     pix_poll();
     g_rtd.active |= rtd_range();
@@ -2545,7 +2576,16 @@ static void dispatch(const HleCmdHdr *h)
         }
         break;
     case HLE_OP_READBACK: cmd_readback(p); break;
-    case HLE_OP_UPLOAD:   cmd_upload(p); break;
+    case HLE_OP_UPLOAD: {
+        cmd_upload(p);
+        if(hle_back_movie_tracking_on()) {
+            const HleCmdUpload *u=p;
+            for(unsigned i=0;i<u->nrects&&i<HLE_CMD_MAX_RECTS;i++)
+                if((int64_t)(u->rect[i].x2-u->rect[i].x1)*(u->rect[i].y2-u->rect[i].y1)*2 >=
+                   (int64_t)g_back.disp_w*g_back.disp_h && g_back.disp_w && g_back.disp_h) g_movie_pixels=true;
+        }
+        break;
+    }
     case HLE_OP_STATE:    hle_draw_cmd_state(p); break;
     case HLE_OP_STATE_PART: hle_draw_cmd_state_part(p); break;
     case HLE_OP_GAMMA:    cmd_gamma(p); break;
@@ -2616,6 +2656,10 @@ static void dispatch(const HleCmdHdr *h)
             }
             g_hle_zeq = zv ? zq : 0;
             hle_draw_cmd_draw(p, g_back.fr[g_back.cur].cb, g_back.rt, g_back.ds, &g_back.vp);
+            if(hle_back_movie_tracking_on()) {
+                g_movie_scene_draws+=hle_draw_scene3d(p);
+                g_movie_pixels|=hle_draw_movie_texture(p);
+            }
             if (split_rop) hle_rop_pass_record(&g_rop_pass, rop[3], rop[7]);
             g_back.st.draws++;
             if (g_pix.active) {
