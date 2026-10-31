@@ -69,6 +69,7 @@ add_library(hakux_hle STATIC
   ${NC_HLE}/vk/pcache.c
   ${NC_HLE}/vk/pipeasync.c
   ${NC_HLE}/vk/surf.c
+  ${NC_HLE}/vk/scale_copy.c
   ${NC_HLE}/vk/timeline.c
   ${NC_HLE}/vk/vkdev.c
   ${NC_HLE}/vk/zread.c

@@ -30,6 +30,26 @@ static struct {
     int64_t gaps_log;
 } g_tl;
 
+static struct { HleMutex lock; bool enabled; uint64_t total; int64_t since; } g_queue_measure;
+
+void hle_tl_queue_measure(bool enabled)
+{
+    hle_mutex_lock(&g_queue_measure.lock);
+    if(enabled!=hle_atomic_read(&g_queue_measure.enabled)) {
+        g_queue_measure.total=0;
+        g_queue_measure.since=enabled && hle_atomic_read(&g_tl.submitted)>hle_atomic_read(&g_tl.completed)?hle_now_ns():0;
+        hle_atomic_set(&g_queue_measure.enabled,enabled);
+    }
+    hle_mutex_unlock(&g_queue_measure.lock);
+}
+
+uint64_t hle_tl_queue_ns(void)
+{
+    hle_mutex_lock(&g_queue_measure.lock);
+    uint64_t n=g_queue_measure.total+(g_queue_measure.since?hle_now_ns()-g_queue_measure.since:0);
+    hle_mutex_unlock(&g_queue_measure.lock);return n;
+}
+
 /* MaliSX2 exposes binary sync only. Each ordered submission gets a fence;
  * the watcher is its sole waiter and recycler. CPU waiters observe completed
  * through the condition variable, never a fence that could be reset under
@@ -133,6 +153,8 @@ static void land(uint64_t v)
 static void publish(uint64_t v)
 {
     land(v);
+    bool measure=hle_atomic_read(&g_queue_measure.enabled);
+    if(measure)hle_mutex_lock(&g_queue_measure.lock);
     uint64_t cur = hle_atomic_read(&g_tl.completed);
     while (v > cur) {
         uint64_t prev = hle_atomic_cmpxchg(&g_tl.completed, cur, v);
@@ -140,6 +162,12 @@ static void publish(uint64_t v)
             break;
         }
         cur = prev;
+    }
+    if(measure) {
+        if(g_queue_measure.since && hle_atomic_read(&g_tl.completed)>=hle_atomic_read(&g_tl.submitted)) {
+            g_queue_measure.total+=hle_now_ns()-g_queue_measure.since;g_queue_measure.since=0;
+        }
+        hle_mutex_unlock(&g_queue_measure.lock);
     }
 }
 
@@ -252,6 +280,7 @@ static void *watch_thread(void *opaque)
 
 int hle_tl_init(void (*on_complete)(uint64_t))
 {
+    hle_mutex_init(&g_queue_measure.lock);
     VkSemaphoreTypeCreateInfo ti = {
         .sType = VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
         .semaphoreType = VK_SEMAPHORE_TYPE_TIMELINE, .initialValue = 0 };
@@ -297,10 +326,16 @@ VkSemaphore hle_tl_sem(void)
 
 void hle_tl_signaled(uint64_t value)
 {
+    bool measure=hle_atomic_read(&g_queue_measure.enabled);
+    if(measure)hle_mutex_lock(&g_queue_measure.lock);
     if (hle_atomic_read(&g_tl.completed) >= hle_atomic_read(&g_tl.submitted)) {
         hle_atomic_set(&g_tl.busy_since, hle_now_ns());     /* idle up to here: a new busy span */
     }
     hle_atomic_set(&g_tl.submitted, value);
+    if(measure) {
+        if(!g_queue_measure.since)g_queue_measure.since=hle_now_ns();
+        hle_mutex_unlock(&g_queue_measure.lock);
+    }
     hle_event_set(&g_tl.ev);
     if (g_fences.init) {
         hle_mutex_lock(&g_fences.lock);

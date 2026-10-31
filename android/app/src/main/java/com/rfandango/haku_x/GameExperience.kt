@@ -27,6 +27,9 @@ class GameExperience(private val activity: NativeCoreActivity, private val captu
     options = store.effective(game); bindings = store.hotkeys()
     NativeCoreActivity.nativeSetOutputVolume(options[ExperienceSetting.VOLUME], options.enabled(ExperienceSetting.MUTE))
     NativeCoreActivity.nativeSetMoviePolicy(options[ExperienceSetting.MOVIE_ASPECT])
+    NativeCoreActivity.nativeSetDynamicResolution(
+      if(options.enabled(ExperienceSetting.DYNAMIC)&&!GameCalibration.isTrial(activity)) options[ExperienceSetting.DYNAMIC_MIN] else 0,
+      options[ExperienceSetting.DYNAMIC_MAX], options[ExperienceSetting.DYNAMIC_TARGET])
     NativeCoreActivity.nativeSetFraming(listOf(ExperienceSetting.CROP_LEFT, ExperienceSetting.CROP_RIGHT,
       ExperienceSetting.CROP_TOP, ExperienceSetting.CROP_BOTTOM, ExperienceSetting.ZOOM,
       ExperienceSetting.SHIFT_X, ExperienceSetting.SHIFT_Y).map { options[it] }.toIntArray())

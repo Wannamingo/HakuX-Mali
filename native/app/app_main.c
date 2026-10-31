@@ -23,6 +23,7 @@
 #include "native/core/core.h"
 #include "native/core/mods.h"
 #include "native/core/options.h"
+#include "native/core/movie.h"
 #include "native/dev/usb.h"
 #include "native/kernel/kernel.h"
 #include "native/net/net.h"
@@ -64,6 +65,8 @@ EXPORT JNIEXPORT void JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nati
 { nc_present_set_movie(mode); }
 EXPORT JNIEXPORT jboolean JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeToggleMovie(JNIEnv *env,jclass cls)
 { return nc_present_toggle_movie()?JNI_TRUE:JNI_FALSE; }
+EXPORT JNIEXPORT void JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeSetDynamicResolution(JNIEnv *env,jclass cls,jint min,jint max,jint target)
+{ hle_back_set_dynamic(min>0?min:0,max>0?max:1,target);nc_movie_enable(hle_back_movie_tracking_on()); }
 
 EXPORT JNIEXPORT jstring JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeRendererCapabilities(JNIEnv *env, jclass cls)
 {
@@ -647,6 +650,11 @@ EXPORT int SDL_main(int argc, char *argv[])
             nc_log("hakuX-app", "aspect ratio %s", a);
         }
         if(!strncmp(argv[i],"movie=",6))nc_present_set_movie(atoi(argv[i]+6));
+        if(!strncmp(argv[i],"dynamic=",8)) {
+            unsigned min=0,max=2,target=60;char tail;
+            if(sscanf(argv[i]+8,"%u,%u,%u%c",&min,&max,&target,&tail)!=3)min=0;
+            hle_back_set_dynamic(min,max,target);nc_movie_enable(hle_back_movie_tracking_on());
+        }
         if (!strncmp(argv[i], "fxaa=", 5)) {
             nc_present_set_fxaa(atoi(argv[i] + 5) != 0);
         }

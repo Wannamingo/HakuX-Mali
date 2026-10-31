@@ -319,6 +319,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     args += extra.framingArgument()
     args += "anisotropy=${extra[com.rfandango.haku_x.data.ExperienceSetting.ANISOTROPY]}"
     args += "movie=${extra[com.rfandango.haku_x.data.ExperienceSetting.MOVIE_ASPECT]}"
+    args += if(GameCalibration.isTrial(this)) "dynamic=0" else extra.dynamicArgument()
     /* Every frame presented at once, no vblank wait: on by default. */
     if (settings.uncapped) {
       args += "uncap"
@@ -1324,6 +1325,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     @JvmStatic external fun nativeMeasureEnd(): DoubleArray
     @JvmStatic external fun nativeRendererCapabilities(): String?
     @JvmStatic external fun nativeSetMoviePolicy(mode:Int)
+    @JvmStatic external fun nativeSetDynamicResolution(min:Int,max:Int,target:Int)
     @JvmStatic external fun nativeToggleMovie():Boolean
 
     /** Why the game can't run on this device (the GPU driver, or the game), or null. */

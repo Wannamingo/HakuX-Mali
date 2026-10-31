@@ -16,6 +16,10 @@ VkSemaphore hle_tl_sem(void);
  * Acquires the queue lock itself; can wait for a free fence before doing so. */
 VkResult hle_tl_submit(const VkSubmitInfo2 *submit, uint64_t value);
 void hle_tl_signaled(uint64_t value);
+/* Host-observed queue occupancy, including fence-watcher latency; NOT GPU
+ * execution timestamps/utilization. Opt-in, cumulative nanoseconds. */
+void hle_tl_queue_measure(bool enabled);
+uint64_t hle_tl_queue_ns(void);
 /* Before each submit: the GPU left idle a moment when the app asked
  * (hle_tl_gap, back.h). */
 void hle_tl_gap_serve(void);
@@ -86,6 +90,9 @@ void hle_surf_written(HleVkSurf *s);
 HleVkSurf *hle_surf_get(uint32_t id);
 HleVkSurf *hle_surf_define(const HleSurfDesc *d);
 bool hle_surf_ensure(HleVkSurf *s);
+/* Render thread, queue idle, no open recording. Transactional: failure
+ * retains old images/display. Preserves colour, depth, stencil and mips. */
+bool hle_surf_rescale(uint32_t scale,uint32_t display_w,uint32_t display_h);
 void hle_surf_destroy_after(uint32_t id, uint64_t value);
 void hle_surf_stamp_parked(uint64_t value);
 void hle_surf_reap(uint64_t completed);

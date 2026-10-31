@@ -1,4 +1,9 @@
 <resources>
+  <string name="renderer_dynamic">Dynamic resolution</string>
+  <string name="renderer_dynamic_min">Minimum dynamic scale</string>
+  <string name="renderer_dynamic_max">Maximum dynamic scale</string>
+  <string name="renderer_dynamic_target">Dynamic resolution target</string>
+  <string name="renderer_dynamic_desc">Experimental. Adjusts 1×–2× during 3D gameplay using FPS and host-observed fence queue occupancy. Keeps a reduction only if FPS improves; pauses adaptation in recognized videos and 2D scenes. Changes apply on returning to the game. Disabled during calibration. Cannot guarantee the target FPS.</string>
   <string name="renderer_heading">Renderer options</string>
   <string name="renderer_anisotropy">Anisotropic filtering</string>
   <string name="renderer_original">Original sampling</string>

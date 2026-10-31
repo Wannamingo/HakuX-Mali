@@ -28,10 +28,19 @@
 #include "hw/xbox/hle/vk/vis_result.h"
 #include "hw/xbox/hle/vk/rop_pass.h"
 #include "native/core/movie_policy.h"
+#include "hw/xbox/hle/vk/dynamic_policy.h"
 
 #define T (g_hvk.t)
 
 static unsigned g_anisotropy;
+static unsigned g_dynamic_config;
+static unsigned g_dynamic_scene_draws;
+void hle_back_set_dynamic(unsigned min,unsigned max,unsigned target)
+{
+    if(min) { min=MIN(MAX(min,1),2);max=MIN(MAX(max,min),2);
+        if(target!=30&&target!=60&&target!=90&&target!=120)target=60; }
+    __atomic_store_n(&g_dynamic_config,min?min|(max<<3)|(target<<6):0,__ATOMIC_RELEASE);
+}
 static bool g_movie_tracking;
 static uint64_t g_movie_status;
 static unsigned g_movie_reset;
@@ -44,7 +53,7 @@ void hle_back_movie_tracking(bool on)
     if(old!=on) __atomic_add_fetch(&g_movie_reset,1,__ATOMIC_RELEASE);
     if(!on) __atomic_store_n(&g_movie_status,0,__ATOMIC_RELEASE);
 }
-bool hle_back_movie_tracking_on(void) { return __atomic_load_n(&g_movie_tracking,__ATOMIC_ACQUIRE); }
+bool hle_back_movie_tracking_on(void) { return __atomic_load_n(&g_movie_tracking,__ATOMIC_ACQUIRE)||__atomic_load_n(&g_dynamic_config,__ATOMIC_ACQUIRE); }
 uint64_t hle_back_movie_status(void) { return __atomic_load_n(&g_movie_status,__ATOMIC_ACQUIRE); }
 void hle_back_set_anisotropy(unsigned value)
 {
@@ -957,6 +966,8 @@ uint32_t g_hle_rscale = 1;
 static void cmd_device(const HleCmdDevice *c, bool reset)
 {
     uint32_t scale = MIN(MAX(hle_host_render_scale(), 1), 4);
+    unsigned dynamic=__atomic_load_n(&g_dynamic_config,__ATOMIC_ACQUIRE);
+    if(dynamic)scale=reset?g_hle_rscale:MIN(MAX(scale,dynamic&7),(dynamic>>3)&7);
     /* A Reset replaces only the device's surfaces (the front end destroys the
      * old ones by OBJ_DESTROY): the title's own render targets and textures
      * keep their images. A new scale resizes every image. */
@@ -1970,8 +1981,58 @@ static void fh_deliver(uint64_t n, uint64_t value)
 
 static void cmd_swap_present(const HleCmdSwap *c);
 
+static void dynamic_frame(const HleCmdSwap *c,unsigned scene)
+{
+    static unsigned config;
+    static bool failed;
+    static int64_t start,last;
+    static uint64_t queue_start;
+    static unsigned frames,scene_frames;
+    static HleDynamicPolicy policy;
+    unsigned requested=__atomic_load_n(&g_dynamic_config,__ATOMIC_ACQUIRE);
+    int64_t now=hle_now_ns();
+    bool change=requested!=config;
+    unsigned want=g_hle_rscale;
+    if(change) {
+        config=requested;failed=false;hle_tl_queue_measure(config!=0);
+        want=config?MIN(MAX(want,config&7),(config>>3)&7):MIN(MAX(hle_host_render_scale(),1),4);
+        hle_dynamic_reset(&policy,now/1e9);start=0;
+        hle_log("hakuX-hle-back","dynamic resolution: %s range %u..%u target %u; host fence queue occupancy proxy",
+            config?"on":"off",config&7,(config>>3)&7,config>>6);
+    }
+    if(!config&&!change)return;
+    if(failed)return;
+    if(config&&want==g_hle_rscale) {
+        uint64_t queue=hle_tl_queue_ns();
+        if(!start || now-last>500000000ll || now<=last || hle_back_movie_status()) {
+            start=now;frames=scene_frames=0;queue_start=queue;
+            policy.low=policy.high=0;policy.ready=MAX(policy.ready,now/1e9+3);
+        }
+        last=now;frames++;scene_frames+=scene>0;
+        double seconds=(now-start)/1e9;
+        if(seconds<1)return;
+        double fps=frames/seconds;
+        double occupancy=MIN((double)(queue-queue_start)/(now-start),1.0);
+        bool eligible=frames>=20&&scene_frames*2>=frames&&!hle_back_movie_status();
+        want=hle_dynamic_window(&policy,now/1e9,fps,occupancy,eligible,g_hle_rscale,config&7,(config>>3)&7,config>>6);
+        hle_log("hakuX-hle-back","dynamic sample: %ux %.1f fps queue-pending %.0f%% 3d %u/%u -> %ux",
+            g_hle_rscale,fps,occupancy*100,scene_frames,frames,want);
+        start=now;frames=scene_frames=0;queue_start=queue;
+    }
+    if(want!=g_hle_rscale) {
+        int64_t begin=hle_now_ns();unsigned old=g_hle_rscale;
+        flush_idle();hle_tl_wait(c->value);hle_surf_reap(hle_tl_completed());
+        if(hle_vk_lost()||!hle_surf_rescale(want,g_back.disp_w,g_back.disp_h)) {
+            failed=true;hle_tl_queue_measure(false);
+            hle_log("hakuX-hle-back","dynamic resolution disabled for this process; %ux retained",old);
+        }else hle_log("hakuX-hle-back","dynamic transition: %ux -> %ux in %.1f ms",old,want,(hle_now_ns()-begin)/1e6);
+        start=0;last=hle_now_ns();
+    }
+}
+
 static void cmd_swap(const HleCmdSwap *c)
 {
+    unsigned dynamic_scene=g_dynamic_scene_draws;g_dynamic_scene_draws=0;
     static unsigned movie_generation;
     unsigned generation=__atomic_load_n(&g_movie_reset,__ATOMIC_ACQUIRE);
     if(generation!=movie_generation) { memset(&g_movie_vote,0,sizeof(g_movie_vote));movie_generation=generation; }
@@ -2025,6 +2086,7 @@ static void cmd_swap(const HleCmdSwap *c)
             g_pix.buf = VK_NULL_HANDLE;
         }
     }
+    dynamic_frame(c,dynamic_scene);
 }
 
 /* Live debug properties, every 3 swaps: debug.hakux.visall (1: every test
@@ -2656,6 +2718,7 @@ static void dispatch(const HleCmdHdr *h)
             }
             g_hle_zeq = zv ? zq : 0;
             hle_draw_cmd_draw(p, g_back.fr[g_back.cur].cb, g_back.rt, g_back.ds, &g_back.vp);
+            if(__atomic_load_n(&g_dynamic_config,__ATOMIC_ACQUIRE))g_dynamic_scene_draws+=hle_draw_scene3d(p);
             if(hle_back_movie_tracking_on()) {
                 g_movie_scene_draws+=hle_draw_scene3d(p);
                 g_movie_pixels|=hle_draw_movie_texture(p);

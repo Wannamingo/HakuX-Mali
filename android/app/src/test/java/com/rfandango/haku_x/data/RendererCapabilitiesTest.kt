@@ -3,6 +3,14 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class RendererCapabilitiesTest {
+  @Test fun dynamicBoundsAndTargetRemainValidWithImportedOrInheritedSettings() {
+    val o=ExperienceOptions(mapOf(ExperienceSetting.DYNAMIC to 1,ExperienceSetting.DYNAMIC_MIN to 2,
+      ExperienceSetting.DYNAMIC_MAX to 1,ExperienceSetting.DYNAMIC_TARGET to 44))
+    assertEquals("dynamic=2,2,60",o.dynamicArgument())
+    assertFalse(ExperienceSetting.DYNAMIC_TARGET.accepts(44))
+    assertTrue(ExperienceSetting.DYNAMIC_TARGET.accepts(120))
+    assertEquals("dynamic=0",ExperienceOptions().dynamicArgument())
+  }
   @Test fun deviceLimitsRestrictChoices() {
     assertEquals(listOf(0),RendererCapabilities.bounded(1).anisotropyChoices)
     assertEquals(listOf(0,2,4),RendererCapabilities.bounded(4).anisotropyChoices)

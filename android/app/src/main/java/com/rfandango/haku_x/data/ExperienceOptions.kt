@@ -4,6 +4,8 @@ package com.rfandango.haku_x.data
 enum class ExperienceSetting(val key: String, val default: Int, val minimum: Int, val maximum: Int) {
   AUTO_PERFORMANCE("auto_performance", 0, 0, 1),
   ANISOTROPY("anisotropy", 0, 0, 16),
+  DYNAMIC("dynamic_resolution",0,0,1), DYNAMIC_MIN("dynamic_min",1,1,2),
+  DYNAMIC_MAX("dynamic_max",2,1,2), DYNAMIC_TARGET("dynamic_target",60,30,120),
   VOLUME("volume", 100, 0, 100), MUTE("mute", 0, 0, 1),
   AUDIO_BUFFER("audio_buffer", 1, 0, 2), HRTF("hrtf", 1, 0, 1),
   CROP_LEFT("crop_left", 0, 0, 15), CROP_RIGHT("crop_right", 0, 0, 15),
@@ -14,13 +16,18 @@ enum class ExperienceSetting(val key: String, val default: Int, val minimum: Int
   OFFER_RESUME("offer_resume", 0, 0, 1), THERMAL_WARNING("thermal_warning", 0, 0, 1),
   SOC_WARNING("soc_warning", 90, 60, 110), BATTERY_WARNING("battery_warning", 45, 35, 55);
 
-  fun sanitize(value: Int) = if(this==ANISOTROPY && value !in listOf(0,2,4,8,16)) default else value.coerceIn(minimum, maximum)
+  fun sanitize(value: Int) = if((this==ANISOTROPY && value !in listOf(0,2,4,8,16)) ||
+    (this==DYNAMIC_TARGET && value !in listOf(30,60,90,120))) default else value.coerceIn(minimum, maximum)
   fun accepts(value:Int)=value in minimum..maximum && sanitize(value)==value
 }
 
 data class ExperienceOptions(val values: Map<ExperienceSetting, Int> = emptyMap()) {
-  operator fun get(setting: ExperienceSetting) = setting.sanitize(values[setting] ?: setting.default)
+  operator fun get(setting: ExperienceSetting):Int {
+    val value=setting.sanitize(values[setting] ?: setting.default)
+    return if(setting==ExperienceSetting.DYNAMIC_MAX) value.coerceAtLeast(get(ExperienceSetting.DYNAMIC_MIN)) else value
+  }
   fun enabled(setting: ExperienceSetting) = get(setting) != 0
+  fun dynamicArgument() = if(enabled(ExperienceSetting.DYNAMIC)) "dynamic=${get(ExperienceSetting.DYNAMIC_MIN)},${get(ExperienceSetting.DYNAMIC_MAX)},${get(ExperienceSetting.DYNAMIC_TARGET)}" else "dynamic=0"
   fun audioArgument() = "audio=${get(ExperienceSetting.VOLUME)},${get(ExperienceSetting.MUTE)},${get(ExperienceSetting.AUDIO_BUFFER)},${get(ExperienceSetting.HRTF)}"
   fun framingArgument() = "framing=" + listOf(ExperienceSetting.CROP_LEFT, ExperienceSetting.CROP_RIGHT,
     ExperienceSetting.CROP_TOP, ExperienceSetting.CROP_BOTTOM, ExperienceSetting.ZOOM,

@@ -25,6 +25,10 @@ import kotlinx.coroutines.withContext
 internal fun experienceLabel(field: ExperienceSetting): Int = when (field) {
   ExperienceSetting.AUTO_PERFORMANCE -> R.string.exp_auto_performance
   ExperienceSetting.ANISOTROPY -> R.string.renderer_anisotropy
+  ExperienceSetting.DYNAMIC -> R.string.renderer_dynamic
+  ExperienceSetting.DYNAMIC_MIN -> R.string.renderer_dynamic_min
+  ExperienceSetting.DYNAMIC_MAX -> R.string.renderer_dynamic_max
+  ExperienceSetting.DYNAMIC_TARGET -> R.string.renderer_dynamic_target
   ExperienceSetting.MOVIE_ASPECT -> R.string.renderer_movie_aspect
   ExperienceSetting.VOLUME -> R.string.exp_volume
   ExperienceSetting.MUTE -> R.string.exp_mute
@@ -46,7 +50,8 @@ internal fun experienceLabel(field: ExperienceSetting): Int = when (field) {
 }
 
 internal fun experienceCategory(field: ExperienceSetting) = when (field) {
-  ExperienceSetting.AUTO_PERFORMANCE,ExperienceSetting.ANISOTROPY -> SettingsCategory.GRAPHICS
+  ExperienceSetting.AUTO_PERFORMANCE,ExperienceSetting.ANISOTROPY,ExperienceSetting.DYNAMIC,ExperienceSetting.DYNAMIC_MIN,
+  ExperienceSetting.DYNAMIC_MAX,ExperienceSetting.DYNAMIC_TARGET -> SettingsCategory.GRAPHICS
   ExperienceSetting.VOLUME, ExperienceSetting.MUTE, ExperienceSetting.AUDIO_BUFFER, ExperienceSetting.HRTF -> SettingsCategory.AUDIO
   ExperienceSetting.AUTO_SAVE, ExperienceSetting.OFFER_RESUME -> SettingsCategory.GAMES
   else -> SettingsCategory.DISPLAY
@@ -96,19 +101,23 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
       val inherited = gameKey != null && field !in own
       SettingsTarget(experienceLabel(field)) {
         when (field) {
+          ExperienceSetting.DYNAMIC_MIN,ExperienceSetting.DYNAMIC_MAX,ExperienceSetting.DYNAMIC_TARGET,
           ExperienceSetting.MOVIE_ASPECT,ExperienceSetting.ANISOTROPY,ExperienceSetting.AUDIO_BUFFER, ExperienceSetting.REFRESH_RATE -> ListItem(
             headlineContent = { Text(title) }, supportingContent = { Text(
               (if (inherited) stringResource(R.string.exp_inherited) + " " else "") +
-                if(field==ExperienceSetting.MOVIE_ASPECT) stringResource(movieLabel(value))+" · "+stringResource(R.string.renderer_movie_desc)
+                if(field==ExperienceSetting.DYNAMIC_TARGET) "$value FPS"
+                else if(field==ExperienceSetting.DYNAMIC_MIN||field==ExperienceSetting.DYNAMIC_MAX) "${value}×"
+                else if(field==ExperienceSetting.MOVIE_ASPECT) stringResource(movieLabel(value))+" · "+stringResource(R.string.renderer_movie_desc)
                 else if(field==ExperienceSetting.ANISOTROPY) (if(value==0) stringResource(R.string.renderer_original) else "${value}×") +
                   if(capabilities==null) " · "+stringResource(R.string.renderer_caps_unknown) else ""
                 else if (field == ExperienceSetting.AUDIO_BUFFER) stringResource(bufferLabel(value))
                 else if (value == 0) stringResource(R.string.exp_auto) else "$value Hz"
             ) }, modifier = Modifier.clickable { choosing = field })
-          ExperienceSetting.AUTO_PERFORMANCE, ExperienceSetting.MUTE, ExperienceSetting.HRTF, ExperienceSetting.AUTO_SAVE,
+          ExperienceSetting.DYNAMIC,ExperienceSetting.AUTO_PERFORMANCE, ExperienceSetting.MUTE, ExperienceSetting.HRTF, ExperienceSetting.AUTO_SAVE,
           ExperienceSetting.OFFER_RESUME, ExperienceSetting.THERMAL_WARNING -> SwitchItem(title,
             when (field) {
               ExperienceSetting.AUTO_PERFORMANCE -> stringResource(R.string.settings_applies_next_start)
+              ExperienceSetting.DYNAMIC -> stringResource(R.string.renderer_dynamic_desc)
               ExperienceSetting.AUTO_SAVE -> stringResource(R.string.exp_autosave_desc)
               ExperienceSetting.OFFER_RESUME -> stringResource(R.string.exp_resume_desc)
               ExperienceSetting.THERMAL_WARNING -> stringResource(R.string.exp_thermal_desc)
@@ -133,7 +142,10 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
     SettingsGroup(true) { SettingsProfilesSection(gameKey) { revision++ } }
   }
   choosing?.let { field ->
-    val values = if(field==ExperienceSetting.MOVIE_ASPECT) listOf(0,1,2,3)
+    val values = if(field==ExperienceSetting.DYNAMIC_TARGET) listOf(30,60,90,120)
+    else if(field==ExperienceSetting.DYNAMIC_MIN) listOf(1,2)
+    else if(field==ExperienceSetting.DYNAMIC_MAX) (effective[ExperienceSetting.DYNAMIC_MIN]..2).toList()
+    else if(field==ExperienceSetting.MOVIE_ASPECT) listOf(0,1,2,3)
     else if(field==ExperienceSetting.ANISOTROPY) capabilities?.anisotropyChoices?:listOf(0)
     else if (field == ExperienceSetting.AUDIO_BUFFER) listOf(0, 1, 2) else {
       @Suppress("DEPRECATION") val display = context.getSystemService(android.view.WindowManager::class.java).defaultDisplay
@@ -143,7 +155,9 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
     }
     ChoiceDialog(title = stringResource(experienceLabel(field)), options =
       (if (gameKey != null) listOf<Int?>(null) else emptyList()) .map { it to stringResource(R.string.extra_picture_use_global_value) } +
-        values.map { it as Int? to if(field==ExperienceSetting.MOVIE_ASPECT) stringResource(movieLabel(it))
+        values.map { it as Int? to if(field==ExperienceSetting.DYNAMIC_TARGET) "$it FPS"
+          else if(field==ExperienceSetting.DYNAMIC_MIN||field==ExperienceSetting.DYNAMIC_MAX) "${it}×"
+          else if(field==ExperienceSetting.MOVIE_ASPECT) stringResource(movieLabel(it))
           else if(field==ExperienceSetting.ANISOTROPY) (if(it==0) stringResource(R.string.renderer_original) else "${it}×")
           else if (field == ExperienceSetting.AUDIO_BUFFER) stringResource(bufferLabel(it))
           else if (it == 0) stringResource(R.string.exp_auto) else "$it Hz" },

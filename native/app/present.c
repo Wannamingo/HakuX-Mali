@@ -33,7 +33,7 @@ void nc_present_set_movie(int mode)
     mode=mode>=0&&mode<=3?mode:0;
     int old=__atomic_exchange_n(&g_movie_mode,mode,__ATOMIC_ACQ_REL);
     if(old!=mode)__atomic_store_n(&g_movie_force,false,__ATOMIC_RELEASE);
-    nc_movie_enable(mode!=0);hle_back_movie_tracking(mode!=0);
+    hle_back_movie_tracking(mode!=0);nc_movie_enable(hle_back_movie_tracking_on());
 }
 bool nc_present_toggle_movie(void)
 {

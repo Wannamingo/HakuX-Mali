@@ -76,7 +76,8 @@ class CalibrationStore(private val context: Context) {
   }
   fun configurationKey(game:String):String {
     val options=ExperienceStore(context).effective(game)
-    return digest(deviceKey(context)+"|aniso="+options[ExperienceSetting.ANISOTROPY]+"|movie="+options[ExperienceSetting.MOVIE_ASPECT])
+    return digest(deviceKey(context)+"|aniso="+options[ExperienceSetting.ANISOTROPY]+"|movie="+options[ExperienceSetting.MOVIE_ASPECT]+
+      "|"+options.dynamicArgument())
   }
   companion object {
     fun active(context:Context,game:String) {

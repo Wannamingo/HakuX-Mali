@@ -7,6 +7,8 @@
 #include "hw/xbox/hle/hle.h"
 #include "hw/xbox/hle/tex/xdk.h"
 #include "hw/xbox/hle/vk/back_int.h"
+#include "hw/xbox/hle/vk/display.h"
+#include "hw/xbox/hle/vk/scale_copy.h"
 
 #define T (g_hvk.t)
 #define HLE_MAX_VK_SURF 256
@@ -74,13 +76,16 @@ static bool owner_kind(const HleSurfDesc *d)
  * positions (texel corners, half-texel offsets). */
 #define SURF_UNSCALED_MAX 128
 
-static uint32_t surf_scale(const HleSurfDesc *d, VkImageAspectFlags aspect)
+static uint32_t surf_scale_at(const HleSurfDesc *d,VkImageAspectFlags aspect,uint32_t scale)
 {
     bool small = !d->role && !d->pitch && !d->parent && d->levels <= 1 && d->faces <= 1 &&
                  (aspect & VK_IMAGE_ASPECT_COLOR_BIT) &&
                  MAX(d->w, d->h) <= SURF_UNSCALED_MAX;
-    return small ? 1 : g_hle_rscale;
+    return small ? 1 : scale;
 }
+
+static uint32_t surf_scale(const HleSurfDesc *d,VkImageAspectFlags aspect)
+{ return surf_scale_at(d,aspect,g_hle_rscale); }
 
 static uint32_t sub_bit(const HleVkSurf *o, uint32_t level, uint32_t face)
 {
@@ -622,6 +627,125 @@ void hle_img_barrier(VkCommandBuffer cb, VkImage img, VkImageAspectFlags aspect,
                      VkImageLayout from, VkImageLayout to)
 {
     barrier_range(cb, img, aspect, from, to, 0, 1, 0, 1);
+}
+
+/* Unlike destroy_now, this also works on transaction-local copies: it does
+ * not touch the lookup hints or invalidate dependent surfaces. */
+static void resize_free_vk(HleVkSurf *s)
+{
+    VkImageView views[]={s->view,s->sview,s->oview,s->zr_depth,s->zr_stencil,s->cube_view};
+    for(unsigned i=0;i<ARRAY_SIZE(views);i++)if(views[i])T.vkDestroyImageView(g_hvk.dev,views[i],NULL);
+    if(s->img)T.vkDestroyImage(g_hvk.dev,s->img,NULL);
+    if(s->mem)T.vkFreeMemory(g_hvk.dev,s->mem,NULL);
+}
+
+bool hle_surf_rescale(uint32_t scale,uint32_t display_w,uint32_t display_h)
+{
+    if(g_rec_open || scale<1 || scale>4 || !display_w || !display_h || hle_vk_lost())return false;
+    HleVkSurf *next=g_new0(HleVkSurf,HLE_MAX_VK_SURF);
+    bool changed[HLE_MAX_VK_SURF]={0},blit[HLE_MAX_VK_SURF]={0};
+    HleScaleCopy scratch={0};VkDeviceSize scratch_bytes=0;
+    VkCommandPool pool=VK_NULL_HANDLE;VkFence fence=VK_NULL_HANDLE;
+    unsigned copied=0;
+    /* Every allocation and format check precedes the first modification. */
+    for(unsigned i=0;i<HLE_MAX_VK_SURF;i++) {
+        HleVkSurf *s=&g_surf[i];
+        if(!s->alive||s->d.parent||s->destroy_after)continue;
+        uint32_t factor=surf_scale_at(&s->d,s->aspect,scale);
+        if(factor==s->scale)continue;
+        changed[i]=true;next[i]=*s;
+        HleVkSurf *n=&next[i];n->scale=factor;n->w=s->d.w*factor;n->h=s->d.h*factor;
+        n->img=n->owner_img=VK_NULL_HANDLE;n->mem=VK_NULL_HANDLE;
+        n->view=n->sview=n->oview=n->zr_depth=n->zr_stencil=n->cube_view=VK_NULL_HANDLE;
+        n->sview_levels=n->oview_levels=0;n->zr_gen=0;n->rec_gen=0;
+        if(!s->img)continue;
+        if(!hle_surf_ensure(n))goto fail;
+        n->dirty=s->dirty;n->rendered_levels=s->rendered_levels;
+        if(s->layout==VK_IMAGE_LAYOUT_UNDEFINED)continue;
+        VkFormatProperties fp;vkGetPhysicalDeviceFormatProperties(g_hvk.phys,s->fmt,&fp);
+        VkFormatFeatureFlags need=VK_FORMAT_FEATURE_BLIT_SRC_BIT|VK_FORMAT_FEATURE_BLIT_DST_BIT;
+        blit[i]=(fp.optimalTilingFeatures&need)==need;
+        if(!blit[i]) {
+            /* Copy aspect byte sizes differ from the combined image size. */
+            uint32_t bytes=s->aspect&VK_IMAGE_ASPECT_COLOR_BIT?s->texel_bytes:s->fmt==VK_FORMAT_D16_UNORM?2:4;
+            if(bytes!=1&&bytes!=2&&bytes!=4)goto fail;
+            VkDeviceSize size=MAX((VkDeviceSize)s->w*s->h,(VkDeviceSize)n->w*n->h)*bytes;
+            scratch_bytes=MAX(scratch_bytes,(size+3)&~(VkDeviceSize)3);
+        }
+        copied++;
+    }
+    if(scratch_bytes&&!hle_scale_copy_init(&scratch,scratch_bytes))goto fail;
+    VkCommandPoolCreateInfo pi={.sType=VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,.queueFamilyIndex=g_hvk.qfam};
+    if(T.vkCreateCommandPool(g_hvk.dev,&pi,NULL,&pool)!=VK_SUCCESS)goto fail;
+    VkCommandBuffer cb;VkCommandBufferAllocateInfo ai={.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+        .commandPool=pool,.level=VK_COMMAND_BUFFER_LEVEL_PRIMARY,.commandBufferCount=1};
+    if(T.vkAllocateCommandBuffers(g_hvk.dev,&ai,&cb)!=VK_SUCCESS)goto fail;
+    VkCommandBufferBeginInfo bi={.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,.flags=VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT};
+    if(T.vkBeginCommandBuffer(cb,&bi)!=VK_SUCCESS)goto fail;
+    for(unsigned i=0;i<HLE_MAX_VK_SURF;i++) {
+        HleVkSurf *s=&g_surf[i],*n=&next[i];
+        if(!changed[i]||!s->img||s->layout==VK_IMAGE_LAYOUT_UNDEFINED)continue;
+        barrier_range(cb,s->img,s->aspect,s->layout,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,0,s->nlevels,0,s->nfaces);
+        barrier_range(cb,n->img,s->aspect,VK_IMAGE_LAYOUT_UNDEFINED,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,0,s->nlevels,0,s->nfaces);
+        for(unsigned face=0;face<s->nfaces;face++)for(unsigned level=0;level<s->nlevels;level++) {
+            uint32_t sw=MAX(s->w>>level,1),sh=MAX(s->h>>level,1),dw=MAX(n->w>>level,1),dh=MAX(n->h>>level,1);
+            const VkImageAspectFlagBits aspects[]={VK_IMAGE_ASPECT_COLOR_BIT,VK_IMAGE_ASPECT_DEPTH_BIT,VK_IMAGE_ASPECT_STENCIL_BIT};
+            for(unsigned a=0;a<ARRAY_SIZE(aspects);a++)if(s->aspect&aspects[a]) {
+                if(blit[i]) {
+                    VkImageBlit2 r={.sType=VK_STRUCTURE_TYPE_IMAGE_BLIT_2,
+                        .srcSubresource={aspects[a],level,face,1},.srcOffsets={{0,0,0},{sw,sh,1}},
+                        .dstSubresource={aspects[a],level,face,1},.dstOffsets={{0,0,0},{dw,dh,1}}};
+                    VkBlitImageInfo2 b={.sType=VK_STRUCTURE_TYPE_BLIT_IMAGE_INFO_2,.srcImage=s->img,
+                        .srcImageLayout=VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,.dstImage=n->img,
+                        .dstImageLayout=VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,.regionCount=1,.pRegions=&r,.filter=VK_FILTER_NEAREST};
+                    T.vkCmdBlitImage2(cb,&b);
+                }else {
+                    uint32_t bytes=aspects[a]==VK_IMAGE_ASPECT_STENCIL_BIT?1:
+                        aspects[a]==VK_IMAGE_ASPECT_COLOR_BIT?s->texel_bytes:s->fmt==VK_FORMAT_D16_UNORM?2:4;
+                    hle_scale_copy_record(&scratch,cb,s->img,n->img,aspects[a],level,face,sw,sh,dw,dh,bytes);
+                }
+            }
+        }
+        barrier_range(cb,s->img,s->aspect,VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,s->layout,0,s->nlevels,0,s->nfaces);
+        barrier_range(cb,n->img,s->aspect,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,s->layout,0,s->nlevels,0,s->nfaces);
+        n->layout=s->layout;
+    }
+    if(T.vkEndCommandBuffer(cb)!=VK_SUCCESS)goto fail;
+    VkFenceCreateInfo fi={.sType=VK_STRUCTURE_TYPE_FENCE_CREATE_INFO};
+    if(T.vkCreateFence(g_hvk.dev,&fi,NULL,&fence)!=VK_SUCCESS)goto fail;
+    VkCommandBufferSubmitInfo cbi={.sType=VK_STRUCTURE_TYPE_COMMAND_BUFFER_SUBMIT_INFO,.commandBuffer=cb};
+    VkSubmitInfo2 si={.sType=VK_STRUCTURE_TYPE_SUBMIT_INFO_2,.commandBufferInfoCount=1,.pCommandBufferInfos=&cbi};
+    hle_vk_queue_lock();VkResult r=T.vkQueueSubmit2(g_hvk.queue,1,&si,fence);hle_vk_queue_unlock();
+    if(r!=VK_SUCCESS){hle_vk_check(r,"vkQueueSubmit2 (resolution copy)");goto fail;}
+    r=T.vkWaitForFences(g_hvk.dev,1,&fence,VK_TRUE,10000000000ull);
+    if(r!=VK_SUCCESS) {
+        /* Never free resources which could still be in flight. A stopped
+         * process owns them until Android tears down its Vulkan device. */
+        hle_vk_lose(r,"vkWaitForFences (resolution copy)");g_free(next);return false;
+    }
+    if(hle_disp_init(display_w*scale,display_h*scale))goto fail;
+    /* Invalidate child views before freeing their owners. */
+    for(unsigned i=0;i<HLE_MAX_VK_SURF;i++) {
+        HleVkSurf *v=&g_surf[i];if(!v->alive||!v->d.parent||v->destroy_after)continue;
+        HleVkSurf *o=hle_surf_get(v->d.parent);if(!o||!changed[o-g_surf])continue;
+        if(v->view)T.vkDestroyImageView(g_hvk.dev,v->view,NULL);
+        v->view=VK_NULL_HANDLE;v->img=v->owner_img=VK_NULL_HANDLE;
+        v->scale=next[o-g_surf].scale;v->w=MAX(next[o-g_surf].w>>v->d.level,1);v->h=MAX(next[o-g_surf].h>>v->d.level,1);
+        v->rec_gen=0;
+    }
+    for(unsigned i=0;i<HLE_MAX_VK_SURF;i++)if(changed[i]) {
+        resize_free_vk(&g_surf[i]);g_surf[i]=next[i];memset(&next[i],0,sizeof(next[i]));
+    }
+    g_surf_gen++;g_hle_rscale=scale;hle_draw_state_lost();
+    hle_log("hakuX-hle-back","dynamic resolution: preserved %u images; scale %ux, depth scratch %llu bytes",copied,scale,(unsigned long long)scratch_bytes);
+    T.vkDestroyFence(g_hvk.dev,fence,NULL);T.vkDestroyCommandPool(g_hvk.dev,pool,NULL);
+    hle_scale_copy_free(&scratch);g_free(next);return true;
+fail:
+    if(fence)T.vkDestroyFence(g_hvk.dev,fence,NULL);
+    if(pool)T.vkDestroyCommandPool(g_hvk.dev,pool,NULL);
+    for(unsigned i=0;i<HLE_MAX_VK_SURF;i++)if(changed[i])resize_free_vk(&next[i]);
+    hle_scale_copy_free(&scratch);g_free(next);
+    hle_log("hakuX-hle-back","dynamic resolution: resize failed; previous images retained");return false;
 }
 
 static HleVkSurf *owner_of(HleVkSurf *s)

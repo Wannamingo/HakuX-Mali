@@ -87,6 +87,9 @@ void hle_back_movie_tracking(bool enabled);
 bool hle_back_movie_tracking_on(void);
 /* Packed recognized source width | height<<16 | kind<<32; zero: gameplay/unknown. */
 uint64_t hle_back_movie_status(void);
+/* Live request, consumed at a render frame boundary. min=0 disables DRS.
+ * Bounded 1x..2x, target 30/60/90/120; original startup scale retained. */
+void hle_back_set_dynamic(unsigned min,unsigned max,unsigned target);
 
 
 #endif

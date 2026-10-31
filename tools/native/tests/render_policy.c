@@ -1,6 +1,7 @@
 #include "hw/xbox/hle/vk/filter_policy.h"
 #include "native/core/movie.h"
 #include "native/core/movie_policy.h"
+#include "hw/xbox/hle/vk/dynamic_policy.h"
 #include <assert.h>
 #include <math.h>
 #include <stdio.h>
@@ -60,6 +61,26 @@ int main(void)
     assert(!nc_movie_begin((void*)2,"\\video\\menu.bik"));
     token=nc_movie_begin((void*)3,path);nc_movie_read(token,0,header,36);
     nc_movie_enable(false);assert(!nc_movie_source(&w,&h));
-    puts("PASS: renderer filter, movie metadata, hysteresis and file-lifetime policy cases");
+    HleDynamicPolicy drs;hle_dynamic_reset(&drs,0);
+    assert(hle_dynamic_window(&drs,5,40,.99,true,2,1,2,60)==2); /* warmup */
+    assert(hle_dynamic_window(&drs,10,40,.99,true,2,1,2,60)==2);
+    assert(hle_dynamic_window(&drs,11,40,.99,true,2,1,2,60)==2);
+    assert(hle_dynamic_window(&drs,12,40,.99,true,2,1,2,60)==1);
+    assert(hle_dynamic_window(&drs,16,59,.6,true,1,1,2,60)==1); /* keep useful reduction */
+    assert(!drs.restore);
+    hle_dynamic_reset(&drs,0);
+    for(unsigned i=10;i<12;i++)assert(hle_dynamic_window(&drs,i,30,.99,true,2,1,2,60)==2);
+    assert(hle_dynamic_window(&drs,12,30,.99,true,2,1,2,60)==1);
+    assert(hle_dynamic_window(&drs,16,30,.4,true,1,1,2,60)==2); /* CPU-bound/fixed game cap */
+    assert(hle_dynamic_window(&drs,25,30,.99,true,2,1,2,60)==2); /* retry blocked */
+    hle_dynamic_reset(&drs,0);
+    for(unsigned i=10;i<20;i++)assert(hle_dynamic_window(&drs,i,30,.3,true,2,1,2,60)==2);
+    for(unsigned i=20;i<30;i++)assert(hle_dynamic_window(&drs,i,30,.99,false,2,1,2,60)==2); /* 2D/video */
+    hle_dynamic_reset(&drs,0);
+    for(unsigned i=10;i<14;i++)assert(hle_dynamic_window(&drs,i,60,.2,true,1,1,2,30)==1);
+    assert(hle_dynamic_window(&drs,14,60,.2,true,1,1,2,30)==2);
+    hle_dynamic_reset(&drs,0);
+    for(unsigned i=10;i<30;i++)assert(hle_dynamic_window(&drs,i,60,.6,true,1,1,2,60)==1); /* no projected headroom */
+    puts("PASS: filter, movie metadata/lifetime, DRS warmup, CPU-bound rollback, hysteresis and headroom policies");
     return 0;
 }

@@ -100,38 +100,38 @@ int hle_disp_init(uint32_t w, uint32_t h)
     if (g_disp.w == w && g_disp.h == h && g_disp.s[0].img) {
         return 0;
     }
+    /* Allocate first: a failed live resize must leave the previous front
+     * and all its slots usable. No other thread sees these candidates. */
+    HleDispSlot next[HLE_DISP_SLOTS] = {0};
+    for (int i = 0; i < HLE_DISP_SLOTS; i++) {
+        if (!slot_create(&next[i], w, h)) {
+            for (int j = 0; j < HLE_DISP_SLOTS; j++) slot_free_vk(&next[j]);
+            hle_log("hakuX-hle-back", "display resize %ux%u failed; previous display retained", w, h);
+            return -1;
+        }
+    }
     /* the presenter's reads of the old images submitted (use), then done */
     hle_mutex_lock(&g_disp.use);
     hle_vk_queue_lock();
     const VkResult r = T.vkDeviceWaitIdle(g_hvk.dev);
     hle_vk_queue_unlock();
-    hle_vk_check(r, "vkDeviceWaitIdle (display)");
+    if (!hle_vk_check(r, "vkDeviceWaitIdle (display)")) {
+        for (int i = 0; i < HLE_DISP_SLOTS; i++) slot_free_vk(&next[i]);
+        hle_mutex_unlock(&g_disp.use);
+        return -1;
+    }
     hle_mutex_lock(&g_disp.lock);
     for (int i = 0; i < HLE_DISP_SLOTS; i++) {
         slot_free_vk(&g_disp.s[i]);
+        g_disp.s[i] = next[i];
     }
     g_disp.w = w;
     g_disp.h = h;
     g_disp.gen++;
-    int ok = 0;
-    for (int i = 0; i < HLE_DISP_SLOTS; i++) {
-        if (!slot_create(&g_disp.s[i], w, h)) {
-            hle_log("hakuX-hle-back", "display slot %d %ux%u failed", i, w, h);
-            ok = -1;
-        }
-    }
-    if (ok) {
-        /* No partial display: with no slot image, begin_write returns -1 at
-         * once and SWAP skips the blit (logged), instead of looping. */
-        for (int i = 0; i < HLE_DISP_SLOTS; i++) {
-            slot_free_vk(&g_disp.s[i]);
-        }
-        hle_log("hakuX-hle-back", "display disabled: slot creation failed");
-    }
     hle_mutex_unlock(&g_disp.lock);
     hle_mutex_unlock(&g_disp.use);
     hle_log("hakuX-hle-back", "display %ux%u gen %u (%d slots)", w, h, g_disp.gen, HLE_DISP_SLOTS);
-    return ok;
+    return 0;
 }
 
 void hle_disp_use_begin(void)

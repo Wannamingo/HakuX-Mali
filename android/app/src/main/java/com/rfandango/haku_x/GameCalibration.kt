@@ -126,6 +126,7 @@ class GameCalibration(private val activity: NativeCoreActivity, private val rest
     const val EXTRA_SESSION="calibrationSession"
     const val EXTRA_RESTORE="calibrationRestore"
     const val EXTRA_REQUEST="calibrationRequest"
+    fun isTrial(activity:NativeCoreActivity) = activity.intent.hasExtra(EXTRA_SESSION) && !activity.intent.getBooleanExtra(EXTRA_RESTORE,false)
     fun describe(o:GraphicsOptions)="${o.scale}× · ${if(o.fxaa) "FXAA" else "FXAA OFF"} · ${if(o.upscale=="sgsr") "GSR" else "Bilinear"} · ${o.fpsLimit} FPS"
     fun options(activity:NativeCoreActivity):GraphicsOptions? {
       val s=activity.intent.getStringExtra(EXTRA_SESSION)?.let { CalibrationStore(activity).read(it) }?:return null
