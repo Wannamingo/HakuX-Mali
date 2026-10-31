@@ -10,6 +10,8 @@ An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/h
 
 ## New in 1.4
 
+Next validation build: [1.5/code23 — up to 16× anisotropy, movie aspect modes and dynamic resolution](releases/1.5.en.md). New controls are being validated on RG477M; the published stable release remains 1.4.
+
 - Measured calibration: several configurations from one temporary checkpoint, actual FPS/P95, game-specific results and cancellation/crash recovery.
 - Automatic settings that preserve manual values, plus a 30 FPS Economy preset.
 - Game volume, mute, three audio-buffer choices and HRTF.

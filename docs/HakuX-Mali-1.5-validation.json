@@ -1,0 +1,178 @@
+{
+  "app": "HakuX-Mali",
+  "versionName": "1.5",
+  "versionCode": 23,
+  "package": "com.rfandango.haku_x.debug",
+  "apk": "C:\\Users\\user\\Documents\\ChatGPT\\NFSU 2\\outputs\\HakuX-Mali-1.5-code23-release.apk",
+  "sha256": "75f7bf04cbb7f5c149e8459232ca69d0b7ad3079da98aa7ace6e4199e74ea456",
+  "source_commit": "bf719c72a2eac4441bf665ea8c74d86bc9972bbe",
+  "syberia_base": "340385427fe30526578526adc46dcf0d0edd627a",
+  "certificate_sha256": "1cdd12b743a90c5e1224b11d46ca79189662bd023b2c63686dacfdd5530a590e",
+  "signature_v3": true,
+  "zip_alignment_16k": true,
+  "elf_load_alignments": {
+    "lib/arm64-v8a/libSDL3.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libandroidx.graphics.path.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libfile_redirect_hook.so": [
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libgsl_alloc_hook.so": [
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libhakuxcore.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libhook_impl.so": [
+      16384,
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libkgsl_context_hook.so": [
+      16384,
+      16384
+    ],
+    "lib/arm64-v8a/libmain_hook.so": [
+      16384,
+      16384
+    ]
+  },
+  "changed_native_libraries": [
+    "lib/arm64-v8a/libhakuxcore.so"
+  ],
+  "preserved_asset_entries": 27,
+  "image_assets_preserved": true,
+  "unit_tests_passed": 67,
+  "debuggable": false,
+  "published": false,
+  "device": "RG477M01025672",
+  "installed_apk_matches": true,
+  "original_settings_hud_controllers_locale_preserved": true,
+  "all_user_save_payloads_unchanged": true,
+  "state_file_count": 97,
+  "runtime_cache_indexes_refreshed": [
+    "/data/user/0/com.rfandango.haku_x.debug/files/native/states/4D490006.2/blobs/index"
+  ],
+  "calibration_recovery_checkpoint_cleaned": true,
+  "no_game_running": true,
+  "driver_sha256": "57ac2457c9e22279ffdcd1d056e2de3a5463e5194161539d6318289dcbf3ff56",
+  "tests": {
+    "gpu_pattern_cases": 32,
+    "intermediate_oracle_mismatches": 0,
+    "roundtrip_mismatches": 0,
+    "anisotropy_samplers": [
+      8,
+      16
+    ],
+    "manual_aspect_switch": true,
+    "warrior_within_movie_auto_enter_exit": true,
+    "syberia_live_scale_down_up": true,
+    "dynamic_automatic_up30_down60": true,
+    "ru_en_settings": true
+  },
+  "calibration": [
+    {
+      "options": {
+        "scale": 1,
+        "fxaa": false,
+        "upscale": "bilinear",
+        "fps": 120
+      },
+      "metrics": {
+        "seconds": 15.070684077,
+        "frames": 905,
+        "samples": 904,
+        "median": 16.668308,
+        "p95": 16.846154,
+        "max": 17.686461,
+        "cpuMs": 30608.044516,
+        "rssMb": 368.37109375,
+        "gpuMs": -1,
+        "gpuBuffers": 0,
+        "cpuTemp": 91.64800262451172,
+        "gpuTemp": 45.85100173950195,
+        "batteryTemp": 28
+      }
+    },
+    {
+      "options": {
+        "scale": 2,
+        "fxaa": false,
+        "upscale": "bilinear",
+        "fps": 120
+      },
+      "metrics": {
+        "seconds": 10.044904847,
+        "frames": 472,
+        "samples": 471,
+        "median": 16.686692,
+        "p95": 33.443769,
+        "max": 34.206847,
+        "cpuMs": 19827.134129,
+        "rssMb": 404.41796875,
+        "gpuMs": -1,
+        "gpuBuffers": 0,
+        "cpuTemp": 93.0479965209961,
+        "gpuTemp": 48.00299835205078,
+        "batteryTemp": 28
+      }
+    },
+    {
+      "options": {
+        "scale": 1,
+        "fxaa": false,
+        "upscale": "sgsr",
+        "fps": 120
+      },
+      "metrics": {
+        "seconds": 10.044632309,
+        "frames": 603,
+        "samples": 602,
+        "median": 16.669846,
+        "p95": 16.844693,
+        "max": 17.654846,
+        "cpuMs": 20601.037201000003,
+        "rssMb": 367.03515625,
+        "gpuMs": -1,
+        "gpuBuffers": 0,
+        "cpuTemp": 93.74199676513672,
+        "gpuTemp": 47.87699890136719,
+        "batteryTemp": 28
+      }
+    },
+    {
+      "options": {
+        "scale": 1,
+        "fxaa": false,
+        "upscale": "bilinear",
+        "fps": 120
+      },
+      "metrics": {
+        "seconds": 10.043294462,
+        "frames": 603,
+        "samples": 602,
+        "median": 16.668077,
+        "p95": 16.818769,
+        "max": 17.779,
+        "cpuMs": 20174.765112,
+        "rssMb": 366.34375,
+        "gpuMs": -1,
+        "gpuBuffers": 0,
+        "cpuTemp": 93.13800048828125,
+        "gpuTemp": 49.02199935913086,
+        "batteryTemp": 28
+      }
+    }
+  ]
+}
