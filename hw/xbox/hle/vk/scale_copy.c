@@ -22,6 +22,11 @@ void hle_scale_copy_free(HleScaleCopy *s)
 bool hle_scale_copy_init(HleScaleCopy *s,VkDeviceSize bytes)
 {
     if(!bytes || bytes>g_hvk.props.limits.maxStorageBufferRange) return false;
+    uint32_t nq=0;vkGetPhysicalDeviceQueueFamilyProperties(g_hvk.phys,&nq,NULL);
+    VkQueueFamilyProperties *queues=g_new(VkQueueFamilyProperties,nq);
+    vkGetPhysicalDeviceQueueFamilyProperties(g_hvk.phys,&nq,queues);
+    bool compute=g_hvk.qfam<nq&&(queues[g_hvk.qfam].queueFlags&VK_QUEUE_COMPUTE_BIT);
+    g_free(queues);if(!compute)return false;
     VkDescriptorSetLayoutBinding b[2]={{0,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,VK_SHADER_STAGE_COMPUTE_BIT},
                                      {1,VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,1,VK_SHADER_STAGE_COMPUTE_BIT}};
     VkDescriptorSetLayoutCreateInfo di={.sType=VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,.bindingCount=2,.pBindings=b};
@@ -88,7 +93,9 @@ void hle_scale_copy_record(HleScaleCopy *s,VkCommandBuffer cb,VkImage src,VkImag
     T.vkCmdBindDescriptorSets(cb,VK_PIPELINE_BIND_POINT_COMPUTE,s->pl,0,1,&s->set,0,NULL);
     uint32_t params[5]={sw,sh,dw,dh,bytes};
     T.vkCmdPushConstants(cb,s->pl,VK_SHADER_STAGE_COMPUTE_BIT,0,sizeof(params),params);
-    T.vkCmdDispatch(cb,((dw*dh*bytes+3)/4+63)/64,1,1);
+    uint32_t groups=((dw*dh*bytes+3)/4+63)/64;
+    uint32_t gx=MIN(groups,g_hvk.props.limits.maxComputeWorkGroupCount[0]);
+    T.vkCmdDispatch(cb,gx,(groups+gx-1)/gx,1);
     sync_copy(cb);
     copy.imageExtent=(VkExtent3D){dw,dh,1};
     T.vkCmdCopyBufferToImage(cb,s->buf[1],dst,VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,1,&copy);

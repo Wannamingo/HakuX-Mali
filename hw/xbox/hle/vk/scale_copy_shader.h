@@ -11,7 +11,7 @@ static const char hle_scale_copy_shader[] =
 "layout(set=0,binding=1,std430) writeonly buffer Destination { uint dst[]; };\n"
 "layout(push_constant) uniform Params { uint sw,sh,dw,dh,bytes; } p;\n"
 "void main() {\n"
-" uint word=gl_GlobalInvocationID.x, first=word*4u;\n"
+" uint word=gl_GlobalInvocationID.x+gl_GlobalInvocationID.y*gl_NumWorkGroups.x*64u, first=word*4u;\n"
 " uint total=p.dw*p.dh*p.bytes; if(first>=total) return;\n"
 " uint result=0u;\n"
 " for(uint j=0u;j<4u;j++) {\n"
