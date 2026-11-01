@@ -449,6 +449,11 @@ void hle_surf_destroy_after(uint32_t id, uint64_t value)
 {
     HleVkSurf *s = hle_surf_get(id);
     if (s) {
+        /* Push-buffer objects (including cube face targets) can be destroyed
+         * with after=0 between recordings, while the last submission still
+         * reads their images. An absent recording does not mean an idle GPU.
+         * PARKED stays parked; other deadlines must cover submitted work. */
+        value = MAX(value, hle_tl_submitted());
         s->destroy_after = value ? value : 1;
         unhint(s);
     }
