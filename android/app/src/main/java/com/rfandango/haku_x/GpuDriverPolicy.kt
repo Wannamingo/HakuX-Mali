@@ -17,9 +17,14 @@ object GpuDriverPolicy {
     it.lowercase().replace(Regex("[^a-z0-9]"), "") == "rgvitapro"
   }
 
+  fun isRg476h(vararg names: String): Boolean = names.any {
+    it.lowercase().replace(Regex("[^a-z0-9]"), "") == "rg476h"
+  }
+
   /** Keep explicit system/custom choices; migrate an identical imported binary only once. */
-  fun selectBundled(bootstrapped: Boolean, setupComplete: Boolean, hasActive: Boolean, identical: Boolean): Boolean =
-    !bootstrapped && (identical || (!setupComplete && !hasActive))
+  fun selectBundled(bootstrapped: Boolean, setupComplete: Boolean, hasActive: Boolean, identical: Boolean,
+                    allowAutoSelection: Boolean = true): Boolean =
+    allowAutoSelection && !bootstrapped && (identical || (!setupComplete && !hasActive))
 
   fun acceptsLibrary(library: String?, adreno: Boolean, malisx2Device: Boolean): Boolean {
     if (library == null || !Regex("[A-Za-z0-9_.-]+\\.so").matches(library)) return false

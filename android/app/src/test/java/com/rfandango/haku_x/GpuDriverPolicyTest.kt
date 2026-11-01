@@ -4,6 +4,19 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GpuDriverPolicyTest {
+  @Test fun experimentalRg476hKeepsSystemDefault() {
+    assertFalse(GpuDriverPolicy.selectBundled(false, false, false, false, allowAutoSelection = false))
+    assertFalse(GpuDriverPolicy.selectBundled(false, true, true, true, allowAutoSelection = false))
+  }
+
+  @Test fun rg476hExactModelAliases() {
+    for (name in listOf("RG 476H", "RG476H", "rg-476h"))
+      assertTrue(name, GpuDriverPolicy.isRg476h(name))
+    for (name in listOf("RG477M", "RG476H Plus", "RG476", "T820", "ums9620", "Mali-G57"))
+      assertFalse(name, GpuDriverPolicy.isRg476h(name))
+    assertTrue(GpuDriverPolicy.isRg476h("GammaOS Full", "RG 476H"))
+  }
+
   @Test fun vitaProAliasesAndOtherHandhelds() {
     for (name in listOf("RG VITA Pro", "RG-Vita-Pro", "rgvitapro"))
       assertTrue(name, GpuDriverPolicy.isRgVitaPro(name))
