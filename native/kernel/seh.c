@@ -19,6 +19,7 @@
 #include "native/kernel/kernel.h"
 
 #include <stdio.h>
+#include <stdlib.h>
 
 /* EXCEPTION_RECORD */
 #define ER_CODE    0x00
@@ -202,6 +203,32 @@ static NcSeh *push_level(NcKernel *k, NcFrame *f, NcThread *t, uint32_t esp)
 
 static void unhandled(NcKernel *k, NcFrame *f, NcSeh *l, const char *why)
 {
+    /* Optional, bounded diagnostics from the original exception context,
+     * rather than the registration handler's registers. Never skip the
+     * exception or change the title's memory. */
+    if (getenv("NC_SEH_TRACE")) {
+        static const struct { const char *name; unsigned off; } regs[] = {
+            {"eax", CX_EAX}, {"ecx", CX_ECX}, {"edx", CX_EDX}, {"ebx", CX_EBX},
+            {"esp", CX_ESP}, {"ebp", CX_EBP}, {"esi", CX_ESI}, {"edi", CX_EDI}
+        };
+        nc_log("hakuX-native-seh", "original context eip=%08x flags=%08x", rd(k, l->ctx + CX_EIP),
+               rd(k, l->ctx + CX_EFLAGS));
+        for (unsigned r = 0; r < sizeof(regs) / sizeof(regs[0]); r++) {
+            const uint32_t va = rd(k, l->ctx + regs[r].off);
+            char hex[32 * 9 + 1];
+            size_t n = 0;
+            for (unsigned i = 0; i < 32 && va <= UINT32_MAX - i * 4 - 3; i++) {
+                const uint32_t at = va + i * 4;
+                if (nc_vm_phys(k->vm, at) == UINT32_MAX || nc_vm_phys(k->vm, at + 3) == UINT32_MAX) {
+                    break;
+                }
+                n += (size_t)snprintf(hex + n, sizeof(hex) - n, " %08x", rd(k, at));
+            }
+            hex[n] = 0;
+            nc_log("hakuX-native-seh", "%s=%08x pa=%08x words:%s", regs[r].name, va,
+                   nc_vm_phys(k->vm, va), hex);
+        }
+    }
     char type[96];
     nc_kernel_request_stop(k, f, "seh: unhandled exception %08x at %08x (%s)%s%s", rd(k, l->rec + ER_CODE),
                            rd(k, l->rec + ER_ADDRESS), why, rd(k, l->rec + ER_CODE) == CXX_EXCEPTION ? ", C++ " : "",

@@ -2281,9 +2281,15 @@ static void cmd_readback(const HleCmdReadback *c)
     bool linear = s && s->d.pitch && fi && (fi->flags & HLE_FI_LIN);
     bool written = s && s->img && s->layout != VK_IMAGE_LAYOUT_UNDEFINED;
     uint32_t w = s ? (c->w ? c->w : s->d.w) : 0, h = s ? (c->h ? c->h : s->d.h) : 0;
+    /* Linear surfaces may be taller than the title's render area: their
+     * height was inferred from the display. Copy only the rows the title
+     * actually wrote, without filtering the whole image into that height.
+     * Tomb Raider's 640x448 view inside its 640x480 buffer otherwise wrote
+     * zero-filled extra rows over the heap immediately following it. */
+    const uint32_t rows = c->copy_rows ? MIN(c->copy_rows, h) : h;
     /* without zero-copy RAM, the arena copy that lands in guest memory */
-    bool fits = c->fb && s && s->texel_bytes && h &&
-                (uint64_t)c->pitch * (h - 1) + (uint64_t)w * s->texel_bytes <= c->fb_len;
+    bool fits = c->fb && s && s->texel_bytes && rows &&
+                (uint64_t)c->pitch * (rows - 1) + (uint64_t)w * s->texel_bytes <= c->fb_len;
     if (s && linear && written && (g_hram.zero_copy || fits) && hle_surf_ensure(s) &&
         (s->aspect & VK_IMAGE_ASPECT_COLOR_BIT) && s->texel_bytes &&
         c->pitch % s->texel_bytes == 0) {
@@ -2301,13 +2307,13 @@ static void cmd_readback(const HleCmdReadback *c)
         VkBufferImageCopy r = {
             .bufferOffset = fb ? c->fb - 1 : c->pa, .bufferRowLength = c->pitch / s->texel_bytes,
             .imageSubresource = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 0, 1 },
-            .imageExtent = { w, h, 1 } };
+            .imageExtent = { w, rows, 1 } };
         if (img) {
             T.vkCmdCopyImageToBuffer(cb, img, il,
                                      !fb ? g_hram.buf : g_hland.buf ? g_hland.buf : g_harena.buf,
                                      1, &r);
             if (fb) {
-                hle_tl_land_copied(c->fb - 1, c->pitch, w * s->texel_bytes, h);
+                hle_tl_land_copied(c->fb - 1, c->pitch, w * s->texel_bytes, rows);
             }
         }
         VkMemoryBarrier2 mb = {

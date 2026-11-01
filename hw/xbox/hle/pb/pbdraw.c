@@ -111,6 +111,7 @@ typedef struct PbObj {
     uint64_t view_seq;
     uint64_t view_draw;                  /* protects views already selected by the current draw */
     uint64_t written;                   /* g_pd.wseq at its last draw, clear or copy */
+    uint32_t written_rows;              /* highest row actually written, not linear_size's guessed height */
     uint64_t edge_hash[2];              /* its bytes on its first and last page (rt_cpu_sync) */
     bool cpu_used;                      /* the CPU wrote its memory (writeback) */
     uint64_t mem_seq;                   /* g_pd.wseq when a texture took its memory as the
@@ -507,6 +508,11 @@ static uint32_t tile_pitch(uint32_t bytes)
 static void linear_size(uint32_t pitch, uint32_t xfmt, uint32_t sx, uint32_t sy, uint32_t *w,
                         uint32_t *h)
 {
+    /* Tomb Raider Legend uses displaced 640x448 views inside 640x480
+     * buffers. Expanding each view to the display's height makes its
+     * sampling and presentation alternate with the full frame. Keep its
+     * actual clip height; other titles retain display-size inference. */
+    const bool clip_height = g_hle.title.xbe.title_id == 0x534300FDu;
     const HleFmtInfo *fi = hle_fmt_info(xfmt);
     const uint32_t bytes = fi ? fi->bpp / 8 : 0;
     if (!bytes || !pitch) {
@@ -530,7 +536,7 @@ static void linear_size(uint32_t pitch, uint32_t xfmt, uint32_t sx, uint32_t sy,
     const uint32_t dw = g_pd.disp_w * sx;
     if (tilew && dw && sy == 1 && *w <= dw && pw > dw && pitch == tile_pitch(dw * bytes)) {
         *w = dw;
-        *h = MAX(*h, g_pd.disp_h);
+        if (!clip_height) *h = MAX(*h, g_pd.disp_h);
         return;
     }
     /* an antialiased view whose samples are the display's pixels: the same
@@ -542,13 +548,13 @@ static void linear_size(uint32_t pitch, uint32_t xfmt, uint32_t sx, uint32_t sy,
     if (tilew && g_pd.disp_w && sx > 1 && *w <= g_pd.disp_w && pw > g_pd.disp_w &&
         pitch == tile_pitch(g_pd.disp_w * bytes)) {
         *w = g_pd.disp_w;
-        *h = MAX(*h, g_pd.disp_h);
+        if (!clip_height) *h = MAX(*h, g_pd.disp_h);
         return;
     }
     /* not with vertical antialiasing: a 2x2 view of a display-wide surface
      * covers its rows in half the lines (Forza draws 640 x 240 2x2 into its
      * 1280 x 480 scene target, which a texture then samples) */
-    if (g_pd.disp_w && pw == g_pd.disp_w * sx && sy == 1) {
+    if (!clip_height && g_pd.disp_w && pw == g_pd.disp_w * sx && sy == 1) {
         *h = MAX(*h, g_pd.disp_h);
     }
     *w = pw;
@@ -872,6 +878,11 @@ static bool rt_cpu_sync(uint32_t id)
     return rt_cpu_upload(id, true);
 }
 
+static uint32_t memory_rows(const PbObj *o)
+{
+    return o->written_rows ? MIN(o->written_rows, o->d.h) : o->d.h;
+}
+
 #define WRITEBACK_MAX 16384u                /* bytes: a small target goes back to memory */
 
 /* A small linear colour target the frame moves off goes back into guest
@@ -902,7 +913,7 @@ static void writeback(uint32_t id)
         ((uint64_t)d->pitch * d->h > WRITEBACK_MAX && !(cpu_wb && o && o->cpu_used))) {
         return;
     }
-    const uint32_t len = d->pitch * d->h;
+    const uint32_t rows = memory_rows(o), len = d->pitch * rows;
     const uint32_t fb = hle_res_rb_fb(len);
     HleCmdReadback *rb = begin(HLE_OP_READBACK, sizeof(*rb));
     memset(rb, 0, sizeof(*rb));
@@ -911,6 +922,7 @@ static void writeback(uint32_t id)
     rb->pa = d->pa;
     rb->pitch = d->pitch;
     rb->arena_off = HLE_RB_DIRECT;
+    rb->copy_rows = rows;
     hle_res_rb_land(rb, fb, len, hle_fe_last_value() + 1);     /* the next submission */
     hle_barrier_arm_landing(d->pa, len, hle_fe_last_value() + 1);
     hle_fe_commit();
@@ -1239,6 +1251,7 @@ static void clear(uint32_t flags)
     hle_fe_commit();
     if (g_pd.rt_obj && (c->flags & HLE_CLEAR_TARGET)) {
         g_pd.rt_obj->written = ++g_pd.wseq;
+        g_pd.rt_obj->written_rows = MAX(g_pd.rt_obj->written_rows, MIN((uint32_t)MAX(r.y2, 0), g_pd.rt_obj->d.h));
     }
     if (c->flags & (HLE_CLEAR_ZBUFFER | HLE_CLEAR_STENCIL)) {
         ds_written();
@@ -1294,7 +1307,7 @@ static void front_stale(const PbObj *o)
 {
     const HleFmtInfo *fi = o && o->d.pitch && !o->cube ? hle_fmt_info(o->d.xfmt) : NULL;
     const bool colour = fi && !(fi->flags & (HLE_FI_DEPTH | HLE_FI_DXT));
-    hle_barrier_set_stale(colour ? o->d.pa : 0, colour ? o->d.pitch * o->d.h : 0, front_fill);
+    hle_barrier_set_stale(colour ? o->d.pa : 0, colour ? o->d.pitch * memory_rows(o) : 0, front_fill);
 }
 
 static void shown_part(const PbObj *o, uint32_t ax, uint32_t ay, uint32_t *w, uint32_t *h);
@@ -2086,6 +2099,7 @@ void hle_pbd_blit(uint32_t sbase, uint32_t sp, uint32_t dbase, uint32_t dp, uint
             obj_edges_set(dd);
         }
         dd->written = ++g_pd.wseq;
+        dd->written_rows = MAX(dd->written_rows, MIN(oy + h, dd->d.h));
     }
 }
 
@@ -2420,6 +2434,7 @@ static uint32_t target_part(uint32_t pa, uint32_t code, const HleFmtInfo *fi, ui
     hle_fe_commit();
     hle_mem_written(pa, pitch * h);         /* the image holds the copy, not the memory */
     dst->written = ++g_pd.wseq;
+    dst->written_rows = MAX(dst->written_rows, MIN(h, dst->d.h));
     return dst->id;
 }
 
@@ -2849,7 +2864,7 @@ static unsigned writeback_range(uint32_t pa, uint32_t end, uint64_t v, bool gpu_
             break;
         }
         after = next->written;
-        const uint32_t len = next->d.pitch * next->d.h;
+        const uint32_t rows = memory_rows(next), len = next->d.pitch * rows;
         if (obj_superseded(next)) {
             /* the title's data is there now (a texture defined from it) */
             if (gpu_newer) {
@@ -2873,6 +2888,7 @@ static unsigned writeback_range(uint32_t pa, uint32_t end, uint64_t v, bool gpu_
         rb->pa = next->d.pa;
         rb->pitch = next->d.pitch;
         rb->arena_off = HLE_RB_DIRECT;
+        rb->copy_rows = rows;
         hle_res_rb_land(rb, fb, len, v);
         hle_barrier_arm_landing(next->d.pa, len, v);
         hle_fe_commit();
@@ -3044,6 +3060,9 @@ static void emit(HleCmdDraw *d)
     rt_first_write();
     if (g_pd.rt_obj) {
         g_pd.rt_obj->written = ++g_pd.wseq;
+        const uint32_t clip = R(NV097_SET_SURFACE_CLIP_VERTICAL);
+        const uint32_t rows = ((clip & 0xFFFF) + (clip >> 16)) * MAX(g_pd.aa_y, 1u);
+        g_pd.rt_obj->written_rows = MAX(g_pd.rt_obj->written_rows, MIN(rows, g_pd.rt_obj->d.h));
     }
     if (g_pd.ds && ((R(0x030C) && R(0x035C)) || (R(0x032C) && (R(0x0360) & 0xFF)))) {
         ds_written();                   /* depth test and writes, or stencil writes */

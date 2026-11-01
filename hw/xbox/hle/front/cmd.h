@@ -225,6 +225,7 @@ typedef struct HleCmdReadback {
      * reaches the value (hle_tl_land). */
     uint32_t arena_off, level, face, w, h;
     uint32_t fb, fb_len;            /* fb 0: none */
+    uint32_t copy_rows;             /* direct: top rows actually written; 0: all, no rescaling */
 } HleCmdReadback;
 #define HLE_RB_DIRECT 0xFFFFFFFFu
 

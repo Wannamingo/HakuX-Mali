@@ -3157,14 +3157,14 @@ static void psframe_log(const HleCmdDraw *c, const HleCmdState *s, const HlePshK
             continue;
         }
         hle_log("hakuX-hle-pipe", "  t%u %s xfmt=0x%x %ux%ux%u%s lv=%u f=%u%s addr=%u,%u,%u "
-                "filt=%u,%u,%u maxmip=%u bias=%08x tci=%x ttf=%x", st, tx ? "tex" : "surf",
+                "filt=%u,%u,%u maxmip=%u bias=%08x tci=%x ttf=%x ckey=%u akill=%u", st, tx ? "tex" : "surf",
                 tx ? tx->xfmt : sf->d.xfmt, tx ? tx->w : sf->d.w, tx ? tx->h : sf->d.h,
                 tx ? tx->d : 1, tx && tx->vol ? " vol" : "",
                 tx ? tx->levels : sf->nlevels, tx ? tx->faces : sf->nfaces,
                 sf && sf->general ? " general" : "", t[TSS_ADDRESSU], t[TSS_ADDRESSV],
                 t[TSS_ADDRESSW], t[TSS_MAGFILTER], t[TSS_MINFILTER], t[TSS_MIPFILTER],
                 t[TSS_MAXMIPLEVEL], t[TSS_MIPMAPLODBIAS], t[TSS_TEXCOORDINDEX],
-                t[TSS_TEXTURETRANSFORMFLAGS]);
+                t[TSS_TEXTURETRANSFORMFLAGS], t[TSS_COLORKEYOP], t[TSS_ALPHAKILL]);
     }
 }
 
