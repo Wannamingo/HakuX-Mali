@@ -17,6 +17,7 @@ import com.rfandango.haku_x.data.Controllers
 import com.rfandango.haku_x.data.PadOut
 import com.rfandango.haku_x.data.PadProfile
 import com.rfandango.haku_x.data.PadState
+import com.rfandango.haku_x.data.RumbleSafety
 
 /**
  * The physical controllers in a game: each controller's events through its
@@ -103,6 +104,12 @@ class PadRouter(
   /** device id -> whether it has motors of its own (asked once) */
   private val motors = HashMap<Int, Boolean>()
 
+  private fun rumbleEnabled(d: InputDevice): Boolean {
+    val p = profile(d)
+    return p.rumbleStrength.isFinite() && p.rumbleStrength > 0f &&
+      RumbleSafety.enabled(p.rumbleMode, Controllers.legacyGammaPad(d))
+  }
+
   /**
    * The titles' rumble to the controllers playing (polled): each change of
    * level, and every 900 ms while it lasts (a vibration is asked for a second
@@ -116,12 +123,14 @@ class PadRouter(
     var body = -1
     var bodyPlayer = Controllers.PLAYERS
     for ((id, p) in assignment) {
-      if (p < bodyPlayer && InputDevice.getDevice(id)?.let { hasMotors(it) } == false) {
+      if (p < bodyPlayer && InputDevice.getDevice(id)?.let { rumbleEnabled(it) && !hasMotors(it) } == true) {
         body = id
         bodyPlayer = p
       }
     }
     for ((id, p) in assignment) {
+      val device = InputDevice.getDevice(id) ?: continue
+      if (!rumbleEnabled(device)) continue
       val raw = rumbleOf(p)
       val strength = InputDevice.getDevice(id)?.let { profile(it).rumbleStrength }?.takeIf { it.isFinite() }?.coerceIn(0f, 1f) ?: 1f
       val r = level(((raw ushr 16) * strength).toInt()) shl 8 or level(((raw and 0xFFFF) * strength).toInt())
@@ -193,6 +202,10 @@ class PadRouter(
 
   /** A controller's rumble (levels): on its motors, or (body) on the device's when it has none. */
   private fun vibrate(d: InputDevice, left: Int, right: Int, body: Boolean) {
+    /* Even cancel() reaches the faulty FF bridge. In OFF/blocked AUTO (or
+     * at 0% strength), make no vibrator calls, including stopRumble().
+     * Any already-issued one-shot expires without being renewed. */
+    if (!rumbleEnabled(d)) return
     try {
       if (!hasMotors(d)) {
         if (body) bodyVibrator()?.let { vibrateOne(it, left, right) }

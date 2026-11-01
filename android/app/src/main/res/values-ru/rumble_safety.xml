@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="controllers_rumble_mode">Вибрация геймпада</string>
+    <string name="controllers_rumble_auto">Автоматически (рекомендуется)</string>
+    <string name="controllers_rumble_off">Выключена</string>
+    <string name="controllers_rumble_on">Включена</string>
+    <string name="controllers_rumble_gamma">В этой старой сборке GammaPad вибрация может прерывать удержание кнопок и стиков. Автоматический режим отключает вибрацию этого геймпада. Режим «Включена» снимает защиту — используйте его после обновления GammaOS и проверки. Сила 0 также отключает вибрацию.</string>
+</resources>

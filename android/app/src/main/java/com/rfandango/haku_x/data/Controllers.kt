@@ -1,6 +1,7 @@
 package com.rfandango.haku_x.data
 
 import android.content.Context
+import android.os.Build
 import android.view.InputDevice
 import android.view.KeyEvent
 import android.view.MotionEvent
@@ -56,6 +57,7 @@ data class PadProfile(
   val invertLX: Boolean = false, val invertLY: Boolean = false,
   val invertRX: Boolean = false, val invertRY: Boolean = false,
   val rumbleStrength: Float = 1f,
+  val rumbleMode: RumbleMode = RumbleMode.AUTO,
 ) {
   fun toJson(): JSONObject = JSONObject().apply {
     put("deadzoneL", deadzoneL.toDouble())
@@ -64,6 +66,7 @@ data class PadProfile(
     put("sensitivityL", sensitivityL.toDouble()); put("sensitivityR", sensitivityR.toDouble())
     put("invertLX", invertLX); put("invertLY", invertLY); put("invertRX", invertRX); put("invertRY", invertRY)
     put("rumbleStrength", rumbleStrength.toDouble())
+    put("rumbleMode", rumbleMode.name)
     put("bind", JSONObject().apply {
       for ((input, list) in bind) put(input.name, JSONArray(list.map { it.encode() }))
     })
@@ -100,6 +103,7 @@ data class PadProfile(
         o.optDouble("sensitivityR", 1.0).toFloat().coerceIn(.25f, 2f),
         o.optBoolean("invertLX"), o.optBoolean("invertLY"), o.optBoolean("invertRX"), o.optBoolean("invertRY"),
         o.optDouble("rumbleStrength", 1.0).toFloat().coerceIn(0f, 1f),
+        RumbleMode.entries.firstOrNull { it.name == o.optString("rumbleMode") } ?: RumbleMode.AUTO,
       )
     }
   }
@@ -221,6 +225,11 @@ class PadState {
 object Controllers {
   const val PLAYERS = 4
   private const val FILE = "controllers.json"
+
+  fun legacyGammaPad(d: InputDevice): Boolean = RumbleSafety.legacyGammaPad(
+    Build.DISPLAY.orEmpty(), Build.VERSION.INCREMENTAL.orEmpty(), d.name.orEmpty(),
+    d.descriptor.orEmpty(), d.vendorId, d.productId,
+  )
 
   /**
    * A real controller: gamepad or joystick sources with stick axes. Phones

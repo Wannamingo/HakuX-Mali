@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="controllers_rumble_mode">Controller vibration</string>
+    <string name="controllers_rumble_auto">Automatic (recommended)</string>
+    <string name="controllers_rumble_off">Off</string>
+    <string name="controllers_rumble_on">On</string>
+    <string name="controllers_rumble_gamma">This older GammaPad build can interrupt held buttons and sticks when it receives vibration. Automatic disables vibration for this controller. On overrides this safeguard; use it after updating GammaOS and testing. Strength 0 also disables vibration.</string>
+</resources>

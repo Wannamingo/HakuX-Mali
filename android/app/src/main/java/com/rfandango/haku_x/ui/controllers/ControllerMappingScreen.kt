@@ -49,8 +49,10 @@ import com.rfandango.haku_x.data.PadOut
 import com.rfandango.haku_x.data.PadProfile
 import com.rfandango.haku_x.data.PadState
 import com.rfandango.haku_x.data.XInput
+import com.rfandango.haku_x.data.RumbleMode
 import com.rfandango.haku_x.input.InputCapture
 import com.rfandango.haku_x.ui.common.ActionItem
+import com.rfandango.haku_x.ui.common.ChoiceDialog
 import com.rfandango.haku_x.ui.common.EmptyText
 import com.rfandango.haku_x.ui.common.Section
 import com.rfandango.haku_x.ui.common.SubScreen
@@ -128,6 +130,7 @@ fun ControllerMappingScreen(deviceId: Int, onBack: () -> Unit) {
   var rest by remember { mutableStateOf(FloatArray(0)) }
   var live by remember { mutableStateOf("") }
   var testing by remember { mutableStateOf(false) }
+  var choosingRumble by remember { mutableStateOf(false) }
   var lastInput by remember { mutableLongStateOf(0L) }
   val pad = remember { PadState() }
 
@@ -263,6 +266,26 @@ fun ControllerMappingScreen(deviceId: Int, onBack: () -> Unit) {
         SwitchItem(stringResource(R.string.exp_invert_ly), null, profile.invertLY) { store(profile.copy(invertLY = it)) }
         SwitchItem(stringResource(R.string.exp_invert_rx), null, profile.invertRX) { store(profile.copy(invertRX = it)) }
         SwitchItem(stringResource(R.string.exp_invert_ry), null, profile.invertRY) { store(profile.copy(invertRY = it)) }
+        val rumbleLabels = listOf(
+          RumbleMode.AUTO to stringResource(R.string.controllers_rumble_auto),
+          RumbleMode.OFF to stringResource(R.string.controllers_rumble_off),
+          RumbleMode.ON to stringResource(R.string.controllers_rumble_on),
+        )
+        ActionItem(
+          title = stringResource(R.string.controllers_rumble_mode),
+          summary = rumbleLabels.first { it.first == profile.rumbleMode }.second,
+          icon = null,
+        ) { choosingRumble = true }
+        if (device != null && Controllers.legacyGammaPad(device)) {
+          Text(stringResource(R.string.controllers_rumble_gamma), Modifier.padding(horizontal = 16.dp, vertical = 8.dp))
+        }
+        if (choosingRumble) {
+          ChoiceDialog(
+            stringResource(R.string.controllers_rumble_mode), rumbleLabels, profile.rumbleMode,
+            onPick = { store(profile.copy(rumbleMode = it)); choosingRumble = false },
+            onDismiss = { choosingRumble = false },
+          )
+        }
         LabeledSlider(stringResource(R.string.exp_rumble), profile.rumbleStrength, 0f..1f) {
           store(profile.copy(rumbleStrength = it))
         }
