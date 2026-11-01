@@ -113,9 +113,12 @@ int hle_xbe_parse(const uint8_t *hdr, uint32_t hdr_len, HleXbeInfo *out)
     uint32_t nlib = hle_rd32(hdr + XO_NLIBS);
     uint32_t lib_addr = hle_rd32(hdr + XO_LIBS_ADDR);
     if (nlib > HLE_XBE_MAX_LIBS ||
-        !hva(out->base, hdr_len, lib_addr, nlib * LIB_SIZE, &off)) {
+        (nlib && !hva(out->base, hdr_len, lib_addr, nlib * LIB_SIZE, &off))) {
         return HLE_XBE_ERR_RANGE;
     }
+    /* Library versions are optional metadata. Stripped XBEs (including
+     * Underground) leave both count and address zero; no range is read
+     * in that case. A nonempty table still needs a valid header range. */
     for (uint32_t i = 0; i < nlib; i++) {
         const uint8_t *l = hdr + off + i * LIB_SIZE;
         HleXbeLib *d = &out->libs[i];

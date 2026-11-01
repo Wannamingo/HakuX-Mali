@@ -25,7 +25,11 @@ extern "C" {
 
 #define NC_KERNEL_VA     0x80010000u
 #define NC_KERNEL_PA     0x00010000u
-#define NC_KERNEL_SIZE   0x00040000u
+/* The generated kernel (exports, KPCR, IDT and fast paths) fits in 128 KiB.
+ * Reserve its footprint rather than another 128 KiB of unused low RAM:
+ * titles can cover RAM from 0x61000, while D3D still needs pages below
+ * 16 MiB for its query tables. */
+#define NC_KERNEL_SIZE   0x00020000u
 #define NC_KCALL_VECTOR  0x3Fu
 /* In the KPCR's page, past its fields (guest code reads it at fs:): 1 while
  * DPCs are queued (timer.c), for the guest-code KfLowerIrql (kernel.c). */

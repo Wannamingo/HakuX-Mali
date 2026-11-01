@@ -70,6 +70,24 @@ static void test_debug_keys(void)
     HT_EQ_U32(x.kernel_thunk, 0x00012000);
 }
 
+static void test_absent_library_table(void)
+{
+    uint32_t len = fx_build_xbe(buf, sizeof(buf), 0x00012345, false,
+                               k_secs, 4, k_libs, 3, 0x4541003B);
+    fx_w32(buf, 0x160, 0);
+    fx_w32(buf, 0x164, 0);
+    HleXbeInfo x;
+    HT_EQ_INT(hle_xbe_parse(buf, len, &x), HLE_XBE_OK);
+    HT_EQ_U32(x.nsections, 4);
+    HT_EQ_U32(x.nlibs, 0);
+    HT_EQ_U32(x.entry, 0x00012345);
+    HT_CHECK(hle_xbe_d3d_lib(&x) == NULL);
+
+    /* The address is unused only while there are no entries. */
+    fx_w32(buf, 0x160, 1);
+    HT_EQ_INT(hle_xbe_parse(buf, len, &x), HLE_XBE_ERR_RANGE);
+}
+
 /* Guest-memory headers (0x10000 at runtime) carry the entry point and kernel
  * thunk already decoded, unlike XBE files. */
 static void test_plain_entry(void)
@@ -184,6 +202,7 @@ int main(void)
     HT_RUN(test_retail_header);
     HT_RUN(test_library_versions);
     HT_RUN(test_debug_keys);
+    HT_RUN(test_absent_library_table);
     HT_RUN(test_plain_entry);
     HT_RUN(test_errors);
     HT_RUN(test_lookups);

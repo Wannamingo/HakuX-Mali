@@ -30,7 +30,10 @@
 #define USER_HI   0x7FFE0000u
 #define VA_GRAIN  0x10000u
 #define MAX_REGIONS 4096
-#define MAX_CONTIG  4096
+/* Each allocation owns at least one physical page. Track as many blocks
+ * as fit in the largest supported Xbox RAM (128 MiB). Simpsons Road Rage
+ * exceeds 4096 small D3D allocations with more than 13 MiB still free. */
+#define MAX_CONTIG  (128u * 1024u * 1024u / NC_PAGE)
 
 typedef struct Region {
     uint32_t base, size, protect;
@@ -584,7 +587,9 @@ static uint32_t contig_alloc(NcKernel *k, uint32_t size, uint32_t lo, uint32_t h
      * pages than asked for. */
     uint32_t pa = UINT32_MAX, moved = 0;
     static unsigned s_failed;           /* failures since the last success (reports below) */
-    if (nc_vm_free_bytes(k->vm) >= size) {
+    /* Do not claim or relocate pages if their bookkeeping cannot be kept:
+     * rejecting the block afterwards leaked those pages on every retry. */
+    if (g_ncontig < MAX_CONTIG && nc_vm_free_bytes(k->vm) >= size) {
         pa = nc_vm_alloc_phys_top(k->vm, size, lo, hi, align, &moved);
     }
     if (pa == UINT32_MAX && g_ncontig < MAX_CONTIG && nc_vm_free_bytes(k->vm) >= size) {
@@ -610,8 +615,9 @@ static uint32_t contig_alloc(NcKernel *k, uint32_t size, uint32_t lo, uint32_t h
         if (n <= 4 || !(n & (n - 1))) {
             char runs[400];
             nc_vm_free_runs(k->vm, runs, sizeof(runs));
-            nc_log("hakuX-native", "mm: contiguous allocation of %u KiB failed (#%u; free %u KiB:%s)", size >> 10, n,
-                   nc_vm_free_bytes(k->vm) >> 10, runs);
+            nc_log("hakuX-native", "mm: contiguous allocation of %u KiB failed (#%u; range %08x..%08x align %x "
+                   "protect %x caller %08x; blocks %u/%u; free %u KiB:%s)", size >> 10, n, lo, hi,
+                   align, protect, ra, g_ncontig, (unsigned)MAX_CONTIG, nc_vm_free_bytes(k->vm) >> 10, runs);
             log_splitters(k);
             log_phys_map(k);
             log_holders(k, "contiguous allocation failed");

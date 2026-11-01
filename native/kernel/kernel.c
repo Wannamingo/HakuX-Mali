@@ -39,6 +39,8 @@ static const NcKExport *k_by_ordinal[NC_KORDINAL_MAX];
 #define K_IDT      0x11000u /* 256 gates of 8 bytes */
 #define K_FAST     0x12000u /* exports run as guest code (install_fast_paths) */
 #define K_FAST_END 0x13000u
+_Static_assert(K_FAST_END <= NC_KERNEL_SIZE, "kernel fast paths fit in reserved image");
+_Static_assert(K_IDT + 256u * 8u <= NC_KERNEL_SIZE, "kernel IDT fits in reserved image");
 
 /* Kernel pool: starts with one 64 KiB chunk of physical RAM, reached through
  * the contiguous window, and grows a chunk at a time as needed (pool.c), as
@@ -1661,6 +1663,28 @@ static bool sysop(void *opaque, NcFrame *f, enum NcSysOp op, unsigned size)
         nc_kernel_request_stop(k, f, "system op %d at %08x (%02x %02x %02x)", (int)op, eip, insn[0], insn[1],
                                insn[2]);
         break;
+    case NC_SYSOP_INT3: {
+        /* A title's assertion often formats its reason in a local buffer
+         * before INT3. Report that bounded text without changing the trap's
+         * handling or pretending the assertion succeeded. */
+        const uint32_t sp = nc_frame_gpr(f, NC_ESP);
+        char text[256];
+        unsigned n = 0;
+        while (n < sizeof(text) - 1 && sp <= UINT32_MAX - n &&
+               nc_vm_phys(k->vm, sp + n) != UINT32_MAX) {
+            const uint8_t c = *(const uint8_t *)nc_vm_host(k->vm, sp + n);
+            if (!c || (c < 0x20 && c != '\n' && c != '\r' && c != '\t')) {
+                break;
+            }
+            text[n++] = c < 0x20 ? ' ' : (char)c;
+        }
+        text[n] = 0;
+        char chain[128];
+        nc_kernel_frame_chain(k, f, chain, sizeof(chain));
+        nc_log("hakuX-native-frontier", "breakpoint %08x stack %08x text: %s | frames%s", eip, sp, text, chain);
+        nc_kernel_request_stop(k, f, "breakpoint at %08x", eip);
+        break;
+    }
     case NC_SYSOP_INTERRUPT:
         /* The guest stopped at a block start for an asserted line or the
          * clock; EIP stays. Where it was, sampled, says where the time goes
