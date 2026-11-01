@@ -283,7 +283,11 @@ void nc_mmio_fault_sites(char *buf, size_t len)
 
 bool nc_core_fault(NcCore *c, int sig, siginfo_t *info, void *ucontext)
 {
-    if (sig == SIGILL) {
+    /* Before the CPU exists, a fault belongs to the host (ART's implicit
+     * null checks included). Its low address must not be treated as a guest
+     * address while vm.base/pte are still being initialized. Inspecting an
+     * old state's kernel pool extends this early boot window. */
+    if (sig == SIGILL || !c->cpu) {
         return false;
     }
     const uintptr_t pc = ((ucontext_t *)ucontext)->uc_mcontext.pc;
