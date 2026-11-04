@@ -1,6 +1,6 @@
 package com.rfandango.haku_x
 
-/** Device-scoped MaliSX2 loading; broad Mali/Rockchip matching is deliberately avoided. */
+/** MaliSX2 loading for identified handhelds and SoCs; generic Mali matching is avoided. */
 object GpuDriverPolicy {
   const val MALISX2_LIBRARY = "libvulkan_malisx2.so"
 
@@ -21,9 +21,25 @@ object GpuDriverPolicy {
     it.lowercase().replace(Regex("[^a-z0-9]"), "") == "rg476h"
   }
 
-  /** The shared bundle has been qualified only on these device/API pairs. */
-  fun offersUnifiedBundle(sdk: Int, rg476hMali: Boolean, rg477mMali: Boolean): Boolean =
-    (sdk >= 33 && rg476hMali) || (sdk >= 34 && rg477mMali)
+  fun isRg556(vararg names: String): Boolean = names.any {
+    it.lowercase().replace(Regex("[^a-z0-9]"), "").removePrefix("anbernic") == "rg556"
+  }
+
+  fun isUnisocT820(vararg names: String): Boolean = names.any {
+    val name = it.lowercase().replace(Regex("[^a-z0-9]"), "")
+      .removePrefix("unisoc").removePrefix("spreadtrum").removePrefix("tiger")
+    name == "t820"
+  }
+
+  /** Chip-family availability; hardware qualification remains device/firmware-specific. */
+  fun offersUnifiedBundle(sdk: Int, rg476hMali: Boolean, rg477mMali: Boolean,
+                          dimensity8300Mali: Boolean = false, unisocT820Mali: Boolean = false): Boolean =
+    (sdk >= 33 && (rg476hMali || unisocT820Mali)) ||
+      (sdk >= 34 && (rg477mMali || dimensity8300Mali))
+
+  /** Keep the historical automatic default only on the original qualified devices. */
+  fun allowsAutomaticBundle(rg477mMali: Boolean, vitaProMali: Boolean): Boolean =
+    rg477mMali || vitaProMali
 
   /** Keep explicit system/custom choices; migrate an identical imported binary only once. */
   fun selectBundled(bootstrapped: Boolean, setupComplete: Boolean, hasActive: Boolean, identical: Boolean,

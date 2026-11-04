@@ -57,7 +57,8 @@ object GpuDriverHelper {
   private val combinedFile: File get() = File(appContext.filesDir, "bundled_drivers/$COMBINED_FILE")
   private val unifiedFile: File get() = File(appContext.filesDir, "bundled_drivers/$UNIFIED_FILE")
   private fun offersUnifiedBundle(): Boolean =
-    GpuDriverPolicy.offersUnifiedBundle(Build.VERSION.SDK_INT, rg476hMali, rg477mMali)
+    GpuDriverPolicy.offersUnifiedBundle(Build.VERSION.SDK_INT, rg476hMali, rg477mMali,
+      dimensity8300Mali, unisocT820Mali)
   // M2+DS1 was qualified on G615/RG477M with the API 34 toolchain. Keep
   // the official bundle for older Android versions and other handhelds.
   private fun offersCombinedBundle(): Boolean = Build.VERSION.SDK_INT >= 34 && rg477mMali
@@ -87,7 +88,7 @@ object GpuDriverHelper {
           }
         }
       if (GpuDriverPolicy.selectBundled(done, AppPrefs(appContext).setupComplete, active != null, identical,
-          allowAutoSelection = !rg476hMali)) {
+          allowAutoSelection = GpuDriverPolicy.allowsAutomaticBundle(rg477mMali, rgVitaProMali))) {
         if (!useDriver(bundled)) throw IOException("Could not select bundled MaliSX2")
         Log.i(TAG, "Bundled ${readMetadata(bundled)?.name} selected for a supported Mali handheld")
       }
@@ -140,8 +141,23 @@ object GpuDriverHelper {
     Build.VERSION.SDK_INT >= 29 && Build.SUPPORTED_ABIS.contains("arm64-v8a") && File("/dev/mali0").exists() &&
       GpuDriverPolicy.isDimensity8300(
         if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else "", Build.HARDWARE,
-        property("ro.soc.model"), property("ro.board.platform"), property("ro.vendor.mediatek.platform"),
+        property("ro.soc.model"), property("ro.vendor.soc.model"), property("ro.board.platform"),
+        property("ro.vendor.mediatek.platform"), property("ro.mediatek.platform"),
       )
+  }
+
+  private val unisocT820Mali: Boolean by lazy {
+    Build.VERSION.SDK_INT >= 29 && Build.SUPPORTED_ABIS.contains("arm64-v8a") && File("/dev/mali0").exists() &&
+      (GpuDriverPolicy.isUnisocT820(
+        if (Build.VERSION.SDK_INT >= 31) Build.SOC_MODEL else "", Build.HARDWARE,
+        property("ro.soc.model"), property("ro.vendor.soc.model"),
+      ) || rg476hMali || rg556Mali)
+  }
+
+  // Known T820 models cover firmware/GSI builds that omit the SoC marketing name.
+  private val rg556Mali: Boolean by lazy {
+    Build.VERSION.SDK_INT >= 29 && Build.SUPPORTED_ABIS.contains("arm64-v8a") && File("/dev/mali0").exists() &&
+      GpuDriverPolicy.isRg556(Build.MODEL, Build.DEVICE, Build.PRODUCT, vendorModel())
   }
 
   private fun property(name: String): String = runCatching {
@@ -166,9 +182,11 @@ object GpuDriverHelper {
       property("ro.board.platform").equals("ums9620", ignoreCase = true)
   }
 
-  fun isMaliSX2Device(): Boolean = !isAdreno() && (rg477mMali || dimensity8300Mali || rgVitaProMali || rg476hMali)
+  fun isMaliSX2Device(): Boolean = !isAdreno() && (rg477mMali || dimensity8300Mali || rgVitaProMali || unisocT820Mali)
   fun isRgVitaPro(): Boolean = rgVitaProMali
   fun isRg476h(): Boolean = rg476hMali
+  fun isUnisocT820(): Boolean = unisocT820Mali
+  fun isDimensity8300(): Boolean = dimensity8300Mali
 
   private fun compatible(meta: DriverMetadata): Boolean =
     GpuDriverPolicy.acceptsLibrary(meta.libraryName, isAdreno(), isMaliSX2Device())

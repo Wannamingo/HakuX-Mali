@@ -71,6 +71,8 @@ fun GpuDriverScreen(onBack: () -> Unit, vm: GpuDriverViewModel = viewModel()) {
           when {
             GpuDriverHelper.isRgVitaPro() -> R.string.gpu_driver_malisx2_vita
             GpuDriverHelper.isRg476h() -> R.string.gpu_driver_malisx2_rg476h
+            GpuDriverHelper.isUnisocT820() -> R.string.gpu_driver_malisx2_t820
+            !GpuDriverHelper.isRg477mMali() && GpuDriverHelper.isDimensity8300() -> R.string.gpu_driver_malisx2_d8300
             else -> R.string.gpu_driver_malisx2
           },
         ))

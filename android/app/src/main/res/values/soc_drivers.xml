@@ -1,0 +1,4 @@
+<resources>
+  <string name="gpu_driver_malisx2_t820">Unisoc T820 / Mali-G57: custom MaliSX2 drivers can be selected. Bundled Unified P48r1 is available on Android 13+. Choose “Unified P48r1 RG476H + RG477M”; this is the same driver binary. It was qualified on RG476H; other T820 devices and firmware need their own game tests. Fresh installs use System driver; updates preserve your selection. Start at 1×. Fully restart the application and game after changing drivers.</string>
+  <string name="gpu_driver_malisx2_d8300">Dimensity 8300 / 8300 Ultra: custom MaliSX2 drivers can be selected. Bundled Unified P48r1 is available on Android 14+. Choose “Unified P48r1 RG476H + RG477M”; this is the same driver binary. It was qualified on RG477M; other devices and firmware need their own game tests. Fresh installs use System driver; updates preserve your selection. Start at 1×. Fully restart the application and game after changing drivers.</string>
+</resources>
