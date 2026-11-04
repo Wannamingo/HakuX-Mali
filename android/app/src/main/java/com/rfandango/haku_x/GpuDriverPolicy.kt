@@ -21,6 +21,10 @@ object GpuDriverPolicy {
     it.lowercase().replace(Regex("[^a-z0-9]"), "") == "rg476h"
   }
 
+  /** GammaOS can expose T770 as the SoC name on this known T820 handheld. */
+  fun isRg476hT820(boardPlatform: String, vararg names: String): Boolean =
+    boardPlatform.equals("ums9620", ignoreCase = true) && isRg476h(*names)
+
   fun isRg556(vararg names: String): Boolean = names.any {
     it.lowercase().replace(Regex("[^a-z0-9]"), "").removePrefix("anbernic") == "rg556"
   }

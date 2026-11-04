@@ -177,9 +177,8 @@ object GpuDriverHelper {
 
   private val rg476hMali: Boolean by lazy {
     Build.VERSION.SDK_INT >= 29 && Build.SUPPORTED_ABIS.contains("arm64-v8a") && File("/dev/mali0").exists() &&
-      GpuDriverPolicy.isRg476h(Build.MODEL, Build.DEVICE, Build.PRODUCT, vendorModel()) &&
-      property("ro.soc.model").equals("T820", ignoreCase = true) &&
-      property("ro.board.platform").equals("ums9620", ignoreCase = true)
+      GpuDriverPolicy.isRg476hT820(property("ro.board.platform"),
+        Build.MODEL, Build.DEVICE, Build.PRODUCT, vendorModel())
   }
 
   fun isMaliSX2Device(): Boolean = !isAdreno() && (rg477mMali || dimensity8300Mali || rgVitaProMali || unisocT820Mali)

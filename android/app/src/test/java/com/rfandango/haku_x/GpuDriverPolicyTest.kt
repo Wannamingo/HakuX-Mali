@@ -4,6 +4,15 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GpuDriverPolicyTest {
+  @Test fun gammaOsRg476hUsesVendorModelInsteadOfMisreportedT770() {
+    assertFalse(GpuDriverPolicy.isUnisocT820("T770"))
+    assertTrue(GpuDriverPolicy.isRg476hT820("ums9620", "GammaOS Full", "tdgsi_arm64_ab", "RG 476H"))
+    assertTrue(GpuDriverPolicy.isRg476hT820("UMS9620", "RG476H"))
+    assertFalse(GpuDriverPolicy.isRg476hT820("ums9620", "T770", "generic_arm64"))
+    assertFalse(GpuDriverPolicy.isRg476hT820("ums9620", "RG476H Plus"))
+    assertFalse(GpuDriverPolicy.isRg476hT820("other_board", "RG476H"))
+  }
+
   @Test fun t820MarketingNamesDoNotEnableOtherUnisocChips() {
     for (name in listOf("T820", "Unisoc T820", "UNISOC_T820", "Unisoc Tiger T820", "Spreadtrum T820", "Tiger T820"))
       assertTrue(name, GpuDriverPolicy.isUnisocT820(name))
