@@ -83,6 +83,8 @@ Individual confirmations include Halo starting after its menu, NFS Underground a
 - Wallace and Gromit2
 - Worms 4 Mayhem
 
+The owner subsequently confirmed that the Call of Cthulhu introductory cinematic was corrected on RG477M. The unresolved-defect wording in the historical 2026-10-28 entry below describes that older build.
+
 ## Earlier checks
 
 1.4 addendum (2026-10-30): Syberia and direct Serious Sam startup were checked on RG Rotate. The owner confirmed preserved Russian Serious Sam voice audio after bypassing the launcher. The historical RG477M count remains 31; [release 1.4](../releases/1.4.en.md) documents the test scope.

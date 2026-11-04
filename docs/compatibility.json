@@ -336,5 +336,12 @@
       "Spider-Man": "Required folder paths restored on the owner copy, resource checksums preserved, XBE unchanged. Reached gameplay; owner confirmed.",
       "The House of the Dead III": "Starts; localization resource padding artifacts were left unchanged at owner request."
     }
+  },
+  "subsequent_owner_confirmations": {
+    "Call of Cthulhu: Dark Corners of the Earth": {
+      "device": "RG477M",
+      "introductory_cinematic": "Owner confirmed corrected, without the previous texture defect.",
+      "scope": "Subsequent user report; the dated 2026-10-28 historical record is retained."
+    }
   }
 }

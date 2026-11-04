@@ -4,9 +4,20 @@
 
 ![HakuX-Mali](assets/branding/hakux-mali-banner.png)
 
-An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **One 1.5/code24 release supports ANBERNIC RG477M, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
+An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **Preparing the unified 1.6/code26 release for ANBERNIC RG477M, RG476H, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
 
 **[Release 1.5: APK, source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.5)** · **[Detailed changes](releases/1.5.en.md)**
+
+## Preparing 1.6
+
+- RG476H / Mali-G57 / Android 13 support and shared-driver qualification on two Mali generations.
+- An on-screen control editor with move, size, opacity, save and cancel; the existing button design is retained.
+- Radial dead zones, Xbox square stick range, 50–150% reach and a visual controller test.
+- Additional AMD FSR 1 upscaling, depth, frame output and GPU-resource lifetime fixes.
+- xbased scheduler/file-I/O changes, network waits, timers, memory and XBE-loader improvements.
+- Single-line HUD with SPEED based on Xbox virtual-time progress and an optional pace estimate against an explicit game-FPS reference.
+
+[Detailed 1.6 notes](releases/1.6.en.md) · [Screenshots](docs/screenshots/1.6/README.md) · [Validation results](docs/VALIDATION-1.6.en.md). APK 1.6/code26 and bundled Unified P48r1 are prepared for a draft release. The latest published stable version remains 1.5.
 
 ## New in 1.5
 
@@ -32,6 +43,7 @@ Details, results and test scope: [release 1.5](releases/1.5.en.md). New features
 | Handheld | Platform | Starting settings |
 |---|---|---|
 | RG477M | Dimensity 8300 / Mali-G615 | M2+DS1 (Android 14+) / MaliSX2 0.2.3, 1×, Bilinear, FXAA Off |
+| RG476H | Unisoc T820 / Mali-G57, Android 13 | 1×, Bilinear, FXAA Off; System by default, bundled Unified P48r1 available for selection |
 | RG Vita Pro | RK3576 / Mali-G52, Android 14 / GammaOS Next Lite | System driver, 1×, Bilinear, FXAA Off |
 | RG Rotate | T618 / Mali-G52, Android 12 | System driver / Vulkan 1.1, 1×, Bilinear, FXAA Off |
 
@@ -41,9 +53,9 @@ A full 1.4 calibration cycle on RG477M measured about 60 FPS at 1× versus 48 at
 
 ## Installation
 
-1. Install **HakuX-Mali-1.5-release.apk** over our previous release. Package ID and signing identity are retained; do not uninstall to update.
+1. Install the prepared **HakuX-Mali-1.6-release.apk** over our previous release. Package ID and signing identity are retained; do not uninstall to update. Until 1.6 is published, the latest public stable release remains 1.5 at the link above.
 2. Select your own ISO/XISO directory or game folders containing `default.xbe`. Release source archives are for developers.
-3. M2+DS1 and official MaliSX2 0.2.3 are available on RG477M with Android 14+; an explicit existing driver choice is retained on update. Rotate was checked with its system driver. Restart games after switching drivers.
+3. The 1.6 validation line includes Unified P48r1 for RG476H on Android 13+ and RG477M on Android 14+. Earlier M2+DS1 and MaliSX2 0.2.3 packages remain available. Updates retain your selection; fresh RG476H installs use System driver. Fully restart the app and game after a driver change. Rotate was checked with its system driver.
 4. Auto is off by default. Use a stable gameplay scene and **Calibrate performance** in the pause menu to measure settings.
 5. A new installation defaults to a 120 FPS ceiling; existing manual limits are preserved. Games retain their own lower 30/60 FPS caps.
 
@@ -74,9 +86,9 @@ See the complete [release notes](releases/1.5.en.md) and [technical details](and
 
 ## Successfully launched games on RG477M
 
-**31 confirmed startups**: the owner confirmed 29 images on 2026-10-27, Syberia was checked earlier, and Call of Cthulhu gameplay was confirmed on .2 on 2026-10-28. This does not establish complete playthroughs or defect-free graphics; the earlier 30 games were not all rechecked on .2. [Test scope and confirmation sources](docs/COMPATIBILITY.en.md).
+**RG477M: the owner confirmed all 74 game folders working on 2026-11-02**, on the 1.6-test/code25 validation line. This includes variants, rather than 74 unique titles, and does not establish full playthroughs. [Current list and validation scope](docs/COMPATIBILITY.en.md). The earlier image list below is retained as history; it does not replace the newer folder check.
 
-- Call of Cthulhu: Dark Corners of the Earth — gameplay works; missing textures remain in its introductory cinematic.
+- Call of Cthulhu: Dark Corners of the Earth — the owner confirmed gameplay and the corrected introductory cinematic on RG477M.
 - Colin McRae Rally 2005
 - Dead or Alive Xtreme Beach Volleyball
 - Jet Set Radio Future
@@ -112,7 +124,7 @@ See the complete [release notes](releases/1.5.en.md) and [technical details](and
 
 Checked on 2026-10-30: **Manhunt** starts directly from a folder with 969 files and reaches gameplay at approximately **50 FPS** in the PAL version. No full playthrough was performed.
 
-The Call of Cthulhu introductory cinematic texture defect remains unresolved. Every Ultimate Spider-Man comic scene and long gameplay sessions have not been checked. Conker: Live & Reloaded is not yet included in confirmed gameplay checks. Dimensity 8300/8300 Ultra is recognized through MT6897 identifiers, but actual hardware testing was on RG477M.
+Every Ultimate Spider-Man comic scene and long gameplay sessions have not been checked. Conker: Live & Reloaded is absent from the current confirmed 74-folder list; no full playthrough was checked. Dimensity 8300/8300 Ultra is recognized through MT6897 identifiers, but actual hardware testing was on RG477M.
 
 ## Building and sources
 
