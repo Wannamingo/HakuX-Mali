@@ -4,20 +4,20 @@
 
 ![HakuX-Mali](assets/branding/hakux-mali-banner.png)
 
-An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **Preparing the unified 1.6/code26 release for ANBERNIC RG477M, RG476H, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
+An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **Latest stable version: 1.6/code26 for ANBERNIC RG477M, RG476H, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
 
-**[Release 1.5: APK, source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.5)** · **[Detailed changes](releases/1.5.en.md)**
+**[Download APK 1.6](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.6/HakuX-Mali-1.6-release.apk)** · **[Release 1.6: source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.6)** · **[All changes](releases/1.6.en.md)**
 
-## Preparing 1.6
+## New in 1.6
 
-- RG476H / Mali-G57 / Android 13 support and shared-driver qualification on two Mali generations.
+- RG476H / Mali-G57 / Android 13 support and bundled Unified P48r1, qualified on RG476H and RG477M.
 - An on-screen control editor with move, size, opacity, save and cancel; the existing button design is retained.
 - Radial dead zones, Xbox square stick range, 50–150% reach and a visual controller test.
 - Additional AMD FSR 1 upscaling, depth, frame output and GPU-resource lifetime fixes.
 - xbased scheduler/file-I/O changes, network waits, timers, memory and XBE-loader improvements.
 - Single-line HUD with SPEED based on Xbox virtual-time progress and an optional pace estimate against an explicit game-FPS reference.
 
-[Detailed 1.6 notes](releases/1.6.en.md) · [Screenshots](docs/screenshots/1.6/README.md) · [Validation results](docs/VALIDATION-1.6.en.md). APK 1.6/code26 and bundled Unified P48r1 are prepared for a draft release. The latest published stable version remains 1.5.
+[Detailed 1.6 notes](releases/1.6.en.md) · [Screenshots](docs/screenshots/1.6/README.md) · [Validation results](docs/VALIDATION-1.6.en.md). The final APK was checked with bundled Unified P48r1 on RG477M and RG476H. Previous RG Vita Pro and RG Rotate confirmations retain their original scope; the new features were not fully retested on those devices.
 
 ## New in 1.5
 
@@ -53,9 +53,9 @@ A full 1.4 calibration cycle on RG477M measured about 60 FPS at 1× versus 48 at
 
 ## Installation
 
-1. Install the prepared **HakuX-Mali-1.6-release.apk** over our previous release. Package ID and signing identity are retained; do not uninstall to update. Until 1.6 is published, the latest public stable release remains 1.5 at the link above.
+1. Download **HakuX-Mali-1.6-release.apk** from [stable release 1.6](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.6) and install over our previous release. Package ID and signing identity are retained; do not uninstall to update.
 2. Select your own ISO/XISO directory or game folders containing `default.xbe`. Release source archives are for developers.
-3. The 1.6 validation line includes Unified P48r1 for RG476H on Android 13+ and RG477M on Android 14+. Earlier M2+DS1 and MaliSX2 0.2.3 packages remain available. Updates retain your selection; fresh RG476H installs use System driver. Fully restart the app and game after a driver change. Rotate was checked with its system driver.
+3. Version 1.6 includes Unified P48r1 for RG476H on Android 13+ and RG477M on Android 14+. Earlier M2+DS1 and MaliSX2 0.2.3 packages remain available. Updates retain your selection; fresh RG476H installs use System driver. Fully restart the app and game after a driver change. Rotate was checked with its system driver.
 4. Auto is off by default. Use a stable gameplay scene and **Calibrate performance** in the pause menu to measure settings.
 5. A new installation defaults to a 120 FPS ceiling; existing manual limits are preserved. Games retain their own lower 30/60 FPS caps.
 
