@@ -48,7 +48,7 @@
   <string name="settings_gpu_driver_active_version">%1$s (%2$s)</string>
   <string name="settings_gpu_driver_not_supported">Системный драйвер. Пользовательские драйверы доступны для Adreno, а также для RG477M / Dimensity 8300 с MaliSX2.</string>
   <string name="gpu_driver_desc">Драйвер Vulkan для графики Xbox. Выбирайте совместимый пакет: Turnip для Adreno, MaliSX2 для поддерживаемых устройств Mali. Изменение применяется при следующем запуске игры.</string>
-  <string name="gpu_driver_malisx2">MaliSX2 встроен для RG477M / Dimensity 8300 (MT6897, Mali-G615). На RG477M с Android 14+ доступен проверочный M2+DS1; официальный 0.2.3 сохранён для отката. Новая установка выбирает встроенный пакет автоматически, обновление сохраняет прежний выбор. Начните с разрешения 1× и перезапустите игру после смены драйвера.</string>
+  <string name="gpu_driver_malisx2">MaliSX2 встроен для RG477M / Dimensity 8300 (MT6897, Mali-G615). На RG477M с Android 14+ доступны Unified P48r1 и M2+DS1; официальный 0.2.3 сохранён для отката. Новая установка выбирает прежний встроенный пакет, обновление сохраняет ваш выбор. Начните с разрешения 1×. После смены драйвера полностью перезапустите приложение и игру.</string>
   <string name="gpu_driver_err_gpu">Этот пакет не подходит устройству. Для RG477M / Dimensity 8300 нужна libvulkan_malisx2.so, для Adreno — драйвер Adreno.</string>
   <string name="gpu_driver_bundled">Встроен в приложение. Отдельная загрузка или импорт не требуются.</string>
   <string name="gpu_driver_malisx2_vita">Экспериментальная поддержка RG VITA Pro (RK3576, Mali-G52). MaliSX2 0.2.3 встроен; для сравнения можно выбрать системный драйвер. Начните с разрешения 1×. После смены драйвера перезапустите игру.</string>
@@ -59,7 +59,7 @@
   <string name="gpu_driver_by">Автор: %1$s</string>
   <string name="gpu_driver_no_package">Используется. Его пакет больше не хранится на устройстве.</string>
   <string name="gpu_driver_add">Добавить драйвер</string>
-  <string name="gpu_driver_add_desc">Пакет ZIP с meta.json и библиотекой драйвера: Turnip для Adreno или MaliSX2 для RG477M / Dimensity 8300. Пакет с таким же именем файла будет заменён.</string>
+  <string name="gpu_driver_add_desc">Пакет ZIP с meta.json и библиотекой драйвера: Turnip для Adreno или MaliSX2 / Unified для поддерживаемых устройств Mali. Пакет с таким же именем файла будет заменён.</string>
   <string name="gpu_driver_delete">Удалить драйвер</string>
   <string name="gpu_driver_delete_text">%1$s будет удалён с устройства.</string>
   <string name="gpu_driver_delete_text_in_use">%1$s будет удалён. HakuX-Mali вернётся к системному драйверу.</string>

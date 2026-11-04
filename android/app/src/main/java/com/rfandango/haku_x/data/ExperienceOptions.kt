@@ -12,6 +12,7 @@ enum class ExperienceSetting(val key: String, val default: Int, val minimum: Int
   CROP_TOP("crop_top", 0, 0, 15), CROP_BOTTOM("crop_bottom", 0, 0, 15),
   ZOOM("zoom", 100, 100, 200), SHIFT_X("shift_x", 0, -20, 20), SHIFT_Y("shift_y", 0, -20, 20),
   MOVIE_ASPECT("movie_aspect",0,0,3),
+  HUD_REFERENCE_FPS("hud_reference_fps", 0, 0, 120),
   POST_SHADER("post_shader",0,0,4),
   POST_MASK("post_mask", -1, -1, 5),
   POST_MASK_SIZE("post_mask_size", 0, 0, 8),
@@ -25,7 +26,8 @@ enum class ExperienceSetting(val key: String, val default: Int, val minimum: Int
   SOC_WARNING("soc_warning", 90, 60, 110), BATTERY_WARNING("battery_warning", 45, 35, 55);
 
   fun sanitize(value: Int) = if((this==ANISOTROPY && value !in listOf(0,2,4,8,16)) ||
-    (this==DYNAMIC_TARGET && value !in listOf(30,60,90,120))) default else value.coerceIn(minimum, maximum)
+    (this==DYNAMIC_TARGET && value !in listOf(30,60,90,120)) ||
+    (this==HUD_REFERENCE_FPS && value !in EmulationSpeed.referenceRates)) default else value.coerceIn(minimum, maximum)
   fun accepts(value:Int)=value in minimum..maximum && sanitize(value)==value
 }
 
@@ -44,6 +46,23 @@ data class ExperienceOptions(val values: Map<ExperienceSetting, Int> = emptyMap(
 
 /** Pure transforms are shared by controller profiles and their tests. */
 object StickTransform {
+  /** Radial dead zone, then the Xbox's square range (xbased), before gain/inversion. */
+  fun pair(x: Float, y: Float, deadzone: Float, sensitivity: Float = 1f,
+           range: Float = 1f, square: Boolean = true, invertX: Boolean = false,
+           invertY: Boolean = false): Pair<Float, Float> {
+    if (!x.isFinite() || !y.isFinite()) return 0f to 0f
+    val dz = deadzone.takeIf { it.isFinite() }?.coerceIn(0f, .95f) ?: 0f
+    val m = kotlin.math.sqrt(x*x + y*y)
+    if (m <= dz || m == 0f) return 0f to 0f
+    val gain = (sensitivity.takeIf { it.isFinite() }?.coerceIn(.25f, 2f) ?: 1f) *
+      (range.takeIf { it.isFinite() }?.coerceIn(.5f, 1.5f) ?: 1f)
+    val radial = ((m.coerceAtMost(1f) - dz) / (1f - dz)).coerceIn(0f, 1f)
+    val edge = if (square) maxOf(kotlin.math.abs(x), kotlin.math.abs(y)) else m
+    val ox = (x / edge * radial * gain).coerceIn(-1f, 1f)
+    val oy = (y / edge * radial * gain).coerceIn(-1f, 1f)
+    return (if (invertX) -ox else ox) to (if (invertY) -oy else oy)
+  }
+
   fun apply(value: Float, deadzone: Float, sensitivity: Float = 1f, invert: Boolean = false): Float {
     if (!value.isFinite()) return 0f
     val dz = deadzone.takeIf { it.isFinite() }?.coerceIn(0f, .95f) ?: 0f

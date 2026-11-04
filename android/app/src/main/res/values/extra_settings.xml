@@ -9,7 +9,7 @@
   <string name="extra_profile_balanced_desc">1× · FXAA off · SGSR · 120 FPS limit</string>
   <string name="extra_profile_quality_desc">2× · FXAA on · SGSR · 120 FPS limit</string>
   <string name="extra_hud">HUD appearance and sensors</string>
-  <string name="extra_hud_desc">One line of FPS, frame times and selected temperatures. Changes apply when you return to the game.</string>
+  <string name="extra_hud_desc">One line of FPS, speed readings, frame times and selected temperatures. Changes apply when you return to the game.</string>
   <string name="extra_save_failed">Could not save these settings. Check available storage.</string>
   <string name="extra_hud_appearance">Appearance</string>
   <string name="extra_hud_size">Text size</string>

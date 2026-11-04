@@ -1,3 +1,3 @@
 <resources>
-  <string name="gpu_driver_malisx2_rg476h">Experimental RG476H support (Unisoc T820, Mali-G57). System driver is the recommended default for this device. MaliSX2 0.2.3 is included for manual comparison; some games have graphical errors and lower performance. Start at 1× resolution and restart the game after switching drivers.</string>
+  <string name="gpu_driver_malisx2_rg476h">RG476H (Unisoc T820, Mali-G57): bundled Unified P48r1 is available on Android 13+. System driver and MaliSX2 0.2.3 remain available. Fresh installs use System driver; updates retain your selection. Start at 1× resolution. Fully restart the application and game after changing drivers.</string>
 </resources>

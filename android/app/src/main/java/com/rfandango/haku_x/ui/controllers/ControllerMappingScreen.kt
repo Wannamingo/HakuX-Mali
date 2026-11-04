@@ -6,6 +6,12 @@ import android.view.KeyEvent
 import android.view.MotionEvent
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.drawscope.Stroke
+import com.rfandango.haku_x.data.StickTransform
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
@@ -130,6 +136,7 @@ fun ControllerMappingScreen(deviceId: Int, onBack: () -> Unit) {
   var rest by remember { mutableStateOf(FloatArray(0)) }
   var live by remember { mutableStateOf("") }
   var testing by remember { mutableStateOf(false) }
+  var stickPreview by remember { mutableStateOf(PadOut()) }
   var choosingRumble by remember { mutableStateOf(false) }
   var lastInput by remember { mutableLongStateOf(0L) }
   val pad = remember { PadState() }
@@ -177,7 +184,8 @@ fun ControllerMappingScreen(deviceId: Int, onBack: () -> Unit) {
           }
           testing -> {
             /* the test's too: else A would select (Android's fallback) and the sticks move the focus */
-            live = describe(pad.compute(profile))
+            stickPreview = pad.compute(profile)
+            live = describe(stickPreview)
             lastInput = SystemClock.uptimeMillis()
             true
           }
@@ -224,6 +232,15 @@ fun ControllerMappingScreen(deviceId: Int, onBack: () -> Unit) {
             lastInput = SystemClock.uptimeMillis()
           },
         )
+        if (testing) StickPreview(stickPreview)
+        SwitchItem(stringResource(R.string.stick_square), stringResource(R.string.stick_square_desc),
+          profile.squareSticks) { store(profile.copy(squareSticks = it)) }
+        LabeledSlider(stringResource(R.string.stick_range_l), profile.rangeL, .5f..1.5f) {
+          store(profile.copy(rangeL = it))
+        }
+        LabeledSlider(stringResource(R.string.stick_range_r), profile.rangeR, .5f..1.5f) {
+          store(profile.copy(rangeR = it))
+        }
         SwitchItem(
           title = stringResource(R.string.controllers_own),
           summary = stringResource(R.string.controllers_own_desc),
@@ -348,7 +365,7 @@ fun ControllerMappingScreen(deviceId: Int, onBack: () -> Unit) {
 private fun LabeledSlider(title: String, value: Float, range: ClosedFloatingPointRange<Float>, onDone: (Float) -> Unit) {
   var v by remember(value) { mutableStateOf(value) }
   Column(Modifier.padding(horizontal = 16.dp, vertical = 4.dp)) {
-    Text("$title: %.2f".format(v), style = MaterialTheme.typography.bodyMedium)
+    Text("$title: ${"%.2f".format(v)}", style = MaterialTheme.typography.bodyMedium)
     Slider(
       value = v,
       onValueChange = { v = it },

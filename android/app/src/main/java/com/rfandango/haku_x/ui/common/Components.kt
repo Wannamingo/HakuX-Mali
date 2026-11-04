@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.selection.selectable
+import androidx.compose.foundation.selection.selectableGroup
 import androidx.compose.foundation.selection.toggleable
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
@@ -238,7 +239,7 @@ fun <T> ChoiceDialog(
     onDismissRequest = onDismiss,
     title = { Text(title) },
     text = {
-      Column {
+      Column(Modifier.fillMaxWidth().verticalScroll(rememberScrollState()).selectableGroup()) {
         for ((index, option) in options.withIndex()) {
           val (value, label) = option
           Row(

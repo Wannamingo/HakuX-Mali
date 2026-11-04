@@ -34,6 +34,7 @@ internal fun experienceLabel(field: ExperienceSetting): Int = when (field) {
   ExperienceSetting.POST_SCANLINES, ExperienceSetting.POST_GLOW, ExperienceSetting.POST_BLUR,
   ExperienceSetting.POST_CURVATURE -> PostShaders.title(field)
   ExperienceSetting.MOVIE_ASPECT -> R.string.renderer_movie_aspect
+  ExperienceSetting.HUD_REFERENCE_FPS -> R.string.hud_reference_title
   ExperienceSetting.VOLUME -> R.string.exp_volume
   ExperienceSetting.MUTE -> R.string.exp_mute
   ExperienceSetting.AUDIO_BUFFER -> R.string.exp_audio_buffer
@@ -108,13 +109,16 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
       SettingsTarget(experienceLabel(field)) {
         when (field) {
           ExperienceSetting.DYNAMIC_MIN,ExperienceSetting.DYNAMIC_MAX,ExperienceSetting.DYNAMIC_TARGET,
-          ExperienceSetting.POST_SHADER,ExperienceSetting.MOVIE_ASPECT,ExperienceSetting.ANISOTROPY,ExperienceSetting.AUDIO_BUFFER, ExperienceSetting.REFRESH_RATE -> ListItem(
+          ExperienceSetting.POST_SHADER,ExperienceSetting.MOVIE_ASPECT,ExperienceSetting.HUD_REFERENCE_FPS,
+          ExperienceSetting.ANISOTROPY,ExperienceSetting.AUDIO_BUFFER, ExperienceSetting.REFRESH_RATE -> ListItem(
             headlineContent = { Text(title) }, supportingContent = { Text(
               (if (inherited) stringResource(R.string.exp_inherited) + " " else "") +
                 if(field==ExperienceSetting.DYNAMIC_TARGET) "$value FPS"
                 else if(field==ExperienceSetting.DYNAMIC_MIN||field==ExperienceSetting.DYNAMIC_MAX) "${value}×"
                 else if(field==ExperienceSetting.POST_SHADER) stringResource(PostShaders.label(value))+" · "+stringResource(R.string.shader_desc)
                 else if(field==ExperienceSetting.MOVIE_ASPECT) stringResource(movieLabel(value))+" · "+stringResource(R.string.renderer_movie_desc)
+                else if(field==ExperienceSetting.HUD_REFERENCE_FPS)
+                  (if(value==0) stringResource(R.string.hud_reference_none) else "$value FPS")+" · "+stringResource(R.string.hud_reference_desc)
                 else if(field==ExperienceSetting.ANISOTROPY) (if(value==0) stringResource(R.string.renderer_original) else "${value}×") +
                   if(capabilities==null) " · "+stringResource(R.string.renderer_caps_unknown) else ""
                 else if (field == ExperienceSetting.AUDIO_BUFFER) stringResource(bufferLabel(value))
@@ -154,6 +158,7 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
     else if(field==ExperienceSetting.DYNAMIC_MAX) (effective[ExperienceSetting.DYNAMIC_MIN]..2).toList()
     else if(field==ExperienceSetting.POST_SHADER) (0..4).toList()
     else if(field==ExperienceSetting.MOVIE_ASPECT) listOf(0,1,2,3)
+    else if(field==ExperienceSetting.HUD_REFERENCE_FPS) EmulationSpeed.referenceRates
     else if(field==ExperienceSetting.ANISOTROPY) capabilities?.anisotropyChoices?:listOf(0)
     else if (field == ExperienceSetting.AUDIO_BUFFER) listOf(0, 1, 2) else {
       @Suppress("DEPRECATION") val display = context.getSystemService(android.view.WindowManager::class.java).defaultDisplay
@@ -167,6 +172,7 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
           else if(field==ExperienceSetting.DYNAMIC_MIN||field==ExperienceSetting.DYNAMIC_MAX) "${it}×"
           else if(field==ExperienceSetting.POST_SHADER) stringResource(PostShaders.label(it))
           else if(field==ExperienceSetting.MOVIE_ASPECT) stringResource(movieLabel(it))
+          else if(field==ExperienceSetting.HUD_REFERENCE_FPS) (if(it==0) stringResource(R.string.hud_reference_none) else "$it FPS")
           else if(field==ExperienceSetting.ANISOTROPY) (if(it==0) stringResource(R.string.renderer_original) else "${it}×")
           else if (field == ExperienceSetting.AUDIO_BUFFER) stringResource(bufferLabel(it))
           else if (it == 0) stringResource(R.string.exp_auto) else "$it Hz" },

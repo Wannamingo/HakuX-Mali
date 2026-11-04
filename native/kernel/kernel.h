@@ -75,7 +75,7 @@ typedef uint64_t (*NcKFn)(NcKernel *k, NcFrame *f, const uint32_t *args);
 
 /* Guest object types: the VA of the kernel's type-object data export. */
 enum NcObType { NC_OB_THREAD, NC_OB_EVENT, NC_OB_SEMAPHORE, NC_OB_MUTANT, NC_OB_TIMER, NC_OB_FILE,
-                NC_OB_DEVICE, NC_OB_SYMLINK, NC_OB_DIRECTORY, NC_OB_TYPES };
+                NC_OB_DEVICE, NC_OB_SYMLINK, NC_OB_DIRECTORY, NC_OB_IOCOMPLETION, NC_OB_TYPES };
 
 #define NC_MAX_THREADS 128
 /* The Xbox kernel's handle table grows as it fills. Super Monkey Ball
@@ -165,8 +165,17 @@ typedef struct NcThread {
     uint64_t ready_seq, run_seq;
     uint64_t slice_used_ns, slice_start_ns;
     bool slice_expired;
+    int boost;              /* temporary wait boost, decayed on quantum/yield */
+    bool no_boost;
     NcCpuContext ctx;
 } NcThread;
+
+/* The priority t is scheduled at: its own, with its wait boost. */
+static inline int nc_thread_prio(const NcThread *t)
+{
+    const int p = t->priority + t->boost;
+    return t->boost && t->priority < 16 ? (p > 15 ? 15 : p) : t->priority;
+}
 
 typedef struct NcHandle {
     uint32_t object;         /* guest VA of the object body, 0 if free */
@@ -450,6 +459,12 @@ void nc_ke_register(NcKernel *k);
 uint32_t nc_ke_set_event(NcKernel *k, uint32_t event);
 /* KeClearEvent. */
 void nc_ke_clear_event(NcKernel *k, uint32_t event);
+void nc_ke_port_queue(NcKernel *k, uint32_t port, uint32_t key, uint32_t ctx, uint32_t status, uint32_t info);
+void nc_ke_ports_reset(void);
+struct NcBuf;
+struct NcRd;
+bool nc_ke_ports_save(struct NcBuf *b);
+bool nc_ke_ports_load(struct NcRd *r);
 /* KeInitializeEvent: type 0 notification, 1 synchronization. */
 void nc_ke_init_event(NcKernel *k, uint32_t event, unsigned type, bool signaled);
 /* The running thread waits for the host's work for its call (no object, no
@@ -462,6 +477,9 @@ void nc_ke_wake(NcKernel *k, NcThread *t, uint32_t status);
 #define NC_FO_EVENT 0x38u
 
 uint64_t nc_ke_now_ns(void);
+/* A consistent read-only virtual-clock/host-clock pair for the HUD. Epoch
+ * changes at pause/resume and state restore, not ordinary GPU holds. */
+void nc_ke_clock_snapshot(uint64_t *host_ns, uint64_t *guest_ns, uint32_t *epoch);
 /* nc_kernel_sysop, on the guest's thread: an entry begins and ends; within
  * it nc_ke_now_ns reads the clock once (nc_ke_now_ns in ke.c). Stale: a wait
  * blocked, the next read is fresh. */

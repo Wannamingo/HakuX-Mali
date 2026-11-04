@@ -21,6 +21,10 @@ object GpuDriverPolicy {
     it.lowercase().replace(Regex("[^a-z0-9]"), "") == "rg476h"
   }
 
+  /** The shared bundle has been qualified only on these device/API pairs. */
+  fun offersUnifiedBundle(sdk: Int, rg476hMali: Boolean, rg477mMali: Boolean): Boolean =
+    (sdk >= 33 && rg476hMali) || (sdk >= 34 && rg477mMali)
+
   /** Keep explicit system/custom choices; migrate an identical imported binary only once. */
   fun selectBundled(bootstrapped: Boolean, setupComplete: Boolean, hasActive: Boolean, identical: Boolean,
                     allowAutoSelection: Boolean = true): Boolean =

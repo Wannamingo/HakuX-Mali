@@ -12,3 +12,11 @@ Runtime identifier: unified-m2-ds.s2685180360ae.
 Includes the Unified M1/M2 and DS1 patches; this is not the unmodified official archive.
 Original copyright and license terms are retained. Provenance and test scope are in the bundle.
 Qualified on RG477M/Mali-G615; the official 0.2.3 bundle remains available for rollback and other devices.
+
+Additional bundle: Unified P48r1, RG476H Android 13+/API33 and RG477M Android 14+/API34.
+Library SHA-256: 71e520f9de773d23700b2a5e48e6960dbd588d791b3e6b0ef31f77b5d17330df.
+One common library; device-scoped offer in GpuDriverHelper. Existing explicit choices and legacy defaults retained.
+Exact default-mode qualification: 149 CTS cases, 24 native processes / 34746 checks / 314 explicit GPU cases,
+plus Syberia intro/main-menu app smoke on the two listed consoles. Not full Vulkan conformance or an FPS benchmark.
+Driver source: release attachment Unified-P48r1-driver-source.zip; exact Mesa source: Mesa-exact-source-export-2026-11-04.zip.
+Original notices and licenses are also inside the driver bundle.

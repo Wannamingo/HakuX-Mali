@@ -9,7 +9,7 @@
   <string name="extra_profile_balanced_desc">1× · FXAA выкл. · SGSR · лимит 120 FPS</string>
   <string name="extra_profile_quality_desc">2× · FXAA вкл. · SGSR · лимит 120 FPS</string>
   <string name="extra_hud">Вид HUD и датчики</string>
-  <string name="extra_hud_desc">Одна строка FPS, времени кадра и выбранных температур. Изменения применяются при возврате в игру.</string>
+  <string name="extra_hud_desc">Одна строка FPS, показателей скорости, времени кадра и выбранных температур. Изменения применяются при возврате в игру.</string>
   <string name="extra_save_failed">Не удалось сохранить настройки. Проверьте свободное место.</string>
   <string name="extra_hud_appearance">Оформление</string>
   <string name="extra_hud_size">Размер текста</string>

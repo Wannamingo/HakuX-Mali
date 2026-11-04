@@ -153,7 +153,18 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
       experience.checkTemperature(temperatures.readings)
       val s = nativeGetFrameStats()
       if (fpsOn && s != null && s.size >= 3) {
-        var text = getString(R.string.ui_hud_format, s[0], s[1], s[2])
+        val speed = com.rfandango.haku_x.data.EmulationSpeed.read(s,
+          experience.options[com.rfandango.haku_x.data.ExperienceSetting.HUD_REFERENCE_FPS])
+        val speedText = buildList {
+          if (hudOptions.speed) {
+            add(if(speed.paused) getString(R.string.hud_speed_paused) else
+              getString(R.string.hud_clock_value, com.rfandango.haku_x.data.EmulationSpeed.percent(speed.clockPercent)))
+            if(speed.referenceFps>0) add(getString(R.string.hud_frame_speed_value,
+              com.rfandango.haku_x.data.EmulationSpeed.percent(speed.framePercent), speed.referenceFps))
+          }
+        }.joinToString(" | ")
+        var text = if(speedText.isEmpty()) getString(R.string.ui_hud_format, s[0], s[1], s[2]) else
+          getString(R.string.ui_hud_speed_format, s[0], s[1], s[2], speedText)
         if (s[1] > 0f && s[2] > 2f * s[1]) {
           text += " *" /* the last frame took over twice the average */
         }
@@ -1334,8 +1345,9 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
     const val PREF_UPSCALE = "upscale_filter"
     const val UPSCALE_BILINEAR = "bilinear"
     const val UPSCALE_SGSR = "sgsr"
+    const val UPSCALE_FSR = "fsr"
 
-    /** fps, average frame time (ms), last frame time (ms), 1 if push-buffer decoding renders. */
+    /** FPS, average/last ms, PB mode; clock percent and status (0 unavailable, 1 warming, 2 ready, 3 paused). */
     @JvmStatic
     external fun nativeGetFrameStats(): FloatArray?
 

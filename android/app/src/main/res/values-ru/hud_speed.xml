@@ -1,0 +1,11 @@
+<resources>
+  <string name="hud_speed_title">Скорость эмуляции</string>
+  <string name="hud_speed_desc" formatted="false">Ход виртуальных часов Xbox: 100% означает, что они идут в реальном времени. Частота кадров измеряется отдельно. Показание появляется через секунду работы.</string>
+  <string name="hud_reference_title">Исходный FPS игры для оценки скорости</string>
+  <string name="hud_reference_desc">Выберите нормальную частоту кадров игры для дополнительной приблизительной оценки её темпа в процентах. В настройках игры значение действует только для неё. В меню и роликах частота может отличаться.</string>
+  <string name="hud_reference_none">Не задан</string>
+  <string name="hud_clock_value">СКОРОСТЬ %1$s</string>
+  <string name="hud_frame_speed_value">ТЕМП ≈%1$s (%2$d FPS)</string>
+  <string name="hud_speed_paused">ПАУЗА</string>
+  <string name="ui_hud_speed_format">FPS: %1$.0f | %4$s | %2$.1fмс ср. / %3$.1fмс посл.</string>
+</resources>

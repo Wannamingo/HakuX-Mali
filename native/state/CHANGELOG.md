@@ -53,3 +53,18 @@ One entry per section version (tools/native/statelock.py).
 
 - the kernel pool's first 64 KiB range sits just above the kernel (physical 0x50000), not 512 KiB under the top reserve (Burnout 2 lays out 0x2377000-0x3F00000 at fixed addresses); a state's boot puts it under the state's process object (v1, v2 states, and states saved since by a run that loaded one: where it was)
 - upgraded: v1..v2 states load
+
+## THRD v3 (2026-11-04, after 3e4e11c)
+
+- Preserve temporary scheduler wait boosts and boost-disable state
+- upgraded: v1..v2 states load
+
+## FILE v4 (2026-11-04, after 3e4e11c)
+
+- Preserve file sharing rules and completion-port associations
+- upgraded: v1..v3 states load
+
+## KERN v4 (2026-11-04, after 3e4e11c)
+
+- Preserve completion queues and waiting-thread result addresses
+- upgraded: v1..v3 states load

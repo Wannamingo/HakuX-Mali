@@ -12,8 +12,10 @@
  * scheduler runs. A blocked kernel call returns its status later, written
  * into the thread's saved EAX when the wait ends.
  */
+#include <stdlib.h>
 #include "native/kernel/kernel.h"
 #include "hw/xbox/hle/host.h"
+#include "native/state/state.h"
 
 #include <pthread.h>
 #include <time.h>
@@ -22,6 +24,7 @@ enum {
     OBJ_NOTIFICATION_EVENT = 0,
     OBJ_SYNCHRONIZATION_EVENT = 1,
     OBJ_MUTANT = 2,
+    OBJ_QUEUE = 4,
     OBJ_SEMAPHORE = 5,
     OBJ_THREAD = 6,
     OBJ_NOTIFICATION_TIMER = 8,
@@ -80,6 +83,8 @@ static uint64_t coarse_ns(void)
  * and goes on from there at the end, the time it stood left out (g_off,
  * host ns). A seqlock: the guest's CPU writes, any thread reads. */
 static uint32_t g_tseq;
+/* Host-only diagnostic generation: never serialized into a guest savestate. */
+static uint32_t g_clock_epoch;
 static bool g_tstill;
 static uint64_t g_tstill_raw, g_off;
 
@@ -119,13 +124,34 @@ static uint64_t guest_now(void)
     return (p && raw > sr ? sr : raw) - off;
 }
 
+void nc_ke_clock_snapshot(uint64_t *host_ns, uint64_t *guest_ns, uint32_t *epoch)
+{
+    for (;;) {
+        const uint32_t seq = __atomic_load_n(&g_tseq, __ATOMIC_ACQUIRE);
+        if (seq & 1) continue;
+        const bool still = __atomic_load_n(&g_tstill, __ATOMIC_RELAXED);
+        const uint64_t sr = __atomic_load_n(&g_tstill_raw, __ATOMIC_RELAXED);
+        const uint64_t off = __atomic_load_n(&g_off, __ATOMIC_RELAXED);
+        const uint32_t generation = __atomic_load_n(&g_clock_epoch, __ATOMIC_RELAXED);
+        const uint64_t host = raw_ns();
+        __atomic_thread_fence(__ATOMIC_ACQUIRE);
+        if (__atomic_load_n(&g_tseq, __ATOMIC_RELAXED) == seq) {
+            *host_ns = host;
+            *guest_ns = (still && host > sr ? sr : host) - off;
+            *epoch = generation;
+            return;
+        }
+    }
+}
+
 /* The time to stand still keep ns from now (still), or to go on: the time
  * it stood left out. Returns that (ns). */
-static uint64_t time_write(bool still, uint64_t keep)
+static uint64_t time_write(bool still, uint64_t keep, bool new_epoch)
 {
     const uint64_t raw = raw_ns();
     uint64_t out = 0;
     __atomic_fetch_add(&g_tseq, 1, __ATOMIC_ACQ_REL);
+    if (new_epoch) __atomic_fetch_add(&g_clock_epoch, 1, __ATOMIC_RELAXED);
     if (still) {
         __atomic_store_n(&g_tstill_raw, raw + keep, __ATOMIC_RELAXED);
     } else {
@@ -140,12 +166,12 @@ static uint64_t time_write(bool still, uint64_t keep)
 
 void nc_ke_pause_begin(void)
 {
-    time_write(true, 0);
+    time_write(true, 0, true);
 }
 
 uint64_t nc_ke_pause_end(void)
 {
-    return time_write(false, 0);
+    return time_write(false, 0, true);
 }
 
 /* A hold's first HOLD_RUN_NS go on as the guest's time: a wait for the GPU
@@ -165,13 +191,13 @@ bool nc_ke_hold_begin(void)
         return false;                   /* paused (a hold in a pause's work): nothing to leave out */
     }
     g_hold_raw = raw_ns();
-    time_write(true, HOLD_RUN_NS);
+    time_write(true, HOLD_RUN_NS, false);
     return true;
 }
 
 uint64_t nc_ke_hold_end(uint64_t *held_ns)
 {
-    const uint64_t out = time_write(false, 0);
+    const uint64_t out = time_write(false, 0, false);
     *held_ns = raw_ns() - g_hold_raw;
     g_held_out_ns += out;
     g_held_max_ns = *held_ns > g_held_max_ns ? *held_ns : g_held_max_ns;
@@ -203,6 +229,7 @@ void nc_ke_state_set(uint64_t boot_ns, uint64_t time_offset, uint64_t guest_ns)
     g_time_offset = time_offset;
     const uint64_t raw = raw_ns();
     __atomic_fetch_add(&g_tseq, 1, __ATOMIC_ACQ_REL);
+    __atomic_fetch_add(&g_clock_epoch, 1, __ATOMIC_RELAXED);
     __atomic_store_n(&g_off, raw - guest_ns, __ATOMIC_RELAXED);
     __atomic_store_n(&g_tstill_raw, raw, __ATOMIC_RELAXED);
     __atomic_store_n(&g_tstill, false, __ATOMIC_RELAXED);
@@ -427,8 +454,15 @@ static int satisfied(NcKernel *k, const NcThread *t, const NcWait *w)
     return -1;
 }
 
+static void port_take(NcKernel *k, const NcThread *t, uint32_t port);
+static void port_cancel(const NcKernel *k, const NcThread *t);
+
 static void take(NcKernel *k, const NcThread *t, const NcWait *w, int idx)
 {
+    if (!w->wait_all && *(const uint8_t *)nc_vm_host(k->vm, w->objects[idx]) == OBJ_QUEUE) {
+        port_take(k, t, w->objects[idx]);
+        return;
+    }
     if (w->wait_all) {
         for (unsigned i = 0; i < w->count; i++) {
             acquire(k, w->objects[i], t);
@@ -442,7 +476,30 @@ static void take(NcKernel *k, const NcThread *t, const NcWait *w, int idx)
     }
 }
 
-uint64_t nc_ke_check_waits(NcKernel *k)
+/* NT's KiUnwaitThread: a thread below the real-time range a signal woke
+ * runs at its priority + the increment (up to 15), unless that is no more
+ * than it has. Without it a thread woken at the priority of one spinning
+ * waited out the spinner's quantum: Nightfire's main loop polls a counter
+ * its worker advances, and the worker ran 20 ms late every few frames. */
+static void boost(NcThread *t, int inc)
+{
+    static int on = -1;     /* debug: NC_BOOST=0, none (comparisons) */
+    if (on < 0) {
+        const char *e = getenv("NC_BOOST");
+        on = !e || atoi(e) != 0;
+    }
+    if (!on || inc <= 0 || t->no_boost || t->priority >= 16) {
+        return;
+    }
+    const int b = (inc > 15 - t->priority ? 15 : t->priority + inc) - t->priority;
+    if (b > t->boost) {
+        t->boost = b;
+    }
+}
+
+/* Ends the waits that are satisfied (inc: the signal's increment, 0 for a
+ * timer's or none) or timed out; the earliest timeout left. */
+static uint64_t check_waits(NcKernel *k, int inc)
 {
     const uint64_t now = nc_ke_now_ns();
     uint64_t earliest = 0;
@@ -456,9 +513,11 @@ uint64_t nc_ke_check_waits(NcKernel *k)
             take(k, t, &t->wait, idx);
             nc_context_set_gpr(&t->ctx, NC_EAX, (uint32_t)idx);
             t->state = NC_T_READY;
+            boost(t, inc);
         } else if (t->wait.deadline_ns && now >= t->wait.deadline_ns) {
             /* A delay ends successfully; a wait times out. */
             nc_context_set_gpr(&t->ctx, NC_EAX, t->wait.count ? NC_STATUS_TIMEOUT : NC_STATUS_SUCCESS);
+            port_cancel(k, t);
             t->state = NC_T_READY;
         } else if (t->wait.deadline_ns && (!earliest || t->wait.deadline_ns < earliest)) {
             earliest = t->wait.deadline_ns;
@@ -468,13 +527,19 @@ uint64_t nc_ke_check_waits(NcKernel *k)
     return earliest;
 }
 
-/* After something was signaled: wake waiters, and let a higher-priority
- * thread that became ready run first. */
-static void signaled(NcKernel *k)
+uint64_t nc_ke_check_waits(NcKernel *k)
 {
-    nc_ke_check_waits(k);
+    return check_waits(k, 0);
+}
+
+/* After something was signaled (inc: its priority increment): wake waiters,
+ * and let a higher-priority thread that became ready run first. */
+static void signaled(NcKernel *k, int inc)
+{
+    check_waits(k, inc);
     for (unsigned i = 0; i < NC_MAX_THREADS; i++) {
-        if (k->threads[i].state == NC_T_READY && k->current && k->threads[i].priority > k->current->priority) {
+        if (k->threads[i].state == NC_T_READY && k->current &&
+            nc_thread_prio(&k->threads[i]) > nc_thread_prio(k->current)) {
             k->resched = true;
             return;
         }
@@ -503,7 +568,7 @@ static void poll_spin(NcKernel *k)
     if (++s_polls >= 64) {
         for (unsigned i = 0; i < k->threads_hi; i++) {
             const NcThread *t = &k->threads[i];
-            if (t != cur && t->state == NC_T_READY && !t->suspend && t->priority >= cur->priority) {
+            if (t != cur && t->state == NC_T_READY && !t->suspend && nc_thread_prio(t) >= nc_thread_prio(cur)) {
                 nc_ps_yield(k);     /* behind the ready thread */
                 break;
             }
@@ -590,7 +655,8 @@ void nc_ke_wake(NcKernel *k, NcThread *t, uint32_t status)
 {
     nc_context_set_gpr(&t->ctx, NC_EAX, status);
     t->state = NC_T_READY;
-    if (k->current && t->priority > k->current->priority) {
+    boost(t, 1);    /* IO_CD_ROM_INCREMENT, IO_DISK_INCREMENT */
+    if (k->current && nc_thread_prio(t) > nc_thread_prio(k->current)) {
         k->resched = true;
     }
 }
@@ -625,17 +691,21 @@ static void init_header(NcKernel *k, uint32_t obj, uint8_t type, uint8_t size_dw
     nc_vm_wr32(k->vm, obj + HDR_WAIT_LIST + 4, obj + HDR_WAIT_LIST);
 }
 
-static uint32_t set_event(NcKernel *k, uint32_t ev)
+/* NT's EVENT_INCREMENT, SEMAPHORE_INCREMENT, MUTANT_INCREMENT: the Nt calls'
+ * (and I/O completion's) */
+#define SIGNAL_INCREMENT 1
+
+static uint32_t set_event(NcKernel *k, uint32_t ev, int inc)
 {
     int32_t old = signal_state(k, ev);
     set_signal_state(k, ev, 1);
-    signaled(k);
+    signaled(k, inc);
     return (uint32_t)old;
 }
 
 uint32_t nc_ke_set_event(NcKernel *k, uint32_t event)
 {
-    return set_event(k, event);
+    return set_event(k, event, SIGNAL_INCREMENT);
 }
 
 void nc_ke_clear_event(NcKernel *k, uint32_t event)
@@ -658,7 +728,7 @@ static uint64_t KeInitializeEvent(NcKernel *k, NcFrame *f, const uint32_t *a)
 /* KeSetEvent(Event, Increment, Wait) -> previous state */
 static uint64_t KeSetEvent(NcKernel *k, NcFrame *f, const uint32_t *a)
 {
-    return set_event(k, a[0]);
+    return set_event(k, a[0], (int32_t)a[1]);
 }
 
 /* KeResetEvent(Event) -> previous state */
@@ -672,7 +742,7 @@ static uint64_t KeResetEvent(NcKernel *k, NcFrame *f, const uint32_t *a)
 /* KePulseEvent(Event, Increment, Wait) -> previous state */
 static uint64_t KePulseEvent(NcKernel *k, NcFrame *f, const uint32_t *a)
 {
-    uint32_t old = set_event(k, a[0]);
+    uint32_t old = set_event(k, a[0], (int32_t)a[1]);
     set_signal_state(k, a[0], 0);
     return old;
 }
@@ -696,7 +766,7 @@ static uint64_t NtSetEvent(NcKernel *k, NcFrame *f, const uint32_t *a)
     if (!ev) {
         return NC_STATUS_INVALID_HANDLE;
     }
-    uint32_t old = set_event(k, ev);
+    uint32_t old = set_event(k, ev, SIGNAL_INCREMENT);
     if (a[1]) {
         nc_vm_wr32(k->vm, a[1], old);
     }
@@ -721,7 +791,7 @@ static uint64_t NtPulseEvent(NcKernel *k, NcFrame *f, const uint32_t *a)
     if (!ev) {
         return NC_STATUS_INVALID_HANDLE;
     }
-    uint32_t old = set_event(k, ev);
+    uint32_t old = set_event(k, ev, SIGNAL_INCREMENT);
     set_signal_state(k, ev, 0);
     if (a[1]) {
         nc_vm_wr32(k->vm, a[1], old);
@@ -739,7 +809,7 @@ static uint64_t KeInitializeSemaphore(NcKernel *k, NcFrame *f, const uint32_t *a
     return 0;
 }
 
-static uint32_t release_semaphore(NcKernel *k, uint32_t sem, int32_t count, uint32_t *status)
+static uint32_t release_semaphore(NcKernel *k, uint32_t sem, int32_t count, uint32_t *status, int inc)
 {
     int32_t old = signal_state(k, sem);
     int32_t limit = (int32_t)nc_vm_rd32(k->vm, sem + SEMAPHORE_LIMIT);
@@ -748,7 +818,7 @@ static uint32_t release_semaphore(NcKernel *k, uint32_t sem, int32_t count, uint
         return (uint32_t)old;
     }
     set_signal_state(k, sem, old + count);
-    signaled(k);
+    signaled(k, inc);
     *status = NC_STATUS_SUCCESS;
     return (uint32_t)old;
 }
@@ -760,7 +830,7 @@ static uint64_t KeReleaseSemaphore(NcKernel *k, NcFrame *f, const uint32_t *a)
 {
     static bool told;
     uint32_t status;
-    const uint32_t old = release_semaphore(k, a[0], (int32_t)a[2], &status);
+    const uint32_t old = release_semaphore(k, a[0], (int32_t)a[2], &status, (int32_t)a[1]);
     if (status != NC_STATUS_SUCCESS && !told) {
         told = true;
         nc_log("hakuX-native", "ke: KeReleaseSemaphore %08x by %d past its limit %d (count %d): not released",
@@ -790,7 +860,7 @@ static uint64_t NtReleaseSemaphore(NcKernel *k, NcFrame *f, const uint32_t *a)
         return NC_STATUS_INVALID_HANDLE;
     }
     uint32_t status;
-    uint32_t old = release_semaphore(k, sem, (int32_t)a[1], &status);
+    uint32_t old = release_semaphore(k, sem, (int32_t)a[1], &status, SIGNAL_INCREMENT);
     if (a[2] && status == NC_STATUS_SUCCESS) {
         nc_vm_wr32(k->vm, a[2], old);
     }
@@ -803,13 +873,13 @@ static void init_mutant(NcKernel *k, uint32_t m, bool owned)
     nc_vm_wr32(k->vm, m + MUTANT_OWNER, owned && k->current ? k->current->ethread : 0);
 }
 
-static uint32_t release_mutant(NcKernel *k, uint32_t m)
+static uint32_t release_mutant(NcKernel *k, uint32_t m, int inc)
 {
     int32_t old = signal_state(k, m);
     set_signal_state(k, m, old + 1);
     if (old + 1 > 0) {
         nc_vm_wr32(k->vm, m + MUTANT_OWNER, 0);
-        signaled(k);
+        signaled(k, inc);
     }
     return (uint32_t)old;
 }
@@ -824,7 +894,7 @@ static uint64_t KeInitializeMutant(NcKernel *k, NcFrame *f, const uint32_t *a)
 /* KeReleaseMutant(Mutant, Increment, Abandoned, Wait) -> previous state */
 static uint64_t KeReleaseMutant(NcKernel *k, NcFrame *f, const uint32_t *a)
 {
-    return release_mutant(k, a[0]);
+    return release_mutant(k, a[0], (int32_t)a[1]);
 }
 
 /* NtCreateMutant(MutantHandle, ObjectAttributes, InitialOwner) */
@@ -846,7 +916,7 @@ static uint64_t NtReleaseMutant(NcKernel *k, NcFrame *f, const uint32_t *a)
     if (!m) {
         return NC_STATUS_INVALID_HANDLE;
     }
-    uint32_t old = release_mutant(k, m);
+    uint32_t old = release_mutant(k, m, SIGNAL_INCREMENT);
     if (a[1]) {
         nc_vm_wr32(k->vm, a[1], old);
     }
@@ -856,6 +926,207 @@ static uint64_t NtReleaseMutant(NcKernel *k, NcFrame *f, const uint32_t *a)
 /* --------------------------------------------------------------- waits */
 
 /* KeWaitForSingleObject(Object, WaitReason, WaitMode, Alertable, Timeout) */
+/* ------------------------------------------------------ I/O completion */
+
+/* An I/O completion port: a KQUEUE's dispatcher header, its signal state the
+ * packets queued, the packets themselves here. XAPI's
+ * GetQueuedCompletionStatus takes one with NtRemoveIoCompletion; reads and
+ * writes of a file associated with the port queue them as they complete
+ * (io.c), PostQueuedCompletionStatus with NtSetIoCompletion. The Thing
+ * creates one as it boots, and stopped there. */
+#define PORT_PACKETS 512
+typedef struct PortPacket {
+    uint32_t key, ctx, status, info;
+} PortPacket;
+typedef struct Port {
+    uint32_t obj;
+    unsigned head, n;
+    PortPacket *p;
+    unsigned cap;
+} Port;
+static Port *g_ports[64];
+static unsigned g_nports;
+/* A thread's NtRemoveIoCompletion: where its packet goes (KeyContext,
+ * ApcContext, IoStatusBlock). Not in the thread's state: a savestate taken
+ * while a thread waits on a port wakes it with nothing written. */
+static uint32_t g_port_out[NC_MAX_THREADS][3];
+
+static void port_cancel(const NcKernel *k, const NcThread *t)
+{
+    memset(g_port_out[t - k->threads], 0, sizeof(g_port_out[0]));
+}
+
+void nc_ke_ports_reset(void)
+{
+    for (unsigned i = 0; i < g_nports; i++) { free(g_ports[i]->p); free(g_ports[i]); }
+    memset(g_ports, 0, sizeof(g_ports)); g_nports = 0;
+    memset(g_port_out, 0, sizeof(g_port_out));
+}
+
+bool nc_ke_ports_save(NcBuf *b)
+{
+    nc_buf_u32(b, g_nports);
+    for (unsigned i = 0; i < g_nports; i++) {
+        const Port *p = g_ports[i];
+        nc_buf_u32(b, p->obj); nc_buf_u32(b, p->n);
+        for (unsigned j = 0; j < p->n; j++) {
+            const PortPacket *v = &p->p[(p->head + j) % p->cap];
+            nc_buf_u32(b, v->key); nc_buf_u32(b, v->ctx);
+            nc_buf_u32(b, v->status); nc_buf_u32(b, v->info);
+        }
+    }
+    for (unsigned i = 0; i < NC_MAX_THREADS; i++)
+        for (unsigned j = 0; j < 3; j++) nc_buf_u32(b, g_port_out[i][j]);
+    return !b->fail;
+}
+
+bool nc_ke_ports_load(NcRd *r)
+{
+    nc_ke_ports_reset();
+    const uint32_t n = nc_rd_u32(r);
+    if (n > 64) return false;
+    for (unsigned i = 0; i < n; i++) {
+        Port *p = calloc(1, sizeof(*p));
+        if (!p) return false;
+        g_ports[g_nports++] = p;
+        p->obj = nc_rd_u32(r); p->n = nc_rd_u32(r); p->cap = p->n;
+        if (!p->obj || p->n > (1u << 20) || r->fail) return false;
+        if (p->n) { p->p = calloc(p->n, sizeof(*p->p)); if (!p->p) return false; }
+        for (unsigned j = 0; j < p->n && !r->fail; j++) {
+            p->p[j].key = nc_rd_u32(r); p->p[j].ctx = nc_rd_u32(r);
+            p->p[j].status = nc_rd_u32(r); p->p[j].info = nc_rd_u32(r);
+        }
+    }
+    for (unsigned i = 0; i < NC_MAX_THREADS; i++)
+        for (unsigned j = 0; j < 3; j++) g_port_out[i][j] = nc_rd_u32(r);
+    return !r->fail;
+}
+
+static Port *port_of(uint32_t obj)
+{
+    for (unsigned i = 0; i < g_nports; i++) {
+        if (g_ports[i]->obj == obj) {
+            return g_ports[i];
+        }
+    }
+    return NULL;
+}
+
+void nc_ke_port_queue(NcKernel *k, uint32_t obj, uint32_t key, uint32_t ctx, uint32_t status, uint32_t info)
+{
+    Port *p = port_of(obj);
+    if (!p) return;
+    if (p->n == p->cap) {
+        const unsigned cap = p->cap ? p->cap * 2 : 32;
+        PortPacket *q = cap <= (1u << 20) ? calloc(cap, sizeof(*q)) : NULL;
+        if (!q) {
+            nc_kernel_request_stop(k, k->frame, "I/O completion queue out of memory");
+            return;
+        }
+        for (unsigned i = 0; i < p->n; i++) q[i] = p->p[(p->head + i) % p->cap];
+        free(p->p); p->p = q; p->cap = cap; p->head = 0;
+    }
+    p->p[(p->head + p->n++) % p->cap] = (PortPacket){key, ctx, status, info};
+    set_signal_state(k, obj, (int32_t)p->n);
+    signaled(k, SIGNAL_INCREMENT);
+}
+
+/* A wait on the port satisfied: its first packet to the thread. */
+static void port_take(NcKernel *k, const NcThread *t, uint32_t obj)
+{
+    Port *p = port_of(obj);
+    if (!p || !p->n) {
+        return;
+    }
+    const PortPacket pk = p->p[p->head];
+    p->head = (p->head + 1) % p->cap;
+    p->n--;
+    set_signal_state(k, obj, (int32_t)p->n);
+    uint32_t *out = g_port_out[t - k->threads];
+    if (out[0]) {
+        nc_vm_wr32(k->vm, out[0], pk.key);
+    }
+    if (out[1]) {
+        nc_vm_wr32(k->vm, out[1], pk.ctx);
+    }
+    if (out[2]) {
+        nc_vm_wr32(k->vm, out[2], pk.status);
+        nc_vm_wr32(k->vm, out[2] + 4, pk.info);
+    }
+    memset(out, 0, 3 * sizeof(*out));
+}
+
+static uint32_t port_handle(NcKernel *k, uint32_t handle)
+{
+    enum NcObType type;
+    const uint32_t obj = nc_ob_lookup(k, handle, &type);
+    return obj && type == NC_OB_IOCOMPLETION ? obj : 0;
+}
+
+/* NtCreateIoCompletion(IoCompletionHandle, DesiredAccess, ObjectAttributes, Count) */
+static uint64_t NtCreateIoCompletion(NcKernel *k, NcFrame *f, const uint32_t *a)
+{
+    if (g_nports == sizeof(g_ports) / sizeof(g_ports[0])) {
+        return NC_STATUS_INSUFFICIENT_RESOURCES;
+    }
+    Port *p = calloc(1, sizeof(*p));
+    const uint32_t obj = p ? nc_ob_create(k, NC_OB_IOCOMPLETION, 0x28) : 0;
+    if (!obj) {
+        free(p);
+        return NC_STATUS_INSUFFICIENT_RESOURCES;
+    }
+    init_header(k, obj, OBJ_QUEUE, 10, 0);
+    p->obj = obj;
+    const uint32_t handle = nc_ob_handle(k, obj, NC_OB_IOCOMPLETION);
+    if (!handle) {
+        k->pool_ob -= 0x10 + 0x28;
+        nc_pool_free(k, obj - 0x10, 0x10 + 0x28);
+        free(p); return NC_STATUS_INSUFFICIENT_RESOURCES;
+    }
+    g_ports[g_nports++] = p;
+    nc_vm_wr32(k->vm, a[0], handle);
+    return NC_STATUS_SUCCESS;
+}
+
+/* NtRemoveIoCompletion(IoCompletionHandle, KeyContext, ApcContext, IoStatusBlock, Timeout) */
+static uint64_t NtRemoveIoCompletion(NcKernel *k, NcFrame *f, const uint32_t *a)
+{
+    uint32_t obj = port_handle(k, a[0]);
+    if (!obj || !k->current) {
+        return NC_STATUS_INVALID_HANDLE;
+    }
+    uint32_t *out = g_port_out[k->current - k->threads];
+    out[0] = a[1];
+    out[1] = a[2];
+    out[2] = a[3];
+    const uint64_t status = wait(k, &obj, 1, false, a[4], 0, false);
+    if (k->current->state != NC_T_WAITING) memset(out, 0, 3 * sizeof(*out));
+    return status;
+}
+
+/* NtSetIoCompletion(IoCompletionHandle, KeyContext, ApcContext, IoStatus, IoStatusInformation) */
+static uint64_t NtSetIoCompletion(NcKernel *k, NcFrame *f, const uint32_t *a)
+{
+    const uint32_t obj = port_handle(k, a[0]);
+    if (!obj) {
+        return NC_STATUS_INVALID_HANDLE;
+    }
+    nc_ke_port_queue(k, obj, a[1], a[2], a[3], a[4]);
+    return NC_STATUS_SUCCESS;
+}
+
+/* NtQueryIoCompletion(IoCompletionHandle, IoCompletionInformation): the depth */
+static uint64_t NtQueryIoCompletion(NcKernel *k, NcFrame *f, const uint32_t *a)
+{
+    const uint32_t obj = port_handle(k, a[0]);
+    const Port *p = obj ? port_of(obj) : NULL;
+    if (!p) {
+        return NC_STATUS_INVALID_HANDLE;
+    }
+    nc_vm_wr32(k->vm, a[1], p->n);
+    return NC_STATUS_SUCCESS;
+}
+
 static uint64_t KeWaitForSingleObject(NcKernel *k, NcFrame *f, const uint32_t *a)
 {
     return wait(k, &a[0], 1, false, a[4], 0, a[3] & 0xff);
@@ -902,13 +1173,13 @@ static uint64_t NtSignalAndWaitForSingleObjectEx(NcKernel *k, NcFrame *f, const 
     uint32_t status = NC_STATUS_SUCCESS;
     switch (type) {
     case NC_OB_EVENT:
-        set_event(k, sig);
+        set_event(k, sig, SIGNAL_INCREMENT);
         break;
     case NC_OB_SEMAPHORE:
-        release_semaphore(k, sig, 1, &status);
+        release_semaphore(k, sig, 1, &status, SIGNAL_INCREMENT);
         break;
     case NC_OB_MUTANT:
-        release_mutant(k, sig);
+        release_mutant(k, sig, SIGNAL_INCREMENT);
         break;
     default:
         status = 0xC0000024u;   /* STATUS_OBJECT_TYPE_MISMATCH */
@@ -942,7 +1213,7 @@ static uint64_t KeDelayExecutionThread(NcKernel *k, NcFrame *f, const uint32_t *
          * or higher priority, as NT does. */
         for (unsigned i = 0; i < k->threads_hi; i++) {
             const NcThread *t = &k->threads[i];
-            if (t != cur && t->state == NC_T_READY && !t->suspend && t->priority >= cur->priority) {
+            if (t != cur && t->state == NC_T_READY && !t->suspend && nc_thread_prio(t) >= nc_thread_prio(cur)) {
                 nc_ps_yield(k);     /* behind the ready thread */
                 break;
             }
@@ -1029,7 +1300,7 @@ static uint64_t RtlLeaveCriticalSection(NcKernel *k, NcFrame *f, const uint32_t 
     }
     nc_vm_wr32(k->vm, cs + CS_OWNER, 0);
     if (lock >= 0) {
-        set_event(k, cs); /* a waiter takes it over */
+        set_event(k, cs, SIGNAL_INCREMENT); /* a waiter takes it over */
     }
     return 0;
 }
@@ -1267,6 +1538,7 @@ static uint64_t KeSetBasePriorityThread(NcKernel *k, NcFrame *f, const uint32_t 
     int inc = (int32_t)a[1];
     int p = inc >= 16 ? 15 : inc <= -16 ? 1 : BASE_PRIORITY + inc;
     t->priority = p < 1 ? 1 : p > 31 ? 31 : p;
+    t->boost = 0;
     k->resched = true;
     return (uint32_t)old;
 }
@@ -1287,13 +1559,30 @@ static uint64_t KeSetPriorityThread(NcKernel *k, NcFrame *f, const uint32_t *a)
     }
     int old = t->priority;
     t->priority = (int32_t)a[1];
+    t->boost = 0;
     k->resched = true;
     return (uint32_t)old;
 }
 
-/* KeSetDisableBoostThread(Thread, Disable) -> old; KeBoostPriorityThread: no boosts here. */
-static uint64_t KeNoBoost(NcKernel *k, NcFrame *f, const uint32_t *a)
+/* KeSetDisableBoostThread(Thread, Disable) -> old */
+static uint64_t KeSetDisableBoostThread(NcKernel *k, NcFrame *f, const uint32_t *a)
 {
+    NcThread *t = thread_arg(k, a[0]);
+    if (!t) {
+        return 0;
+    }
+    const bool old = t->no_boost;
+    t->no_boost = (a[1] & 0xff) != 0;
+    return old;
+}
+
+/* KeBoostPriorityThread(Thread, Increment): a boost, as a wait's */
+static uint64_t KeBoostPriorityThread(NcKernel *k, NcFrame *f, const uint32_t *a)
+{
+    NcThread *t = thread_arg(k, a[0]);
+    if (t) {
+        boost(t, (int32_t)a[1]);
+    }
     return 0;
 }
 
@@ -1320,6 +1609,10 @@ void nc_ke_register(NcKernel *k)
     nc_kernel_impl(k, "KeReleaseMutant", KeReleaseMutant);
     nc_kernel_impl(k, "NtCreateMutant", NtCreateMutant);
     nc_kernel_impl(k, "NtReleaseMutant", NtReleaseMutant);
+    nc_kernel_impl(k, "NtCreateIoCompletion", NtCreateIoCompletion);
+    nc_kernel_impl(k, "NtRemoveIoCompletion", NtRemoveIoCompletion);
+    nc_kernel_impl(k, "NtSetIoCompletion", NtSetIoCompletion);
+    nc_kernel_impl(k, "NtQueryIoCompletion", NtQueryIoCompletion);
 
     nc_kernel_impl(k, "KeWaitForSingleObject", KeWaitForSingleObject);
     nc_kernel_impl(k, "KeWaitForMultipleObjects", KeWaitForMultipleObjects);
@@ -1358,6 +1651,6 @@ void nc_ke_register(NcKernel *k)
     nc_kernel_impl(k, "KeSetBasePriorityThread", KeSetBasePriorityThread);
     nc_kernel_impl(k, "KeQueryBasePriorityThread", KeQueryBasePriorityThread);
     nc_kernel_impl(k, "KeSetPriorityThread", KeSetPriorityThread);
-    nc_kernel_impl(k, "KeSetDisableBoostThread", KeNoBoost);
-    nc_kernel_impl(k, "KeBoostPriorityThread", KeNoBoost);
+    nc_kernel_impl(k, "KeSetDisableBoostThread", KeSetDisableBoostThread);
+    nc_kernel_impl(k, "KeBoostPriorityThread", KeBoostPriorityThread);
 }

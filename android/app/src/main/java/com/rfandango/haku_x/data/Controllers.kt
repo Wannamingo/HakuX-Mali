@@ -58,6 +58,8 @@ data class PadProfile(
   val invertRX: Boolean = false, val invertRY: Boolean = false,
   val rumbleStrength: Float = 1f,
   val rumbleMode: RumbleMode = RumbleMode.AUTO,
+  val rangeL: Float = 1f, val rangeR: Float = 1f,
+  val squareSticks: Boolean = true,
 ) {
   fun toJson(): JSONObject = JSONObject().apply {
     put("deadzoneL", deadzoneL.toDouble())
@@ -67,6 +69,8 @@ data class PadProfile(
     put("invertLX", invertLX); put("invertLY", invertLY); put("invertRX", invertRX); put("invertRY", invertRY)
     put("rumbleStrength", rumbleStrength.toDouble())
     put("rumbleMode", rumbleMode.name)
+    put("rangeL", rangeL.toDouble()); put("rangeR", rangeR.toDouble())
+    put("squareSticks", squareSticks)
     put("bind", JSONObject().apply {
       for ((input, list) in bind) put(input.name, JSONArray(list.map { it.encode() }))
     })
@@ -104,6 +108,9 @@ data class PadProfile(
         o.optBoolean("invertLX"), o.optBoolean("invertLY"), o.optBoolean("invertRX"), o.optBoolean("invertRY"),
         o.optDouble("rumbleStrength", 1.0).toFloat().coerceIn(0f, 1f),
         RumbleMode.entries.firstOrNull { it.name == o.optString("rumbleMode") } ?: RumbleMode.AUTO,
+        o.optDouble("rangeL", 1.0).toFloat().coerceIn(.5f, 1.5f),
+        o.optDouble("rangeR", 1.0).toFloat().coerceIn(.5f, 1.5f),
+        o.optBoolean("squareSticks", true),
       )
     }
   }
@@ -183,6 +190,7 @@ class PadState {
   fun compute(p: PadProfile, out: PadOut = PadOut()): PadOut {
     out.buttons = 0
     out.analog.fill(0)
+    val sticks = FloatArray(4)
     for (input in XInput.entries) {
       val list = p.bind[input] ?: continue
       if (input.stick) {
@@ -191,20 +199,7 @@ class PadState {
           val x = value(b)
           if (kotlin.math.abs(x) > kotlin.math.abs(v)) v = x
         }
-        val dz = if (input == XInput.LS_X || input == XInput.LS_Y) p.deadzoneL else p.deadzoneR
-        val left = input == XInput.LS_X || input == XInput.LS_Y
-        val invert = when (input) {
-          XInput.LS_X -> p.invertLX; XInput.LS_Y -> p.invertLY
-          XInput.RS_X -> p.invertRX; else -> p.invertRY
-        }
-        v = StickTransform.apply(v, dz, if (left) p.sensitivityL else p.sensitivityR, invert)
-        val s = (v.coerceIn(-1f, 1f) * 32767f).toInt()
-        when (input) {
-          XInput.LS_X -> out.lx = s
-          XInput.LS_Y -> out.ly = s
-          XInput.RS_X -> out.rx = s
-          else -> out.ry = s
-        }
+        sticks[when (input) { XInput.LS_X -> 0; XInput.LS_Y -> 1; XInput.RS_X -> 2; else -> 3 }] = v
         continue
       }
       var v = 0f
@@ -218,6 +213,12 @@ class PadState {
         out.analog[i] = maxOf(out.analog[i], (v.coerceIn(0f, 1f) * 255f).toInt())
       }
     }
+    val l = StickTransform.pair(sticks[0], sticks[1], p.deadzoneL, p.sensitivityL, p.rangeL,
+      p.squareSticks, p.invertLX, p.invertLY)
+    val r = StickTransform.pair(sticks[2], sticks[3], p.deadzoneR, p.sensitivityR, p.rangeR,
+      p.squareSticks, p.invertRX, p.invertRY)
+    out.lx = (l.first * 32767f).toInt(); out.ly = (l.second * 32767f).toInt()
+    out.rx = (r.first * 32767f).toInt(); out.ry = (r.second * 32767f).toInt()
     return out
   }
 }

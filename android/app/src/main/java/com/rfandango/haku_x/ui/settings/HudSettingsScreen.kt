@@ -38,6 +38,9 @@ fun HudSettingsScreen(onBack: () -> Unit) {
       Hint(stringResource(R.string.extra_hud_desc))
       SettingsGroup(true) {
         Section(stringResource(R.string.extra_hud_appearance))
+        SwitchItem(stringResource(R.string.hud_speed_title), stringResource(R.string.hud_speed_desc), options.speed) {
+          update(options.copy(speed = it))
+        }
         IntSettingSlider(stringResource(R.string.extra_hud_size), options.textSize, 8..18,
           label = { it.toString() }, onChange = { update(options.copy(textSize = it)) })
         ListItem(headlineContent = { Text(stringResource(R.string.extra_hud_position)) },

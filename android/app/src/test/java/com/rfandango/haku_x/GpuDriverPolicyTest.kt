@@ -4,6 +4,18 @@ import org.junit.Assert.*
 import org.junit.Test
 
 class GpuDriverPolicyTest {
+  @Test fun unifiedBundleUsesQualifiedAndroidFloors() {
+    assertFalse(GpuDriverPolicy.offersUnifiedBundle(32, true, false))
+    assertTrue(GpuDriverPolicy.offersUnifiedBundle(33, true, false))
+    assertTrue(GpuDriverPolicy.offersUnifiedBundle(34, true, false))
+    assertFalse(GpuDriverPolicy.offersUnifiedBundle(33, false, true))
+    assertTrue(GpuDriverPolicy.offersUnifiedBundle(34, false, true))
+  }
+
+  @Test fun unifiedBundleIsNotOfferedToOtherMaliDevices() {
+    for (sdk in 28..36) assertFalse(GpuDriverPolicy.offersUnifiedBundle(sdk, false, false))
+  }
+
   @Test fun experimentalRg476hKeepsSystemDefault() {
     assertFalse(GpuDriverPolicy.selectBundled(false, false, false, false, allowAutoSelection = false))
     assertFalse(GpuDriverPolicy.selectBundled(false, true, true, true, allowAutoSelection = false))

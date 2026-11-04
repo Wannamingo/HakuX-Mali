@@ -1,0 +1,11 @@
+<resources>
+  <string name="hud_speed_title">Emulation speed</string>
+  <string name="hud_speed_desc" formatted="false">Shows Xbox virtual-clock progress: 100% means its clock keeps pace with real time. Frame rate is measured separately. Available after one second of running.</string>
+  <string name="hud_reference_title">Game FPS reference for speed estimate</string>
+  <string name="hud_reference_desc">Choose the game’s normal frame rate for an additional approximate pace percentage. The choice applies to this game when set in game settings. Menu and video frame rates can differ.</string>
+  <string name="hud_reference_none">Not set</string>
+  <string name="hud_clock_value">SPEED %1$s</string>
+  <string name="hud_frame_speed_value">PACE ≈%1$s (%2$d FPS)</string>
+  <string name="hud_speed_paused">PAUSED</string>
+  <string name="ui_hud_speed_format">FPS: %1$.0f | %4$s | %2$.1fms avg / %3$.1fms last</string>
+</resources>

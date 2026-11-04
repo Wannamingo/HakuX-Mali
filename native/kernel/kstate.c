@@ -70,7 +70,7 @@ bool nc_kern_state_save(NcBuf *b)
     s.isr_line = nc_intr_isr_line();
     nc_irq_state(&s.irq_enabled, &s.irq_lines);
     nc_rec_put(b, &nc_rec_NcKState, &s);
-    return true;
+    return nc_ke_ports_save(b);
 }
 
 bool nc_kern_state_load(NcRd *r, unsigned v)
@@ -92,6 +92,8 @@ bool nc_kern_state_load(NcRd *r, unsigned v)
     if (r->fail) {
         return false;
     }
+    if (v >= 4) { if (!nc_ke_ports_load(r)) return false; }
+    else nc_ke_ports_reset();
     k->nstack_free = 0;                 /* the boot's slots given back, not the state's */
     nc_ke_state_set(s.boot_ns, s.time_offset, s.guest_ns);
     nc_cpu_guest_cycles_set(k->cpu, s.guest_cycles);

@@ -307,6 +307,7 @@ size_t hle_psh_glsl(const HlePshKey *k, char *buf, size_t cap, unsigned *unsuppo
             "uvw);\n"
             "}\n"
             "vec4 sampc(uint s, vec3 dir) {\n"
+            "  if (dir == vec3(0.0)) return vec4(0.0, 0.0, 0.0, 1.0);\n"
             "  uint ti = pc.tex[s] & 0xFFFFu, si = pc.tex[s] >> 16;\n"
             "  return texture(samplerCube(uTexCube[nonuniformEXT(ti)], uSmp[nonuniformEXT(si)]), "
             "dir);\n"

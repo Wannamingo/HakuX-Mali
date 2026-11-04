@@ -32,7 +32,7 @@ void nc_present_set_shader(int mode);
 void nc_present_set_shader_controls(const int values[8]);
 /* A frame smaller than its place in the window: scaled up bilinearly, or by
  * Snapdragon Game Super Resolution (a larger one is always averaged down). */
-enum { NC_UPSCALE_BILINEAR, NC_UPSCALE_SGSR };   /* swapchain.h HLE_UPSCALE_*'s */
+enum { NC_UPSCALE_BILINEAR, NC_UPSCALE_SGSR, NC_UPSCALE_FSR };   /* swapchain.h HLE_UPSCALE_*'s */
 void nc_present_set_upscale(int mode);
 /* User picture controls in percent; 100 preserves the existing output. On the window thread. */
 void nc_present_set_picture(int brightness, int contrast, int saturation, int gamma, int sharpness);

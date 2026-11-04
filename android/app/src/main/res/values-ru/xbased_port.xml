@@ -1,0 +1,7 @@
+<resources>
+  <string name="stick_square">Квадратный диапазон стиков Xbox</string>
+  <string name="stick_square_desc">Выключено: круглый диапазон. Проверка показывает сигнал для игры; обведите стиком круг, чтобы увидеть его охват.</string>
+  <string name="stick_range_l">Диапазон левого стика (50–150%)</string>
+  <string name="stick_range_r">Диапазон правого стика (50–150%)</string>
+  <string name="settings_upscale_fsr">AMD FSR 1 (EASU + RCAS)</string>
+</resources>

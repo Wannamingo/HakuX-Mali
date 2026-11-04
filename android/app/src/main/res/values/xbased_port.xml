@@ -1,0 +1,7 @@
+<resources>
+  <string name="stick_square">Xbox square stick range</string>
+  <string name="stick_square_desc">Off: circular range. Test shows the output sent to the game; rotate each stick to trace its reach.</string>
+  <string name="stick_range_l">Left stick range (50–150%)</string>
+  <string name="stick_range_r">Right stick range (50–150%)</string>
+  <string name="settings_upscale_fsr">AMD FSR 1 (EASU + RCAS)</string>
+</resources>

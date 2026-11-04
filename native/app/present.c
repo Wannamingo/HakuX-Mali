@@ -99,7 +99,7 @@ bool nc_present_init(void)
 {
     hle_disp_gamma_by_consumer(true); /* before the core starts: frames come without it */
     nc_log("hakuX-app", "present: Vulkan; FXAA %s, upscaling %s", g_fxaa ? "on" : "off",
-           g_upscale == NC_UPSCALE_SGSR ? "SGSR" : "bilinear");
+           g_upscale == NC_UPSCALE_FSR ? "FSR1" : g_upscale == NC_UPSCALE_SGSR ? "SGSR" : "bilinear");
     return true;
 }
 

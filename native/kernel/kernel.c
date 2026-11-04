@@ -507,10 +507,13 @@ bool nc_kernel_init(NcKernel *k, NcVm *vm)
         [NC_OB_DIRECTORY] = "ObDirectoryObjectType",
     };
     for (unsigned i = 0; i < NC_OB_TYPES; i++) {
-        const NcKExport *e = export_named(type_names[i]);
+        const NcKExport *e = type_names[i] ? export_named(type_names[i]) : NULL;
         k->type_va[i] = e ? k->data_va[e->ordinal] : 0;
     }
 
+    k->type_va[NC_OB_IOCOMPLETION] = nc_pool_alloc(k, 0x40);
+    if (!k->type_va[NC_OB_IOCOMPLETION]) return false;
+    nc_ke_ports_reset();
     nc_ob_register(k);
     nc_ps_register(k);
     nc_ke_register(k);
@@ -1032,7 +1035,7 @@ static void clock_tick(NcKernel *k)
         const NcThread *cur = k->current;
         for (unsigned i = 0; cur && i < k->threads_hi; i++) {
             const NcThread *t = &k->threads[i];
-            if (t->state == NC_T_READY && !t->suspend && t->priority > cur->priority) {
+            if (t->state == NC_T_READY && !t->suspend && nc_thread_prio(t) > nc_thread_prio(cur)) {
                 k->resched = true;
                 break;
             }

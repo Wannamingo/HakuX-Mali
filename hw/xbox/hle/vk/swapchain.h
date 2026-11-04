@@ -12,7 +12,7 @@ struct ANativeWindow;
 
 /* A frame smaller than its place in the window: scaled up bilinearly, or by
  * Snapdragon Game Super Resolution (a larger one is always averaged down). */
-enum { HLE_UPSCALE_BILINEAR, HLE_UPSCALE_SGSR };
+enum { HLE_UPSCALE_BILINEAR, HLE_UPSCALE_SGSR, HLE_UPSCALE_FSR };
 
 /* Window thread only. Percentages: 100 is neutral/original SGSR strength; no extra pass. */
 void hle_present_set_shader(int mode);

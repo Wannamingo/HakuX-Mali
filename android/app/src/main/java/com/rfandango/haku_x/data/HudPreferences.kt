@@ -17,6 +17,7 @@ class HudPreferences(context: Context) {
       position = runCatching { HudPosition.valueOf(json.optString("position")) }.getOrDefault(HudPosition.TOP_LEFT),
       background = json.optInt("background", 40),
       cpu = json.optBoolean("cpu", true), gpu = json.optBoolean("gpu", true), battery = json.optBoolean("battery", true),
+      speed = json.optBoolean("speed", true),
     ).sanitized()
   }.getOrDefault(HudOptions(enabled = defaultVisible))
 
@@ -25,6 +26,7 @@ class HudPreferences(context: Context) {
     val json = JSONObject().put("enabled", options.enabled).put("size", options.textSize)
       .put("position", options.position.name).put("background", options.background)
       .put("cpu", options.cpu).put("gpu", options.gpu).put("battery", options.battery)
+      .put("speed", options.speed)
     val output = file.startWrite()
     try { output.write(json.toString().toByteArray(Charsets.UTF_8)); file.finishWrite(output) }
     catch (e: Exception) { file.failWrite(output); throw e }

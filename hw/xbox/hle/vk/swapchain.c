@@ -45,13 +45,13 @@
 #define PS_RAMP 1024            /* a frame's share of the ramp buffer (768 used) */
 #define PS_PUSH_BYTES (24 * sizeof(float))
 
-enum { P_BILINEAR, P_AREA, P_SGSR, P_CRT, P_NTSC, P_TEMPORAL, P_FXAA, P_COUNT };
+enum { P_BILINEAR, P_AREA, P_SGSR, P_CRT, P_NTSC, P_TEMPORAL, P_RCAS, P_FXAA, P_EASU, P_COUNT };
 
 typedef struct PsFrame {
     VkCommandPool pool;
     VkCommandBuffer cb;
     VkSemaphore acquired;       /* its swapchain image is ready */
-    VkDescriptorSet set[2];     /* the window pass's, FXAA's */
+    VkDescriptorSet set[3];     /* the window pass's, FXAA's */
     uint64_t value;             /* its last submitted sequence */
     VkFence done;               /* completion when timelines are unavailable */
     bool ramp_stale;            /* its share of the ramp buffer is behind */
@@ -98,6 +98,12 @@ static struct {
     VkImageView fx_view;
     uint32_t fx_w, fx_h;
     uint64_t fx_serial;         /* the frame it holds */
+    VkImage up_img;
+    VkDeviceMemory up_mem;
+    VkImageView up_view;
+    uint32_t up_w, up_h;
+    uint64_t up_serial;
+    bool up_fxaa;
     /* the display's gamma ramp */
     uint8_t ramp[3][256];
     uint32_t ramp_gen;
@@ -377,6 +383,117 @@ static const char k_fs_sgsr[] =
     "  o = ramp(color.xyz);\n"
     "}\n";
 
+/* AMD FidelityFX Super Resolution 1 (ffx_fsr1.h, its 32-bit FsrEasuF and
+ * FsrRcasF), MIT: licenses/amd-fsr1.license.txt. EASU draws into an image
+ * of the frame's size in the window: extra = the frame's width and height,
+ * the image's. Its reciprocal approximations are exact ones here, kept from
+ * dividing by zero. */
+static const char k_fs_easu[] =
+    "// Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved. (MIT)\n"
+    "void easuSet(inout vec2 dir, inout float len, float w, float lA, float lB, float lC, float lD,\n"
+    "             float lE) {\n"
+    "  float lenX = 1.0 / max(max(abs(lD - lC), abs(lC - lB)), 1e-8);\n"
+    "  float dirX = lD - lB;\n"
+    "  dir.x += dirX * w;\n"
+    "  lenX = clamp(abs(dirX) * lenX, 0.0, 1.0);\n"
+    "  len += lenX * lenX * w;\n"
+    "  float lenY = 1.0 / max(max(abs(lE - lC), abs(lC - lA)), 1e-8);\n"
+    "  float dirY = lE - lA;\n"
+    "  dir.y += dirY * w;\n"
+    "  lenY = clamp(abs(dirY) * lenY, 0.0, 1.0);\n"
+    "  len += lenY * lenY * w;\n"
+    "}\n"
+    "void easuTap(inout vec3 aC, inout float aW, vec2 off, vec2 dir, vec2 len, float lob, float clp,\n"
+    "             vec3 c) {\n"
+    "  vec2 v = vec2(off.x * dir.x + off.y * dir.y, off.x * -dir.y + off.y * dir.x) * len;\n"
+    "  float d2 = min(dot(v, v), clp);\n"
+    "  float wB = 2.0 / 5.0 * d2 - 1.0;\n"
+    "  float wA = lob * d2 - 1.0;\n"
+    "  wB *= wB;\n"
+    "  wA *= wA;\n"
+    "  wB = 25.0 / 16.0 * wB - (25.0 / 16.0 - 1.0);\n"
+    "  float w = wB * wA;\n"
+    "  aC += c * w;\n"
+    "  aW += w;\n"
+    "}\n"
+    "void main() {\n"
+    "  vec2 inSz = pc.extra.xy, outSz = pc.extra.zw, rin = 1.0 / inSz;\n"
+    "  vec2 pp = floor(gl_FragCoord.xy) * (inSz / outSz) + (0.5 * inSz / outSz - 0.5);\n"
+    "  vec2 fp = floor(pp);\n"
+    "  pp -= fp;\n"
+    "  vec2 p0 = fp * rin + vec2(1.0, -1.0) * rin;\n"
+    "  vec2 p1 = p0 + vec2(-1.0, 2.0) * rin;\n"
+    "  vec2 p2 = p0 + vec2(1.0, 2.0) * rin;\n"
+    "  vec2 p3 = p0 + vec2(0.0, 4.0) * rin;\n"
+    "  vec4 bczzR = textureGather(u_tex, p0, 0), bczzG = textureGather(u_tex, p0, 1),\n"
+    "       bczzB = textureGather(u_tex, p0, 2);\n"
+    "  vec4 ijfeR = textureGather(u_tex, p1, 0), ijfeG = textureGather(u_tex, p1, 1),\n"
+    "       ijfeB = textureGather(u_tex, p1, 2);\n"
+    "  vec4 klhgR = textureGather(u_tex, p2, 0), klhgG = textureGather(u_tex, p2, 1),\n"
+    "       klhgB = textureGather(u_tex, p2, 2);\n"
+    "  vec4 zzonR = textureGather(u_tex, p3, 0), zzonG = textureGather(u_tex, p3, 1),\n"
+    "       zzonB = textureGather(u_tex, p3, 2);\n"
+    "  vec4 bczzL = bczzB * 0.5 + (bczzR * 0.5 + bczzG);\n"
+    "  vec4 ijfeL = ijfeB * 0.5 + (ijfeR * 0.5 + ijfeG);\n"
+    "  vec4 klhgL = klhgB * 0.5 + (klhgR * 0.5 + klhgG);\n"
+    "  vec4 zzonL = zzonB * 0.5 + (zzonR * 0.5 + zzonG);\n"
+    "  float bL = bczzL.x, cL = bczzL.y, iL = ijfeL.x, jL = ijfeL.y, fL = ijfeL.z, eL = ijfeL.w;\n"
+    "  float kL = klhgL.x, lL = klhgL.y, hL = klhgL.z, gL = klhgL.w, oL = zzonL.z, nL = zzonL.w;\n"
+    "  vec2 dir = vec2(0.0);\n"
+    "  float len = 0.0;\n"
+    "  easuSet(dir, len, (1.0 - pp.x) * (1.0 - pp.y), bL, eL, fL, gL, jL);\n"
+    "  easuSet(dir, len, pp.x * (1.0 - pp.y), cL, fL, gL, hL, kL);\n"
+    "  easuSet(dir, len, (1.0 - pp.x) * pp.y, fL, iL, jL, kL, nL);\n"
+    "  easuSet(dir, len, pp.x * pp.y, gL, jL, kL, lL, oL);\n"
+    "  vec2 dir2 = dir * dir;\n"
+    "  float dirR = dir2.x + dir2.y;\n"
+    "  bool zro = dirR < 1.0 / 32768.0;\n"
+    "  dirR = zro ? 1.0 : inversesqrt(dirR);\n"
+    "  dir.x = zro ? 1.0 : dir.x;\n"
+    "  dir *= dirR;\n"
+    "  len = len * 0.5;\n"
+    "  len *= len;\n"
+    "  float stretch = dot(dir, dir) / max(abs(dir.x), abs(dir.y));\n"
+    "  vec2 len2 = vec2(1.0 + (stretch - 1.0) * len, 1.0 - 0.5 * len);\n"
+    "  float lob = 0.5 + ((1.0 / 4.0 - 0.04) - 0.5) * len;\n"
+    "  float clp = 1.0 / lob;\n"
+    "  vec3 f = vec3(ijfeR.z, ijfeG.z, ijfeB.z), g = vec3(klhgR.w, klhgG.w, klhgB.w);\n"
+    "  vec3 j = vec3(ijfeR.y, ijfeG.y, ijfeB.y), k = vec3(klhgR.x, klhgG.x, klhgB.x);\n"
+    "  vec3 min4 = min(min(f, g), min(j, k)), max4 = max(max(f, g), max(j, k));\n"
+    "  vec3 aC = vec3(0.0);\n"
+    "  float aW = 0.0;\n"
+    "  easuTap(aC, aW, vec2(0.0, -1.0) - pp, dir, len2, lob, clp, vec3(bczzR.x, bczzG.x, bczzB.x));\n"
+    "  easuTap(aC, aW, vec2(1.0, -1.0) - pp, dir, len2, lob, clp, vec3(bczzR.y, bczzG.y, bczzB.y));\n"
+    "  easuTap(aC, aW, vec2(-1.0, 1.0) - pp, dir, len2, lob, clp, vec3(ijfeR.x, ijfeG.x, ijfeB.x));\n"
+    "  easuTap(aC, aW, vec2(0.0, 1.0) - pp, dir, len2, lob, clp, j);\n"
+    "  easuTap(aC, aW, vec2(0.0, 0.0) - pp, dir, len2, lob, clp, f);\n"
+    "  easuTap(aC, aW, vec2(-1.0, 0.0) - pp, dir, len2, lob, clp, vec3(ijfeR.w, ijfeG.w, ijfeB.w));\n"
+    "  easuTap(aC, aW, vec2(1.0, 1.0) - pp, dir, len2, lob, clp, k);\n"
+    "  easuTap(aC, aW, vec2(2.0, 1.0) - pp, dir, len2, lob, clp, vec3(klhgR.y, klhgG.y, klhgB.y));\n"
+    "  easuTap(aC, aW, vec2(2.0, 0.0) - pp, dir, len2, lob, clp, vec3(klhgR.z, klhgG.z, klhgB.z));\n"
+    "  easuTap(aC, aW, vec2(1.0, 0.0) - pp, dir, len2, lob, clp, g);\n"
+    "  easuTap(aC, aW, vec2(1.0, 2.0) - pp, dir, len2, lob, clp, vec3(zzonR.z, zzonG.z, zzonB.z));\n"
+    "  easuTap(aC, aW, vec2(0.0, 2.0) - pp, dir, len2, lob, clp, vec3(zzonR.w, zzonG.w, zzonB.w));\n"
+    "  o = vec4(min(max4, max(min4, aC / aW)), 1.0);\n"
+    "}\n";
+/* RCAS, over EASU's image on its way into the window (its pixels the
+ * window's, one for one): extra.x the sharpness, 2^-stops (FsrRcasCon). */
+static const char k_fs_rcas[] =
+    "// Copyright (c) 2021 Advanced Micro Devices, Inc. All rights reserved. (MIT)\n"
+    "vec3 at(ivec2 p, ivec2 top) { return texelFetch(u_tex, clamp(p, ivec2(0), top), 0).rgb; }\n"
+    "void main() {\n"
+    "  ivec2 top = textureSize(u_tex, 0) - 1;\n"
+    "  ivec2 sp = clamp(ivec2(v_uv * vec2(top + 1)), ivec2(0), top);\n"
+    "  vec3 b = at(sp + ivec2(0, -1), top), d = at(sp + ivec2(-1, 0), top), e = at(sp, top);\n"
+    "  vec3 f = at(sp + ivec2(1, 0), top), h = at(sp + ivec2(0, 1), top);\n"
+    "  vec3 mn4 = min(min(b, d), min(f, h)), mx4 = max(max(b, d), max(f, h));\n"
+    "  vec3 hitMin = min(mn4, e) / max(4.0 * mx4, vec3(1e-6));\n"
+    "  vec3 hitMax = (1.0 - max(mx4, e)) / min(4.0 * mn4 - 4.0, vec3(-1e-6));\n"
+    "  vec3 lobeC = max(-hitMin, hitMax);\n"
+    "  float lobe = max(-(0.25 - 1.0 / 16.0), min(max(lobeC.r, max(lobeC.g, lobeC.b)), 0.0)) * pc.extra.x;\n"
+    "  o = ramp((lobe * (b + d + h + f) + e) / (4.0 * lobe + 1.0));\n"
+    "}\n";
+
 static VkShaderModule module(HleShaderStage stage, const char *head, const char *body)
 {
     g_autofree char *src = g_strdup_printf("%s%s", head, body);
@@ -468,10 +585,10 @@ static bool init(void)
     VkPipelineLayoutCreateInfo lci = {
         .sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO, .setLayoutCount = 1,
         .pSetLayouts = &g_ps.dsl, .pushConstantRangeCount = 1, .pPushConstantRanges = &pcr };
-    VkDescriptorPoolSize ps[2] = { { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, PS_FRAMES * 2 },
-                                   { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, PS_FRAMES * 2 } };
+    VkDescriptorPoolSize ps[2] = { { VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER, PS_FRAMES * 3 },
+                                   { VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, PS_FRAMES * 3 } };
     VkDescriptorPoolCreateInfo pci = {
-        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, .maxSets = PS_FRAMES * 2,
+        .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO, .maxSets = PS_FRAMES * 3,
         .poolSizeCount = 2, .pPoolSizes = ps };
     VkBufferCreateInfo bci = { .sType = VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO, .size = PS_FRAMES * PS_RAMP,
                                .usage = VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT };
@@ -501,9 +618,9 @@ static bool init(void)
                                         .queueFamilyIndex = g_hvk.qfam };
         VkSemaphoreCreateInfo si = { .sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO };
         VkFenceCreateInfo fi = { .sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO };
-        VkDescriptorSetLayout l[2] = { g_ps.dsl, g_ps.dsl };
+        VkDescriptorSetLayout l[3] = { g_ps.dsl, g_ps.dsl, g_ps.dsl };
         VkDescriptorSetAllocateInfo dai = { .sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-                                            .descriptorPool = g_ps.dp, .descriptorSetCount = 2,
+                                            .descriptorPool = g_ps.dp, .descriptorSetCount = 3,
                                             .pSetLayouts = l };
         if (T.vkCreateCommandPool(g_hvk.dev, &cpi, NULL, &f->pool) != VK_SUCCESS ||
             T.vkCreateSemaphore(g_hvk.dev, &si, NULL, &f->acquired) != VK_SUCCESS ||
@@ -523,11 +640,12 @@ static bool init(void)
     hle_log("hakuX-hle-back", "present: completion via %s",
             g_hvk.caps.timeline ? "timeline semaphore" : "Vulkan fences");
     g_ps.vs = module(HLE_SHADER_VERTEX, k_vs, "");
-    static const char *const body[P_COUNT] = { k_fs_bilinear, k_fs_area, k_fs_sgsr, k_fs_crt, k_fs_ntsc, k_fs_temporal, k_fs_fxaa };
+    static const char *const body[P_COUNT] = { k_fs_bilinear, k_fs_area, k_fs_sgsr, k_fs_crt, k_fs_ntsc, k_fs_temporal, k_fs_rcas, k_fs_fxaa, k_fs_easu };
     for (unsigned i = 0; i < P_COUNT; i++) {
         g_ps.fs[i] = module(HLE_SHADER_FRAGMENT, k_fs_head, body[i]);
     }
     g_ps.pipe[P_FXAA] = pipeline(g_ps.fs[P_FXAA], VK_FORMAT_R8G8B8A8_UNORM);
+    g_ps.pipe[P_EASU] = pipeline(g_ps.fs[P_EASU], VK_FORMAT_R8G8B8A8_UNORM);
     hle_log("hakuX-hle-back", "present: ready (shaders: bilinear %d, averaging %d, SGSR %d, FXAA %d)",
             g_ps.fs[P_BILINEAR] != VK_NULL_HANDLE, g_ps.fs[P_AREA] != VK_NULL_HANDLE,
             g_ps.fs[P_SGSR] != VK_NULL_HANDLE, g_ps.pipe[P_FXAA] != VK_NULL_HANDLE);
@@ -902,6 +1020,58 @@ static bool fxaa_target(uint32_t w, uint32_t h)
     return true;
 }
 
+/* The FSR image at the frame's size. */
+static bool fsr_target(uint32_t w, uint32_t h)
+{
+    if (g_ps.up_img && g_ps.up_w == w && g_ps.up_h == h) {
+        return true;
+    }
+    if (g_ps.up_img) {
+        wait_value(g_ps.submitted);
+        T.vkDestroyImageView(g_hvk.dev, g_ps.up_view, NULL);
+        T.vkDestroyImage(g_hvk.dev, g_ps.up_img, NULL);
+        T.vkFreeMemory(g_hvk.dev, g_ps.up_mem, NULL);
+        g_ps.up_img = VK_NULL_HANDLE;
+        g_ps.up_mem = VK_NULL_HANDLE;
+        g_ps.up_view = VK_NULL_HANDLE;
+    }
+    VkImageCreateInfo ici = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO, .imageType = VK_IMAGE_TYPE_2D,
+        .format = VK_FORMAT_R8G8B8A8_UNORM, .extent = { w, h, 1 }, .mipLevels = 1, .arrayLayers = 1,
+        .samples = VK_SAMPLE_COUNT_1_BIT, .tiling = VK_IMAGE_TILING_OPTIMAL,
+        .usage = VK_IMAGE_USAGE_SAMPLED_BIT | VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+        .initialLayout = VK_IMAGE_LAYOUT_UNDEFINED };
+    if (T.vkCreateImage(g_hvk.dev, &ici, NULL, &g_ps.up_img) != VK_SUCCESS) {
+        g_ps.up_img = VK_NULL_HANDLE;
+        return false;
+    }
+    VkMemoryRequirements mr;
+    T.vkGetImageMemoryRequirements(g_hvk.dev, g_ps.up_img, &mr);
+    int mt = hle_vk_memtype(mr.memoryTypeBits, VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT, 0);
+    VkMemoryAllocateInfo mai = { .sType = VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+                                 .allocationSize = mr.size, .memoryTypeIndex = (uint32_t)mt };
+    VkImageViewCreateInfo vci = {
+        .sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO, .image = g_ps.up_img,
+        .viewType = VK_IMAGE_VIEW_TYPE_2D, .format = VK_FORMAT_R8G8B8A8_UNORM,
+        .subresourceRange = { VK_IMAGE_ASPECT_COLOR_BIT, 0, 1, 0, 1 } };
+    if (mt < 0 || T.vkAllocateMemory(g_hvk.dev, &mai, NULL, &g_ps.up_mem) != VK_SUCCESS ||
+        T.vkBindImageMemory(g_hvk.dev, g_ps.up_img, g_ps.up_mem, 0) != VK_SUCCESS ||
+        T.vkCreateImageView(g_hvk.dev, &vci, NULL, &g_ps.up_view) != VK_SUCCESS) {
+        hle_log("hakuX-hle-back", "present: no %ux%u FSR image: FSR off", w, h);
+        if (g_ps.up_view) T.vkDestroyImageView(g_hvk.dev, g_ps.up_view, NULL);
+        T.vkDestroyImage(g_hvk.dev, g_ps.up_img, NULL);
+        if (g_ps.up_mem) T.vkFreeMemory(g_hvk.dev, g_ps.up_mem, NULL);
+        g_ps.up_view = VK_NULL_HANDLE; g_ps.up_mem = VK_NULL_HANDLE;
+        g_ps.up_img = VK_NULL_HANDLE;
+        g_ps.pipe[P_EASU] = VK_NULL_HANDLE;
+        return false;
+    }
+    g_ps.up_w = w;
+    g_ps.up_h = h;
+    g_ps.up_serial = 0;
+    return true;
+}
+
 static void barrier(VkCommandBuffer cb, VkImage img, VkImageLayout from, VkImageLayout to,
                     VkPipelineStageFlags2 src, VkAccessFlags2 src_access, VkPipelineStageFlags2 dst,
                     VkAccessFlags2 dst_access)
@@ -967,7 +1137,7 @@ static void log_path(unsigned p, bool fxaa, uint32_t vw, uint32_t vh)
     s_vw = vw;
     s_vh = vh;
     hle_log("hakuX-hle-back", "present: %ux%u%s into %ux%u: %s", s_w, s_h, fxaa ? " after FXAA" : "", vw, vh,
-            p == P_AREA ? "averaged down" : p == P_SGSR ? "scaled up by SGSR" : "bilinear");
+            p == P_AREA ? "averaged down" : p == P_RCAS ? "scaled up by FSR1" : p == P_SGSR ? "scaled up by SGSR" : "bilinear");
 }
 
 static const float shader_presets[5][12] = {
@@ -1060,6 +1230,32 @@ void hle_present_end(float sx, float sy, bool fxaa, int upscale, bool average, u
             fxaa_done = true;
         }
     }
+    const float full_vw = sx * g_zoom * (float)ww / (g_uv[2] - g_uv[0]);
+    const float full_vh = sy * g_zoom * (float)wh / (g_uv[3] - g_uv[1]);
+    const bool down = g_ps.have && (g_ps.f.w > full_vw * 1.01f || g_ps.f.h > full_vh * 1.01f);
+    bool fsr = g_ps.have && !shader && !down && upscale == HLE_UPSCALE_FSR &&
+        (g_ps.f.w < full_vw * .99f || g_ps.f.h < full_vh * .99f) &&
+        g_ps.pipe[P_EASU] && g_ps.pipe[P_RCAS] &&
+        full_vw > 0 && full_vh > 0 && full_vw <= 16384 && full_vh <= 16384 &&
+        fsr_target((uint32_t)(full_vw + .5f), (uint32_t)(full_vh + .5f));
+    if (fsr) {
+        if (g_ps.up_serial != g_ps.serial || g_ps.up_fxaa != fxaa_done) {
+            barrier(cb, g_ps.up_img, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                    VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT, 0,
+                    VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT);
+            rendering(cb, g_ps.up_view, g_ps.up_w, g_ps.up_h, false);
+            const float whole[24] = {-1,-1,1,1, (float)g_ps.f.w,(float)g_ps.f.h,
+                (float)g_ps.up_w,(float)g_ps.up_h, 1,0,0,1, 1,1,1,1,1,0,0,0, 0,0,1,1};
+            quad(cb, f, 2, g_ps.pipe[P_EASU], src, whole, g_ps.up_w, g_ps.up_h);
+            T.vkCmdEndRendering(cb);
+            barrier(cb, g_ps.up_img, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
+                    VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
+                    VK_ACCESS_2_COLOR_ATTACHMENT_WRITE_BIT, VK_PIPELINE_STAGE_2_FRAGMENT_SHADER_BIT,
+                    VK_ACCESS_2_SHADER_SAMPLED_READ_BIT);
+            g_ps.up_serial = g_ps.serial; g_ps.up_fxaa = fxaa_done;
+        }
+        src = g_ps.up_view;
+    }
     VkImage dst = g_ps.img[g_ps.idx];
     barrier(cb, dst, VK_IMAGE_LAYOUT_UNDEFINED, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL,
             VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT, 0, VK_PIPELINE_STAGE_2_COLOR_ATTACHMENT_OUTPUT_BIT,
@@ -1081,6 +1277,9 @@ void hle_present_end(float sx, float sy, bool fxaa, int upscale, bool average, u
             p = P_AREA;
             pc[4] = rx;
             pc[5] = ry;
+        } else if (fsr) {
+            p = P_RCAS;
+            pc[4] = 0.5f * g_picture[4];
         } else if ((rx < 0.99f || ry < 0.99f) && upscale == HLE_UPSCALE_SGSR && g_picture[4] > 0.0f && g_ps.pipe[P_SGSR]) {
             p = P_SGSR;
             pc[4] = 1.0f / (float)g_ps.f.w;

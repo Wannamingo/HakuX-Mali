@@ -1,0 +1,5 @@
+Selected scheduler, file I/O, controller and FSR changes adapted from xbased by crazyriddler.
+https://github.com/crazyriddler/xbased
+Commit 6fa4cbc190252d6e3914f3f5d7ebba039428d048.
+xbased is based on hakuX by rfandango; licensed GPL-3.0-or-later.
+Android ARM64 integration retains HakuX-Mali additions. AMD FSR1: see amd-fsr1.license.txt.

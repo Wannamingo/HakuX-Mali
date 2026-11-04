@@ -19,8 +19,10 @@
  * per display refresh.
  */
 #include "native/app/app.h"
+#include "native/app/emulation_speed.h"
 #include "native/core/cheats.h"
 #include "native/core/core.h"
+#include "native/core/irq.h"
 #include "native/core/mods.h"
 #include "native/core/options.h"
 #include "native/core/movie.h"
@@ -363,17 +365,29 @@ EXPORT JNIEXPORT jboolean JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_
     return nc_present_shown() ? JNI_TRUE : JNI_FALSE;
 }
 
-/* The FPS overlay (NativeCoreActivity): the title's frame rate and pacing,
- * and 1 when it renders by push-buffer decoding (else 0: D3D's hooks). */
+/* FPS, pacing, push-buffer mode; appended virtual-clock percent and status.
+ * The first four fields retain their original meanings for older clients. */
 EXPORT JNIEXPORT jfloatArray JNICALL Java_com_rfandango_haku_1x_NativeCoreActivity_nativeGetFrameStats(JNIEnv *env,
                                                                                                     jclass cls)
 {
-    float v[4];
+    static pthread_mutex_t speed_lock = PTHREAD_MUTEX_INITIALIZER;
+    static NcSpeedMeter speed;
+    float v[6];
     nc_present_stats(&v[0], &v[1], &v[2]);
     v[3] = nc_hle_pb_active() ? 1.0f : 0.0f;
-    jfloatArray a = (*env)->NewFloatArray(env, 4);
+    pthread_mutex_lock(&speed_lock);
+    const bool running = SDL_GetAtomicInt(&g_core_state) == 1;
+    const bool paused = nc_paused();
+    uint64_t host = 0, guest = 0;
+    uint32_t epoch = 0;
+    if (running) nc_ke_clock_snapshot(&host, &guest, &epoch);
+    const NcSpeedReading reading = nc_speed_sample(&speed, host, guest, epoch, running, paused);
+    pthread_mutex_unlock(&speed_lock);
+    v[4] = reading.percent;
+    v[5] = (float)reading.status;
+    jfloatArray a = (*env)->NewFloatArray(env, 6);
     if (a) {
-        (*env)->SetFloatArrayRegion(env, a, 0, 4, v);
+        (*env)->SetFloatArrayRegion(env, a, 0, 6, v);
     }
     return a;
 }
@@ -674,7 +688,7 @@ EXPORT int SDL_main(int argc, char *argv[])
             nc_present_set_fxaa(atoi(argv[i] + 5) != 0);
         }
         if (!strncmp(argv[i], "upscale=", 8)) {
-            nc_present_set_upscale(!strcmp(argv[i] + 8, "sgsr") ? NC_UPSCALE_SGSR : NC_UPSCALE_BILINEAR);
+            nc_present_set_upscale(!strcmp(argv[i] + 8, "fsr") ? NC_UPSCALE_FSR : !strcmp(argv[i] + 8, "sgsr") ? NC_UPSCALE_SGSR : NC_UPSCALE_BILINEAR);
         }
         if (!strncmp(argv[i], "picture=", 8)) {
             int b, c, s, g, sharpness;

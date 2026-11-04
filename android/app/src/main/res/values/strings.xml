@@ -52,7 +52,7 @@
   <string name="settings_gpu_driver_active_version">%1$s (%2$s)</string>
   <string name="settings_gpu_driver_not_supported">System driver. Custom drivers are available on Adreno and on RG477M / Dimensity 8300 with MaliSX2.</string>
   <string name="gpu_driver_desc">The Vulkan driver HakuX-Mali draws the Xbox\'s graphics with. Use a package made for your GPU: Turnip for Adreno, or MaliSX2 for supported Mali handhelds. A change takes effect at the next game start.</string>
-  <string name="gpu_driver_malisx2">MaliSX2 is included for RG477M / Dimensity 8300 (MT6897, Mali-G615). RG477M on Android 14+ also offers the tested M2+DS1 bundle; official 0.2.3 remains available for rollback. Fresh installs select the included package automatically; updates retain your driver choice. Start at 1× and restart the game after switching drivers.</string>
+  <string name="gpu_driver_malisx2">MaliSX2 is included for RG477M / Dimensity 8300 (MT6897, Mali-G615). RG477M on Android 14+ offers Unified P48r1 and M2+DS1; official 0.2.3 remains available for rollback. Fresh installs retain the earlier bundled default; updates preserve your selection. Start at 1×. Fully restart the application and game after changing drivers.</string>
   <string name="gpu_driver_err_gpu">This package does not match this device. RG477M / Dimensity 8300 requires libvulkan_malisx2.so; Adreno requires an Adreno driver.</string>
   <string name="gpu_driver_bundled">Included in this app. No separate download or import is needed.</string>
   <string name="gpu_driver_malisx2_vita">Experimental RG VITA Pro support (RK3576, Mali-G52). MaliSX2 0.2.3 is included; System driver can also be selected for comparison. Start at 1× resolution. Restart the game after changing drivers.</string>
@@ -63,7 +63,7 @@
   <string name="gpu_driver_by">by %1$s</string>
   <string name="gpu_driver_no_package">In use. Its package isn\'t on this phone anymore.</string>
   <string name="gpu_driver_add">Add a driver</string>
-  <string name="gpu_driver_add_desc">A driver package: a ZIP with meta.json and its driver library (Turnip for Adreno or MaliSX2 for RG477M / Dimensity 8300). A package with the same file name is replaced.</string>
+  <string name="gpu_driver_add_desc">A driver package: a ZIP with meta.json and its driver library (Turnip for Adreno or MaliSX2 / Unified for supported Mali devices). A package with the same file name is replaced.</string>
   <string name="gpu_driver_delete">Delete driver</string>
   <string name="gpu_driver_delete_text">%1$s will be deleted from the phone.</string>
   <string name="gpu_driver_delete_text_in_use">%1$s will be deleted from the phone, and HakuX-Mali goes back to the system driver.</string>

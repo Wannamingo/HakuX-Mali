@@ -32,6 +32,10 @@ object GpuDriverHelper {
   private const val COMBINED_ASSET = "gpu_drivers/malisx2-0.2.3-m2-ds1-b05da0fa.zip"
   private const val COMBINED_SHA256 = "b12a5d95e2ea6c9b5e4f4d39d7e8ed5baceeba1a3a9fe8e45261abfa45deef61"
   private const val COMBINED_MARKER = "bundled:malisx2-0.2.3:m2-ds1:b05da0fa"
+  private const val UNIFIED_FILE = "hakux-bundled-unified-p48r1-hakux-common-71e520f9.zip"
+  private const val UNIFIED_ASSET = "gpu_drivers/Unified-P48r1-HakuX-common-71e520f9.zip"
+  private const val UNIFIED_SHA256 = "c921fd6507a590f95e2f253a7d9f446a4335db0356ccdd7346c85722d5a0d1ff"
+  private const val UNIFIED_MARKER = "bundled:unified:P48r1:71e520f9de77"
   private const val BOOTSTRAPPED = "bundled_malisx2_bootstrapped"
   private var bundledPrepared = false
 
@@ -51,11 +55,15 @@ object GpuDriverHelper {
 
   private val bundledFile: File get() = File(appContext.filesDir, "bundled_drivers/$BUNDLED_FILE")
   private val combinedFile: File get() = File(appContext.filesDir, "bundled_drivers/$COMBINED_FILE")
+  private val unifiedFile: File get() = File(appContext.filesDir, "bundled_drivers/$UNIFIED_FILE")
+  private fun offersUnifiedBundle(): Boolean =
+    GpuDriverPolicy.offersUnifiedBundle(Build.VERSION.SDK_INT, rg476hMali, rg477mMali)
   // M2+DS1 was qualified on G615/RG477M with the API 34 toolchain. Keep
   // the official bundle for older Android versions and other handhelds.
   private fun offersCombinedBundle(): Boolean = Build.VERSION.SDK_INT >= 34 && rg477mMali
   private val bundledFiles: List<File> get() =
-    if (offersCombinedBundle()) listOf(combinedFile, bundledFile) else listOf(bundledFile)
+    (if (offersCombinedBundle()) listOf(combinedFile, bundledFile) else listOf(bundledFile)) +
+      (if (offersUnifiedBundle()) listOf(unifiedFile) else emptyList())
   private val choices get() = appContext.getSharedPreferences("gpu_driver_choices", Context.MODE_PRIVATE)
 
   private fun prepareBundledDriver(): Boolean {
@@ -64,6 +72,9 @@ object GpuDriverHelper {
       BundledDriverArchive.ensure(bundledFile, BUNDLED_SHA256) { appContext.assets.open(BUNDLED_ASSET) }
       if (offersCombinedBundle()) {
         BundledDriverArchive.ensure(combinedFile, COMBINED_SHA256) { appContext.assets.open(COMBINED_ASSET) }
+      }
+      if (offersUnifiedBundle()) {
+        BundledDriverArchive.ensure(unifiedFile, UNIFIED_SHA256) { appContext.assets.open(UNIFIED_ASSET) }
       }
       val bundled = bundledFiles.first()
       val done = choices.getBoolean(BOOTSTRAPPED, false)
@@ -93,6 +104,7 @@ object GpuDriverHelper {
   private fun packageId(file: File): String = when (file.absolutePath) {
     bundledFile.absolutePath -> BUNDLED_MARKER
     combinedFile.absolutePath -> COMBINED_MARKER
+    unifiedFile.absolutePath -> UNIFIED_MARKER
     else -> file.name
   }
   fun isBundledInUse(): Boolean = bundledFiles.any(::isInUse)

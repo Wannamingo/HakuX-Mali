@@ -10,6 +10,7 @@ data class HudOptions(
   val cpu: Boolean = true,
   val gpu: Boolean = true,
   val battery: Boolean = true,
+  val speed: Boolean = true,
 ) {
   val temperatures get() = cpu || gpu || battery
   fun sanitized() = copy(textSize = textSize.coerceIn(8, 18), background = background.coerceIn(0, 100))
