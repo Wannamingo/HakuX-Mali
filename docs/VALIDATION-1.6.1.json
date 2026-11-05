@@ -1,0 +1,38 @@
+{
+  "version": "1.6.1",
+  "versionCode": 29,
+  "apk_sha256": "c0fdfd1b1ad8a4a15bb15634075f23856e00d285245043d647c7e8d35b815b3b",
+  "Android_unit_tests": {
+    "tests": 109,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "release_lint": true,
+  "certificate_sha256": "1cdd12b743a90c5e1224b11d46ca79189662bd023b2c63686dacfdd5530a590e",
+  "APK_signature_v3": true,
+  "alignment_16KiB": true,
+  "all_eight_native_libraries_unchanged_from_1_6": true,
+  "native_core_sha256": "82b2539727c66efb9b38b31d0f6cb88c1ed9ab320e4c93673e45d0b53c6eb893",
+  "bundled_Unified_P48r1_library_sha256": "71e520f9de773d23700b2a5e48e6960dbd588d791b3e6b0ef31f77b5d17330df",
+  "bundled_driver_binaries_unchanged": true,
+  "icon_unchanged": true,
+  "device_checks": {
+    "RG477M": {
+      "in_place_update": true,
+      "driver_and_settings_preserved": true,
+      "UI_check": "UI automation did not obtain the initial snapshot; no claim of UI verification"
+    },
+    "RG476H": {
+      "in_place_update": true,
+      "driver_and_settings_preserved": true,
+      "detected_chip": "Unisoc T820",
+      "driver_page_UI": true,
+      "driver_changed_by_test": false
+    }
+  },
+  "T618_physical_Unified_test": false,
+  "chip_catalogue_independent_of_Android_version": true,
+  "actual_binary_minimum_API_preserved": true,
+  "new_gameplay_or_FPS_benchmark": false
+}

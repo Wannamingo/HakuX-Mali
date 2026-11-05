@@ -29,13 +29,12 @@ class GpuDriverPolicyTest {
       assertFalse(name, GpuDriverPolicy.isRg556(name))
   }
 
-  @Test fun chipFamilyUnifiedAvailabilityUsesSeparateApiFloors() {
-    for (sdk in 28..36) {
-      assertEquals("T820 API $sdk", sdk >= 33,
-        GpuDriverPolicy.offersUnifiedBundle(sdk, false, false, unisocT820Mali = true))
-      assertEquals("Dimensity 8300 API $sdk", sdk >= 34,
-        GpuDriverPolicy.offersUnifiedBundle(sdk, false, false, dimensity8300Mali = true))
-    }
+  @Test fun chipCatalogueIncludesAllThreeFamiliesWithoutAnAndroidFilter() {
+    assertTrue(GpuDriverPolicy.offersUnifiedBundle(false, false, unisocT820Mali = true))
+    assertTrue(GpuDriverPolicy.offersUnifiedBundle(false, false, unisocT618Mali = true))
+    assertTrue(GpuDriverPolicy.offersUnifiedBundle(false, false, dimensity8300Mali = true))
+    assertTrue(GpuDriverPolicy.offersUnifiedBundle(true, false))
+    assertTrue(GpuDriverPolicy.offersUnifiedBundle(false, true))
   }
 
   @Test fun newlyEnabledChipFamiliesKeepManualSystemAndCustomChoices() {
@@ -50,16 +49,39 @@ class GpuDriverPolicyTest {
     assertTrue(GpuDriverPolicy.allowsAutomaticBundle(false, true))
   }
 
-  @Test fun unifiedBundleUsesQualifiedAndroidFloors() {
-    assertFalse(GpuDriverPolicy.offersUnifiedBundle(32, true, false))
-    assertTrue(GpuDriverPolicy.offersUnifiedBundle(33, true, false))
-    assertTrue(GpuDriverPolicy.offersUnifiedBundle(34, true, false))
-    assertFalse(GpuDriverPolicy.offersUnifiedBundle(33, false, true))
-    assertTrue(GpuDriverPolicy.offersUnifiedBundle(34, false, true))
+  @Test fun visiblePackagesStillRespectTheirActualBinaryRequirements() {
+    assertTrue(GpuDriverPolicy.offersUnifiedBundle(false, false, unisocT618Mali = true))
+    assertFalse(GpuDriverPolicy.canLoadPackage(32, 33))
+    assertTrue(GpuDriverPolicy.canLoadPackage(33, 33))
+    assertTrue(GpuDriverPolicy.canLoadPackage(34, 33))
+    assertFalse(GpuDriverPolicy.canLoadPackage(33, 34))
   }
 
   @Test fun unifiedBundleIsNotOfferedToOtherMaliDevices() {
-    for (sdk in 28..36) assertFalse(GpuDriverPolicy.offersUnifiedBundle(sdk, false, false))
+    assertFalse(GpuDriverPolicy.offersUnifiedBundle(false, false))
+  }
+
+  @Test fun t618NamesDoNotConfuseOtherUnisocChipsOrGenericBoards() {
+    for (name in listOf("T618", "Unisoc T618", "Unisoc Tiger T618", "Spreadtrum T618", "TIGER-T618"))
+      assertTrue(name, GpuDriverPolicy.isUnisocT618(name))
+    for (name in listOf("T820", "T610", "T6180", "ums512", "Mali-G52", "RK3576", ""))
+      assertFalse(name, GpuDriverPolicy.isUnisocT618(name))
+    assertTrue(GpuDriverPolicy.isUnisocT618("GammaOS Full", "Unisoc T618"))
+  }
+
+  @Test fun automaticChipClassificationKeepsT820AndT618Separate() {
+    assertEquals(GpuDriverPolicy.Chip.UNISOC_T820, GpuDriverPolicy.chip(true, false, false))
+    assertEquals(GpuDriverPolicy.Chip.UNISOC_T618, GpuDriverPolicy.chip(false, true, false))
+    assertEquals(GpuDriverPolicy.Chip.DIMENSITY_8300, GpuDriverPolicy.chip(false, false, true))
+    assertNull(GpuDriverPolicy.chip(false, false, false))
+  }
+
+  @Test fun t618FirmwareFallbackRequiresBothBoardAndKnownModel() {
+    for (model in listOf("RG405M", "ANBERNIC RG505", "RG Rotate"))
+      assertTrue(model, GpuDriverPolicy.isT618Handheld("ums512", "GammaOS Full", model))
+    assertFalse(GpuDriverPolicy.isT618Handheld("ums512", "generic_arm64", "T610"))
+    assertFalse(GpuDriverPolicy.isT618Handheld("ums9620", "RG405M"))
+    assertFalse(GpuDriverPolicy.isT618Handheld("ums512", "RG405M Plus"))
   }
 
   @Test fun experimentalRg476hKeepsSystemDefault() {

@@ -33,6 +33,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewmodel.compose.viewModel
 import com.rfandango.haku_x.GpuDriverHelper
 import com.rfandango.haku_x.GpuDriverHelper.DriverMetadata
+import com.rfandango.haku_x.GpuDriverPolicy
 import com.rfandango.haku_x.R
 import com.rfandango.haku_x.ui.common.ActionItem
 import com.rfandango.haku_x.ui.common.ConfirmDialog
@@ -67,12 +68,24 @@ fun GpuDriverScreen(onBack: () -> Unit, vm: GpuDriverViewModel = viewModel()) {
       }
       Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState())) {
         Hint(stringResource(R.string.gpu_driver_desc))
+        GpuDriverHelper.detectedChip()?.let { chip ->
+          val chipName = when (chip) {
+            GpuDriverPolicy.Chip.UNISOC_T820 -> R.string.gpu_driver_chip_t820
+            GpuDriverPolicy.Chip.UNISOC_T618 -> R.string.gpu_driver_chip_t618
+            GpuDriverPolicy.Chip.DIMENSITY_8300 -> R.string.gpu_driver_chip_d8300
+          }
+          ListItem(
+            headlineContent = { Text(stringResource(R.string.gpu_driver_detected_chip)) },
+            supportingContent = { Text(stringResource(chipName)) },
+          )
+          Hint(stringResource(R.string.gpu_driver_chip_auto_desc))
+        }
         if (GpuDriverHelper.isMaliSX2Device()) Hint(stringResource(
           when {
-            GpuDriverHelper.isRgVitaPro() -> R.string.gpu_driver_malisx2_vita
-            GpuDriverHelper.isRg476h() -> R.string.gpu_driver_malisx2_rg476h
+            GpuDriverHelper.detectedChip() == GpuDriverPolicy.Chip.UNISOC_T618 -> R.string.gpu_driver_malisx2_t618
             GpuDriverHelper.isUnisocT820() -> R.string.gpu_driver_malisx2_t820
-            !GpuDriverHelper.isRg477mMali() && GpuDriverHelper.isDimensity8300() -> R.string.gpu_driver_malisx2_d8300
+            GpuDriverHelper.isDimensity8300() || GpuDriverHelper.isRg477mMali() -> R.string.gpu_driver_malisx2_d8300
+            GpuDriverHelper.isRgVitaPro() -> R.string.gpu_driver_malisx2_vita
             else -> R.string.gpu_driver_malisx2
           },
         ))
@@ -97,14 +110,18 @@ fun GpuDriverScreen(onBack: () -> Unit, vm: GpuDriverViewModel = viewModel()) {
         }
         for (d in s.drivers) {
           DriverRow(
-            title = GpuDriverViewModel.label(d),
+            title = if (d.path?.let { GpuDriverHelper.isUnifiedDriver(java.io.File(it)) } == true)
+              "Unified P48r1" else GpuDriverViewModel.label(d),
             detail = listOfNotNull(
               if (d.path?.let { GpuDriverHelper.isBundledDriver(java.io.File(it)) } == true)
                 stringResource(R.string.gpu_driver_bundled) else null,
+              if (android.os.Build.VERSION.SDK_INT < d.minApi)
+                stringResource(R.string.gpu_driver_binary_requires_api, d.minApi)
+              else if (!GpuDriverHelper.canLoadDriver(d)) stringResource(R.string.gpu_driver_err_gpu) else null,
               details(d),
             ).joinToString("\n"),
             selected = d.path == s.inUse,
-            enabled = enabled,
+            enabled = enabled && GpuDriverHelper.canLoadDriver(d),
             onSelect = { if (d.path != s.inUse) vm.use(d) },
             onDelete = if (d.path?.let { GpuDriverHelper.isBundledDriver(java.io.File(it)) } == true) null
                        else { { deleting = d } },

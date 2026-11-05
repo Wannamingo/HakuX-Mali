@@ -4,9 +4,18 @@
 
 ![HakuX-Mali](assets/branding/hakux-mali-banner.png)
 
-An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **Latest stable version: 1.6/code26 for ANBERNIC RG477M, RG476H, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
+An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **Latest stable version: 1.6.1/code29 for ANBERNIC RG477M, RG476H, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
 
-**[Download APK 1.6](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.6/HakuX-Mali-1.6-release.apk)** · **[Release 1.6: source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.6)** · **[All changes](releases/1.6.en.md)**
+**[Download APK 1.6.1](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.6.1/HakuX-Mali-1.6.1-release.apk)** · **[Release 1.6.1: source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.6.1)** · **[All changes](releases/1.6.1.en.md)**
+
+## New in 1.6.1
+
+- Automatic **Unisoc T820**, **Unisoc T618**, **Dimensity 8300 / 8300 Ultra** detection with manual driver selection in Settings.
+- A chip-based catalogue without hiding drivers by Android version; actual library requirements are shown separately.
+- T618 offers System driver and experimental Unified P48r1. Unified has not been tested on a physical T618.
+- Updates retain the selected driver. Unified does not promise the highest FPS in every game.
+
+[1.6.1 changes and limitations](releases/1.6.1.en.md), including the RG476H Dead or Alive Xtreme Beach Volleyball graphics and NFS Most Wanted speed reports.
 
 ## New in 1.6
 
@@ -53,9 +62,9 @@ A full 1.4 calibration cycle on RG477M measured about 60 FPS at 1× versus 48 at
 
 ## Installation
 
-1. Download **HakuX-Mali-1.6-release.apk** from [stable release 1.6](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.6) and install over our previous release. Package ID and signing identity are retained; do not uninstall to update.
+1. Download **HakuX-Mali-1.6.1-release.apk** from [stable release 1.6.1](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.6.1) and install over our previous release. Package ID and signing identity are retained; do not uninstall to update.
 2. Select your own ISO/XISO directory or game folders containing `default.xbe`. Release source archives are for developers.
-3. Version 1.6 includes Unified P48r1 for RG476H on Android 13+ and RG477M on Android 14+. Earlier M2+DS1 and MaliSX2 0.2.3 packages remain available. Updates retain your selection; fresh RG476H installs use System driver. Fully restart the app and game after a driver change. Rotate was checked with its system driver.
+3. Version 1.6.1 detects the chip automatically; select the driver manually in Settings. The chip catalogue does not hide packages by Android version; actual binary requirements are shown separately. T618 offers System driver and experimental Unified. Updates retain the selection. [Details and limits](releases/1.6.1.en.md).
 4. Auto is off by default. Use a stable gameplay scene and **Calibrate performance** in the pause menu to measure settings.
 5. A new installation defaults to a 120 FPS ceiling; existing manual limits are preserved. Games retain their own lower 30/60 FPS caps.
 

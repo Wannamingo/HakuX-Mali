@@ -3,6 +3,7 @@ package com.rfandango.haku_x
 /** MaliSX2 loading for identified handhelds and SoCs; generic Mali matching is avoided. */
 object GpuDriverPolicy {
   const val MALISX2_LIBRARY = "libvulkan_malisx2.so"
+  enum class Chip { UNISOC_T820, UNISOC_T618, DIMENSITY_8300 }
 
   fun isRg477m(vararg names: String): Boolean = names.any {
     it.lowercase().replace(Regex("[^a-z0-9]"), "").contains("rg477m")
@@ -35,11 +36,34 @@ object GpuDriverPolicy {
     name == "t820"
   }
 
-  /** Chip-family availability; hardware qualification remains device/firmware-specific. */
-  fun offersUnifiedBundle(sdk: Int, rg476hMali: Boolean, rg477mMali: Boolean,
-                          dimensity8300Mali: Boolean = false, unisocT820Mali: Boolean = false): Boolean =
-    (sdk >= 33 && (rg476hMali || unisocT820Mali)) ||
-      (sdk >= 34 && (rg477mMali || dimensity8300Mali))
+  fun isUnisocT618(vararg names: String): Boolean = names.any {
+    val name = it.lowercase().replace(Regex("[^a-z0-9]"), "")
+      .removePrefix("unisoc").removePrefix("spreadtrum").removePrefix("tiger")
+    name == "t618"
+  }
+
+  /** A generic UMS512 may be another chip; require a known T618 model as well. */
+  fun isT618Handheld(boardPlatform: String, vararg names: String): Boolean =
+    boardPlatform.equals("ums512", ignoreCase = true) && names.any {
+      it.lowercase().replace(Regex("[^a-z0-9]"), "").removePrefix("anbernic") in
+        setOf("rg405m", "rg505", "rgrotate")
+    }
+
+  fun chip(t820: Boolean, t618: Boolean, dimensity8300: Boolean): Chip? = when {
+    t820 -> Chip.UNISOC_T820
+    t618 -> Chip.UNISOC_T618
+    dimensity8300 -> Chip.DIMENSITY_8300
+    else -> null
+  }
+
+  /** Catalogue visibility is based on the chip, not Android. T618 is experimental. */
+  fun offersUnifiedBundle(rg476hMali: Boolean, rg477mMali: Boolean,
+                          dimensity8300Mali: Boolean = false, unisocT820Mali: Boolean = false,
+                          unisocT618Mali: Boolean = false): Boolean =
+    rg476hMali || rg477mMali || dimensity8300Mali || unisocT820Mali || unisocT618Mali
+
+  /** Displaying a package never bypasses the requirements of the actual binary. */
+  fun canLoadPackage(sdk: Int, minApi: Int): Boolean = sdk >= minApi
 
   /** Keep the historical automatic default only on the original qualified devices. */
   fun allowsAutomaticBundle(rg477mMali: Boolean, vitaProMali: Boolean): Boolean =
