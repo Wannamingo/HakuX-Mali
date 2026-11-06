@@ -58,9 +58,9 @@ class DriverPackageArchiveTest {
   @Test fun normalLicenseSubdirectoriesRemainSupported() {
     assertNull(check(zip("driver.so" to elf(),"LICENSES/MIT.txt" to "license".toByteArray())))
   }
-  @Test fun allThreeExistingBundledLibrariesPassWithoutChangingTheirBytes() {
+  @Test fun allFourBundledLibrariesPassArchiveAndArm64Checks() {
     val assets=File("src/main/assets/gpu_drivers").listFiles()!!.filter{it.extension=="zip"}
-    assertEquals(3,assets.size)
+    assertEquals(4,assets.size)
     for (file in assets)
       assertNull(file.name,check(file,"libvulkan_malisx2.so",0,Int.MAX_VALUE))
   }

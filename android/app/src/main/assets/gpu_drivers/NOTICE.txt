@@ -15,8 +15,21 @@ Qualified on RG477M/Mali-G615; the official 0.2.3 bundle remains available for r
 
 Additional bundle: Unified P48r1, RG476H Android 13+/API33 and RG477M Android 14+/API34.
 Library SHA-256: 71e520f9de773d23700b2a5e48e6960dbd588d791b3e6b0ef31f77b5d17330df.
-One common library; device-scoped offer in GpuDriverHelper. Existing explicit choices and legacy defaults retained.
+Legacy package, now visible in the unrestricted manual catalogue. Existing explicit choices and legacy defaults retained.
 Exact default-mode qualification: 149 CTS cases, 24 native processes / 34746 checks / 314 explicit GPU cases,
 plus Syberia intro/main-menu app smoke on the two listed consoles. Not full Vulkan conformance or an FPS benchmark.
 Driver source: release attachment Unified-P48r1-driver-source.zip; exact Mesa source: Mesa-exact-source-export-2026-11-04.zip.
 Original notices and licenses are also inside the driver bundle.
+
+Additional testing bundle: Unified P77r1, Android 12+/API31, ARM64.
+Library SHA-256: 53d01a562e504782154a5cddbcc55bcd079f2038260bca08ea6885d835562006.
+Exact native/API qualification on RG477M/G615, RG476H/G57 and RG Rotate/G52.
+Selected MaliSX2 0.3.3 backports, linear descriptor pools, attachment LOAD,
+AFBC targets and 3D blit fixes. Unsupported BC formats are not advertised.
+This is a testing release: no new game FPS or long-session stability claim.
+The separate G615 RGB_EXTERNAL AHB test does not enable this private flag in the app.
+G615 advertises experimental Vulkan 1.4 by default; no full 1.4 conformance is claimed.
+G52/G57 remain at Vulkan 1.1; public AHB is not enabled on those architectures.
+All devices can manually select/import packages; actual GPU/kernel/Android compatibility still applies.
+The three earlier packages and automatic-choice policy are retained unchanged.
+Source, provenance, qualification matrix and original licenses are included in the driver ZIP.

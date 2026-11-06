@@ -8,6 +8,14 @@ An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/h
 
 **[Download APK 1.6.1](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.6.1/HakuX-Mali-1.6.1-release.apk)** · **[Release 1.6.1: source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.6.1)** · **[All changes](releases/1.6.1.en.md)**
 
+## Prepared: 1.7 / code30
+
+The local build adds **manual driver selection and ZIP import on every
+device**, without model or SoC restrictions, and bundles the **Unified P77r1
+testing release**. The three earlier packages and existing user choices are
+preserved. See [1.7 changes and validation limits](releases/1.7.en.md).
+Version 1.7 has not been published to GitHub; the stable links above remain for 1.6.1.
+
 ## New in 1.6.1
 
 - Automatic **Unisoc T820**, **Unisoc T618**, **Dimensity 8300 / 8300 Ultra** detection with manual driver selection in Settings.
