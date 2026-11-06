@@ -117,7 +117,7 @@ fun GpuDriverScreen(onBack: () -> Unit, vm: GpuDriverViewModel = viewModel()) {
                 stringResource(R.string.gpu_driver_bundled) else null,
               if (android.os.Build.VERSION.SDK_INT < d.minApi)
                 stringResource(R.string.gpu_driver_binary_requires_api, d.minApi)
-              else if (!GpuDriverHelper.canLoadDriver(d)) stringResource(R.string.gpu_driver_err_gpu) else null,
+              else if (!GpuDriverHelper.canLoadDriver(d)) stringResource(R.string.gpu_driver_err_no_library) else null,
               details(d),
             ).joinToString("\n"),
             selected = d.path == s.inUse,

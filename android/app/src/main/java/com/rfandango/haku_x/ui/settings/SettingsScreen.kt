@@ -421,13 +421,12 @@ fun SettingsScreen(
           onChange = { prebuildShaders = it; prefs.prebuildShaders = it },
         )
       }
-      // Turnip on Adreno and MaliSX2 on RG477M use the isolated Android Vulkan loader.
-      val customDrivers = remember { GpuDriverHelper.supportsCustomDriverLoading() }
+      // Every device may manually select or import a driver through the isolated loader.
       SettingsTarget(R.string.settings_gpu_driver_title) {
         ListItem(
           headlineContent = { Text(stringResource(R.string.settings_gpu_driver_title)) },
           supportingContent = { Text(driver) },
-          modifier = Modifier.clickable(enabled = customDrivers, onClick = onGpuDriver),
+          modifier = Modifier.clickable(onClick = onGpuDriver),
         )
       }
 
@@ -714,9 +713,6 @@ internal fun aspectLabel(value: String) = when (value) {
 /** The driver in use, for the settings' GPU driver item (its version, when its package names one). */
 private fun driverLabel(context: android.content.Context): String {
   GpuDriverHelper.init(context)
-  if (!GpuDriverHelper.supportsCustomDriverLoading()) {
-    return context.getString(R.string.settings_gpu_driver_not_supported)
-  }
   val d = GpuDriverHelper.getActiveDriver() ?: return context.getString(R.string.settings_gpu_driver_system)
   val name = d.name ?: context.getString(R.string.settings_gpu_driver_custom)
   return d.driverVersion?.let { context.getString(R.string.settings_gpu_driver_active_version, name, it) } ?: name

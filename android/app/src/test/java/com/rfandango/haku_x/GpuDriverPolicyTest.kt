@@ -29,14 +29,6 @@ class GpuDriverPolicyTest {
       assertFalse(name, GpuDriverPolicy.isRg556(name))
   }
 
-  @Test fun chipCatalogueIncludesAllThreeFamiliesWithoutAnAndroidFilter() {
-    assertTrue(GpuDriverPolicy.offersUnifiedBundle(false, false, unisocT820Mali = true))
-    assertTrue(GpuDriverPolicy.offersUnifiedBundle(false, false, unisocT618Mali = true))
-    assertTrue(GpuDriverPolicy.offersUnifiedBundle(false, false, dimensity8300Mali = true))
-    assertTrue(GpuDriverPolicy.offersUnifiedBundle(true, false))
-    assertTrue(GpuDriverPolicy.offersUnifiedBundle(false, true))
-  }
-
   @Test fun newlyEnabledChipFamiliesKeepManualSystemAndCustomChoices() {
     val automatic = GpuDriverPolicy.allowsAutomaticBundle(false, false)
     assertFalse(automatic)
@@ -50,15 +42,11 @@ class GpuDriverPolicyTest {
   }
 
   @Test fun visiblePackagesStillRespectTheirActualBinaryRequirements() {
-    assertTrue(GpuDriverPolicy.offersUnifiedBundle(false, false, unisocT618Mali = true))
     assertFalse(GpuDriverPolicy.canLoadPackage(32, 33))
     assertTrue(GpuDriverPolicy.canLoadPackage(33, 33))
     assertTrue(GpuDriverPolicy.canLoadPackage(34, 33))
     assertFalse(GpuDriverPolicy.canLoadPackage(33, 34))
-  }
-
-  @Test fun unifiedBundleIsNotOfferedToOtherMaliDevices() {
-    assertFalse(GpuDriverPolicy.offersUnifiedBundle(false, false))
+    assertFalse(GpuDriverPolicy.canLoadPackage(34, -1))
   }
 
   @Test fun t618NamesDoNotConfuseOtherUnisocChipsOrGenericBoards() {
@@ -113,13 +101,19 @@ class GpuDriverPolicyTest {
     assertTrue(GpuDriverPolicy.isRg477m("GammaOS Full", "RG477M"))
   }
 
-  @Test fun incompatibleAndUnsafeLibraries() {
-    assertTrue(GpuDriverPolicy.acceptsLibrary("libvulkan_malisx2.so", false, true))
-    assertFalse(GpuDriverPolicy.acceptsLibrary("libvulkan_malisx2.so", true, false))
-    assertFalse(GpuDriverPolicy.acceptsLibrary("libvulkan_freedreno.so", false, true))
-    assertFalse(GpuDriverPolicy.acceptsLibrary("libvulkan_malisx2.so", false, false))
-    for (name in listOf(null, "", "../libvulkan_malisx2.so", "/data/driver.so", "x|y.so"))
-      assertFalse(GpuDriverPolicy.acceptsLibrary(name, false, true))
+  @Test fun manualLibrariesAreNotRestrictedToOneGpuVendor() {
+    for (name in listOf("libvulkan_malisx2.so", "libvulkan_freedreno.so", "libvulkan_custom.so"))
+      assertTrue(name, GpuDriverPolicy.acceptsLibrary(name))
+    for (name in listOf(null, "", "../libvulkan_malisx2.so", "/data/driver.so", "x|y.so", "x\\driver.so", "x/driver.so"))
+      assertFalse(GpuDriverPolicy.acceptsLibrary(name))
+  }
+
+  @Test fun nativeLoaderFailuresCanBeExplainedWithoutMislabelingOtherBootErrors() {
+    assertTrue(GpuDriverPolicy.isDriverLoadFailure("The selected Vulkan driver could not be loaded. Select System driver."))
+    assertTrue(GpuDriverPolicy.isDriverLoadFailure("The selected Vulkan driver path is invalid."))
+    assertTrue(GpuDriverPolicy.isDriverLoadFailure("This build cannot load custom Vulkan drivers (adrenotools is missing)."))
+    assertFalse(GpuDriverPolicy.isDriverLoadFailure("Could not open Xbox HDD"))
+    assertFalse(GpuDriverPolicy.isDriverLoadFailure("the state is of another game"))
   }
 
   @Test fun firstInstallAndExistingChoices() {

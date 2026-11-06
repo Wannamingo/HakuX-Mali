@@ -195,8 +195,6 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
         fatalShown = true
         val kind = nativeGetFatalKind()
         val driver = kind == FATAL_DRIVER
-        /* Turnip on Adreno, experimental MaliSX2 on RG477M. */
-        val custom = GpuDriverHelper.supportsCustomDriverLoading()
         AlertDialog.Builder(this@NativeCoreActivity)
           .setTitle(
             when (kind) {
@@ -209,10 +207,12 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
           )
           .setMessage(
             when {
-              driver -> getString(if (custom) R.string.native_fatal_gpu else R.string.native_fatal_gpu_system, why)
+              driver -> getString(R.string.native_fatal_gpu, why)
               kind == FATAL_STATE -> why
               kind == FATAL_GPU_LOST ->
-                getString(if (custom) R.string.native_gpu_lost else R.string.native_gpu_lost_system, why)
+                getString(R.string.native_gpu_lost, why)
+              kind == FATAL_BOOT && GpuDriverPolicy.isDriverLoadFailure(why) ->
+                getString(R.string.gpu_driver_runtime_failed, why)
               kind == FATAL_BOOT -> getString(R.string.native_boot_failed, why)
               else -> getString(R.string.native_incompatible)
             }
@@ -384,7 +384,7 @@ class NativeCoreActivity : SDLActivity(), InputManager.InputDeviceListener {
      * by the core through adrenotools; none: the system driver. */
     GpuDriverHelper.init(this)
     val driverLib = GpuDriverHelper.getInstalledDriverLibrary()
-    if (!driverLib.isNullOrEmpty() && GpuDriverHelper.supportsCustomDriverLoading()) {
+    if (!driverLib.isNullOrEmpty()) {
       android.util.Log.i("hakuX-app", "GPU driver package: " +
         if (GpuDriverHelper.isBundledInUse()) "bundled MaliSX2 0.2.3" else "imported")
       args += "vkdriver=${GpuDriverHelper.driverInstallDir}|$driverLib|${GpuDriverHelper.hookLibDir}"

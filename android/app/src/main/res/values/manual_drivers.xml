@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="gpu_driver_err_abi">The driver library must be a 64-bit ARM (arm64-v8a) ELF shared library for this app.</string>
+  <string name="gpu_driver_err_unsafe_path">The ZIP contains an unsafe file path. The current driver was kept. Choose another package.</string>
+  <string name="gpu_driver_runtime_failed">The selected GPU driver could not start. In Settings → GPU driver, select System or another package. Your selected package is kept until you change it. Compatibility depends on the GPU and firmware.\n\nDetails: %1$s</string>
+</resources>

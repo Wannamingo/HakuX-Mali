@@ -56,28 +56,18 @@ object GpuDriverHelper {
   private val bundledFile: File get() = File(appContext.filesDir, "bundled_drivers/$BUNDLED_FILE")
   private val combinedFile: File get() = File(appContext.filesDir, "bundled_drivers/$COMBINED_FILE")
   private val unifiedFile: File get() = File(appContext.filesDir, "bundled_drivers/$UNIFIED_FILE")
-  private fun offersUnifiedBundle(): Boolean =
-    GpuDriverPolicy.offersUnifiedBundle(rg476hMali, rg477mMali,
-      dimensity8300Mali, unisocT820Mali, unisocT618Mali)
-  // Catalogue visibility follows the chip. Loading retains each binary's minApi check.
-  private fun offersCombinedBundle(): Boolean = rg477mMali
-  private val bundledFiles: List<File> get() =
-    (if (unisocT618Mali) emptyList() else
-      if (offersCombinedBundle()) listOf(combinedFile, bundledFile) else listOf(bundledFile)) +
-      (if (offersUnifiedBundle()) listOf(unifiedFile) else emptyList())
+  // Every asset is visible on every device. Detection only chooses the historical default.
+  private val bundledFiles: List<File> get() = listOf(combinedFile, bundledFile, unifiedFile)
+  private val automaticCandidates: List<File> get() =
+    if (rg477mMali) bundledFiles else listOf(bundledFile)
   private val choices get() = appContext.getSharedPreferences("gpu_driver_choices", Context.MODE_PRIVATE)
 
   private fun prepareBundledDriver(): Boolean {
-    if (!isMaliSX2Device()) return true
     return try {
       BundledDriverArchive.ensure(bundledFile, BUNDLED_SHA256) { appContext.assets.open(BUNDLED_ASSET) }
-      if (offersCombinedBundle()) {
-        BundledDriverArchive.ensure(combinedFile, COMBINED_SHA256) { appContext.assets.open(COMBINED_ASSET) }
-      }
-      if (offersUnifiedBundle()) {
-        BundledDriverArchive.ensure(unifiedFile, UNIFIED_SHA256) { appContext.assets.open(UNIFIED_ASSET) }
-      }
-      val bundled = bundledFiles.firstOrNull {
+      BundledDriverArchive.ensure(combinedFile, COMBINED_SHA256) { appContext.assets.open(COMBINED_ASSET) }
+      BundledDriverArchive.ensure(unifiedFile, UNIFIED_SHA256) { appContext.assets.open(UNIFIED_ASSET) }
+      val bundled = automaticCandidates.firstOrNull {
         readMetadata(it)?.let(::canLoadDriver) == true
       }
       val done = choices.getBoolean(BOOTSTRAPPED, false)
@@ -112,10 +102,6 @@ object GpuDriverHelper {
     else -> file.name
   }
   fun isBundledInUse(): Boolean = bundledFiles.any(::isInUse)
-
-  fun supportsCustomDriverLoading(): Boolean {
-    return isAdreno() || isMaliSX2Device()
-  }
 
   private fun isAdreno(): Boolean = File("/dev/kgsl-3d0").exists()
 
@@ -202,10 +188,8 @@ object GpuDriverHelper {
     GpuDriverPolicy.chip(unisocT820Mali, unisocT618Mali, dimensity8300Mali || rg477mMali)
 
   fun canLoadDriver(meta: DriverMetadata): Boolean =
-    GpuDriverPolicy.canLoadPackage(Build.VERSION.SDK_INT, meta.minApi) && compatible(meta)
-
-  private fun compatible(meta: DriverMetadata): Boolean =
-    GpuDriverPolicy.acceptsLibrary(meta.libraryName, isAdreno(), isMaliSX2Device())
+    GpuDriverPolicy.canLoadPackage(Build.VERSION.SDK_INT, meta.minApi) &&
+      GpuDriverPolicy.acceptsLibrary(meta.libraryName)
 
   /**
    * A Turnip driver is worth recommending: the phone can load one (Qualcomm), it runs on its own
@@ -226,7 +210,7 @@ object GpuDriverHelper {
   }
 
   /** Why a package wasn't added (addDriver). */
-  enum class AddError { UNREADABLE, NOT_A_DRIVER, NO_LIBRARY, API, GPU, UNPACK }
+  enum class AddError { UNREADABLE, NOT_A_DRIVER, NO_LIBRARY, API, ABI, UNSAFE_PATH, UNPACK }
 
   /** addDriver's outcome: the package added (and in use), or why not. */
   data class AddResult(val driver: DriverMetadata? = null, val error: AddError? = null)
@@ -249,13 +233,7 @@ object GpuDriverHelper {
       return AddResult(error = AddError.UNREADABLE)
     }
     val meta = readMetadata(tmpFile)
-    val error = when {
-      meta == null -> AddError.NOT_A_DRIVER
-      meta.libraryName.isNullOrEmpty() || !hasEntry(tmpFile, meta.libraryName) -> AddError.NO_LIBRARY
-      meta.minApi > Build.VERSION.SDK_INT -> AddError.API
-      !compatible(meta) -> AddError.GPU
-      else -> null
-    }
+    val error = if (meta == null) AddError.NOT_A_DRIVER else packageError(tmpFile, meta)
     if (meta == null || error != null) {
       Log.e(TAG, "Not a usable driver package: $error")
       tmpFile.delete()
@@ -282,8 +260,16 @@ object GpuDriverHelper {
     return base.ifEmpty { "driver" } + ".zip"
   }
 
-  private fun hasEntry(zipFile: File, name: String): Boolean =
-    runCatching { ZipFile(zipFile).use { it.getEntry(name) != null } }.getOrDefault(false)
+  fun packageError(zipFile: File, meta: DriverMetadata): AddError? = when (
+    DriverPackageArchive.check(zipFile, meta.libraryName, meta.minApi, Build.VERSION.SDK_INT)
+  ) {
+    null -> null
+    DriverPackageArchive.Error.UNREADABLE -> AddError.NOT_A_DRIVER
+    DriverPackageArchive.Error.NO_LIBRARY -> AddError.NO_LIBRARY
+    DriverPackageArchive.Error.API -> AddError.API
+    DriverPackageArchive.Error.ABI -> AddError.ABI
+    DriverPackageArchive.Error.UNSAFE_PATH -> AddError.UNSAFE_PATH
+  }
 
   /**
    * The stored package put in use: unpacked beside the one in use, which it replaces only once it is
@@ -291,8 +277,7 @@ object GpuDriverHelper {
    */
   fun useDriver(driverZip: File): Boolean {
     val meta = readMetadata(driverZip) ?: return false
-    if (meta.minApi > Build.VERSION.SDK_INT || !compatible(meta) ||
-        !hasEntry(driverZip, meta.libraryName!!)) return false
+    if (packageError(driverZip, meta) != null) return false
     val installDir = File(driverInstallDir)
     val newDir = File(installDir.parentFile, installDir.name + ".new")
     newDir.deleteRecursively()
@@ -363,7 +348,7 @@ object GpuDriverHelper {
   fun getInstalledDriverName(): String? = getActiveDriver()?.name
 
   fun getInstalledDriverLibrary(): String? = getActiveDriver()
-    ?.takeIf { compatible(it) && it.minApi <= Build.VERSION.SDK_INT }
+    ?.takeIf(::canLoadDriver)
     ?.libraryName
 
   /**
@@ -386,7 +371,7 @@ object GpuDriverHelper {
       ?.mapNotNull { readMetadata(it)?.copy(path = it.absolutePath) }
       ?.sortedBy { it.name?.lowercase() }
       ?: emptyList()
-    val bundled = if (isMaliSX2Device()) bundledFiles.mapNotNull(::readMetadata) else emptyList()
+    val bundled = bundledFiles.mapNotNull(::readMetadata)
     return bundled + stored
   }
 

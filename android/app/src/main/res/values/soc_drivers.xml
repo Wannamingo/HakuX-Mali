@@ -3,9 +3,9 @@
   <string name="gpu_driver_chip_t820">Unisoc T820</string>
   <string name="gpu_driver_chip_t618">Unisoc T618</string>
   <string name="gpu_driver_chip_d8300">Dimensity 8300 / 8300 Ultra</string>
-  <string name="gpu_driver_chip_auto_desc">The chip is detected automatically. Select the GPU driver manually below. Updating the app keeps your current choice.</string>
-  <string name="gpu_driver_binary_requires_api">This driver library requires Android API %1$d or newer. It is listed for your chip, but cannot be loaded on this Android version.</string>
+  <string name="gpu_driver_chip_auto_desc">Chip detection provides recommendations and the initial default. The full bundled catalogue and ZIP import are available on every model. Updating the app keeps your current choice.</string>
+  <string name="gpu_driver_binary_requires_api">This driver library requires Android API %1$d or newer. It is visible in the catalogue; selection requires a compatible Android version.</string>
   <string name="gpu_driver_malisx2_t820">Unisoc T820: choose System driver, MaliSX2 or Unified P48r1 below. Other T820 devices and firmware need their own game tests. Start at 1× and fully restart the app and game after changing drivers.</string>
   <string name="gpu_driver_malisx2_d8300">Dimensity 8300 / 8300 Ultra: choose a driver below. Unified P48r1 uses the same library as the RG477M package. Tests on RG477M do not establish compatibility with every device or firmware. Start at 1× and fully restart the app and game after changing drivers.</string>
-  <string name="gpu_driver_malisx2_t618">Unisoc T618: choose System driver or experimental Unified P48r1. Unified has not been tested on a physical T618. System driver remains the default. Fully restart the app and game after changing drivers.</string>
+  <string name="gpu_driver_malisx2_t618">Unisoc T618: System driver remains the initial default. All bundled packages and ZIP import are available for manual testing. Actual compatibility depends on the driver and firmware. Fully restart the app and game after changing drivers.</string>
 </resources>

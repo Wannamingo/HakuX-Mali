@@ -72,22 +72,28 @@ class GpuDriverViewModel(app: Application) : AndroidViewModel(app) {
   }
 
   fun use(d: DriverMetadata) = change {
-    val ok = withContext(Dispatchers.IO) { d.path?.let { GpuDriverHelper.useDriver(File(it)) } ?: false }
-    if (ok) str(R.string.gpu_driver_selected, label(d)) else str(R.string.gpu_driver_err_unpack, label(d))
+    val result = withContext(Dispatchers.IO) {
+      val file = d.path?.let(::File)
+      if (file == null) AddError.UNREADABLE
+      else GpuDriverHelper.packageError(file, d) ?: if (GpuDriverHelper.useDriver(file)) null else AddError.UNPACK
+    }
+    if (result == null) str(R.string.gpu_driver_selected, label(d)) else errorMessage(result, d)
   }
 
   fun add(uri: Uri) = change {
     val r = withContext(Dispatchers.IO) { GpuDriverHelper.addDriver(getApplication(), uri) }
-    val name = r.driver?.let(::label) ?: ""
-    when (r.error) {
-      null -> str(R.string.gpu_driver_added, name)
+    if (r.error == null) str(R.string.gpu_driver_added, r.driver?.let(::label) ?: "")
+    else errorMessage(r.error, r.driver)
+  }
+
+  private fun errorMessage(error: AddError, driver: DriverMetadata?): String = when (error) {
       AddError.UNREADABLE -> str(R.string.gpu_driver_err_unreadable)
       AddError.NOT_A_DRIVER -> str(R.string.gpu_driver_err_not_driver)
       AddError.NO_LIBRARY -> str(R.string.gpu_driver_err_no_library)
-      AddError.API -> str(R.string.gpu_driver_err_api, r.driver?.minApi ?: 0, android.os.Build.VERSION.SDK_INT)
-      AddError.GPU -> str(R.string.gpu_driver_err_gpu)
-      AddError.UNPACK -> str(R.string.gpu_driver_err_unpack, name)
-    }
+      AddError.API -> str(R.string.gpu_driver_err_api, driver?.minApi ?: 0, android.os.Build.VERSION.SDK_INT)
+      AddError.ABI -> str(R.string.gpu_driver_err_abi)
+      AddError.UNSAFE_PATH -> str(R.string.gpu_driver_err_unsafe_path)
+      AddError.UNPACK -> str(R.string.gpu_driver_err_unpack, driver?.let(::label) ?: "")
   }
 
   fun delete(d: DriverMetadata) = change {

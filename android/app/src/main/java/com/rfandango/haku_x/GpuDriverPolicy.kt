@@ -1,6 +1,6 @@
 package com.rfandango.haku_x
 
-/** MaliSX2 loading for identified handhelds and SoCs; generic Mali matching is avoided. */
+/** Device detection recommends defaults; manual packages are never filtered by GPU or model. */
 object GpuDriverPolicy {
   const val MALISX2_LIBRARY = "libvulkan_malisx2.so"
   enum class Chip { UNISOC_T820, UNISOC_T618, DIMENSITY_8300 }
@@ -56,14 +56,8 @@ object GpuDriverPolicy {
     else -> null
   }
 
-  /** Catalogue visibility is based on the chip, not Android. T618 is experimental. */
-  fun offersUnifiedBundle(rg476hMali: Boolean, rg477mMali: Boolean,
-                          dimensity8300Mali: Boolean = false, unisocT820Mali: Boolean = false,
-                          unisocT618Mali: Boolean = false): Boolean =
-    rg476hMali || rg477mMali || dimensity8300Mali || unisocT820Mali || unisocT618Mali
-
   /** Displaying a package never bypasses the requirements of the actual binary. */
-  fun canLoadPackage(sdk: Int, minApi: Int): Boolean = sdk >= minApi
+  fun canLoadPackage(sdk: Int, minApi: Int): Boolean = minApi >= 0 && sdk >= minApi
 
   /** Keep the historical automatic default only on the original qualified devices. */
   fun allowsAutomaticBundle(rg477mMali: Boolean, vitaProMali: Boolean): Boolean =
@@ -74,9 +68,10 @@ object GpuDriverPolicy {
                     allowAutoSelection: Boolean = true): Boolean =
     allowAutoSelection && !bootstrapped && (identical || (!setupComplete && !hasActive))
 
-  fun acceptsLibrary(library: String?, adreno: Boolean, malisx2Device: Boolean): Boolean {
-    if (library == null || !Regex("[A-Za-z0-9_.-]+\\.so").matches(library)) return false
-    return if (adreno) library != MALISX2_LIBRARY
-    else malisx2Device && library == MALISX2_LIBRARY
-  }
+  /** A single safe filename for the native driver's pipe-delimited loader argument. */
+  fun acceptsLibrary(library: String?): Boolean =
+    library != null && Regex("[A-Za-z0-9_.-]+\\.so").matches(library)
+
+  fun isDriverLoadFailure(message: String): Boolean = message.startsWith("The selected Vulkan driver") ||
+    message.startsWith("This build cannot load custom Vulkan drivers")
 }

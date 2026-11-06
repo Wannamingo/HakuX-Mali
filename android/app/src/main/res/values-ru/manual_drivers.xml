@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="gpu_driver_err_abi">Для этого приложения нужна библиотека драйвера ELF для 64-битной ARM (arm64-v8a).</string>
+  <string name="gpu_driver_err_unsafe_path">ZIP содержит небезопасный путь к файлу. Текущий драйвер сохранён. Выберите другой пакет.</string>
+  <string name="gpu_driver_runtime_failed">Выбранный драйвер GPU не удалось запустить. В «Настройки → Драйвер GPU» выберите системный драйвер или другой пакет. Выбранный пакет сохраняется, пока вы сами его не смените. Совместимость зависит от GPU и прошивки.\n\nПодробности: %1$s</string>
+</resources>
