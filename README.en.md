@@ -4,17 +4,19 @@
 
 ![HakuX-Mali](assets/branding/hakux-mali-banner.png)
 
-An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **Latest stable version: 1.6.1/code29 for ANBERNIC RG477M, RG476H, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
+An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **Latest stable version: 1.7/code30 for ANBERNIC RG477M, RG476H, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
 
-**[Download APK 1.6.1](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.6.1/HakuX-Mali-1.6.1-release.apk)** · **[Release 1.6.1: source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.6.1)** · **[All changes](releases/1.6.1.en.md)**
+**[Download APK 1.7](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.7/HakuX-Mali-1.7-release.apk)** · **[Release 1.7: source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.7)** · **[All changes](releases/1.7.en.md)**
 
-## Prepared: 1.7 / code30
+## New in 1.7
 
-The local build adds **manual driver selection and ZIP import on every
-device**, without model or SoC restrictions, and bundles the **Unified P77r1
-testing release**. The three earlier packages and existing user choices are
-preserved. See [1.7 changes and validation limits](releases/1.7.en.md).
-Version 1.7 has not been published to GitHub; the stable links above remain for 1.6.1.
+- **Manual driver selection and ZIP import on every device**, without model or SoC restrictions. Detection only recommends; existing choices are retained.
+- Bundled **Unified P77r1 testing release**. Official MaliSX2, M2+DS1 and P48r1 remain available.
+- Selection, import and persistence after restart checked on RG477M, RG476H and Rotate; original settings and drivers restored.
+- RU/EN package, ABI and driver-startup errors; safe paths and minimum Android API checks retained.
+
+[1.7 changes](releases/1.7.en.md) · [Screenshots](docs/screenshots/1.7/README.md) · [Validation matrix](docs/VALIDATION-1.7.json).
+P77r1 passed selected native/API checks; new gameplay FPS and long-session stability have not been measured.
 
 ## New in 1.6.1
 
@@ -60,7 +62,7 @@ Details, results and test scope: [release 1.5](releases/1.5.en.md). New features
 | Handheld | Platform | Starting settings |
 |---|---|---|
 | RG477M | Dimensity 8300 / Mali-G615 | M2+DS1 (Android 14+) / MaliSX2 0.2.3, 1×, Bilinear, FXAA Off |
-| RG476H | Unisoc T820 / Mali-G57, Android 13 | 1×, Bilinear, FXAA Off; System by default, bundled Unified P48r1 available for selection |
+| RG476H | Unisoc T820 / Mali-G57, Android 13/14 | 1×, Bilinear, FXAA Off; System by default; Unified P77r1 available for manual testing |
 | RG Vita Pro | RK3576 / Mali-G52, Android 14 / GammaOS Next Lite | System driver, 1×, Bilinear, FXAA Off |
 | RG Rotate | T618 / Mali-G52, Android 12 | System driver / Vulkan 1.1, 1×, Bilinear, FXAA Off |
 
@@ -70,9 +72,9 @@ A full 1.4 calibration cycle on RG477M measured about 60 FPS at 1× versus 48 at
 
 ## Installation
 
-1. Download **HakuX-Mali-1.6.1-release.apk** from [stable release 1.6.1](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.6.1) and install over our previous release. Package ID and signing identity are retained; do not uninstall to update.
+1. Download **HakuX-Mali-1.7-release.apk** from [stable release 1.7](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.7) and install over our previous release. Package ID and signing identity are retained; do not uninstall to update.
 2. Select your own ISO/XISO directory or game folders containing `default.xbe`. Release source archives are for developers.
-3. Version 1.6.1 detects the chip automatically; select the driver manually in Settings. The chip catalogue does not hide packages by Android version; actual binary requirements are shown separately. T618 offers System driver and experimental Unified. Updates retain the selection. [Details and limits](releases/1.6.1.en.md).
+3. Driver selection and ZIP import are available on every model and SoC. Detection provides recommendations; updates retain your existing selection. Unified P77r1 requires Android 12/API31 or later. [Checks and limits](releases/1.7.en.md).
 4. Auto is off by default. Use a stable gameplay scene and **Calibrate performance** in the pause menu to measure settings.
 5. A new installation defaults to a 120 FPS ceiling; existing manual limits are preserved. Games retain their own lower 30/60 FPS caps.
 
