@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="library_launch_title">Launch game: %1$s</string>
+  <string name="library_launch_message">Starting a new game opens it without loading an emulator state. Existing saves are kept.</string>
+  <string name="library_launch_new">Start a new game</string>
+  <string name="library_launch_latest">Load latest save</string>
+  <string name="library_launch_checking">Checking saves…</string>
+  <string name="library_launch_no_state">This game has no saved emulator states yet.</string>
+  <string name="library_launch_check_failed">Could not check saves. You can still start a new game.</string>
+  <string name="library_launch_last_detail">Latest: %1$s · %2$s</string>
+</resources>

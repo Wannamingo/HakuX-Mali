@@ -260,7 +260,7 @@ fun LibraryScreen(
  * box rather than an OutlinedCard's Surface, its icon a bitmap the view model
  * decoded, the ID and the region flags one text, painters and strings shared
  * by every card, and the long-press menu composed only while it is open.
- * With a controller the focused card is outlined in green; A starts its game,
+ * With a controller the focused card is outlined in green; A opens its launch choices,
  * Y or select (or holding A) opens its menu.
  */
 @OptIn(ExperimentalFoundationApi::class)
@@ -286,16 +286,10 @@ private fun GameList(
   var menuFor by remember { mutableStateOf<Uri?>(null) }
   // The game whose savestates are listed (the menu's Load state), with its store.
   var statesFor by remember { mutableStateOf<Pair<Game, SaveStateStore>?>(null) }
-  var resumeFor by remember { mutableStateOf<Pair<Game, SaveStateStore>?>(null) }
+  var launchFor by remember { mutableStateOf<Game?>(null) }
   val context = LocalContext.current
   fun launchGame(game: Game) {
-    val disc = info[game.uri]
-    val key = GameOverrides.gameKey(disc?.titleId ?: 0L, disc?.version ?: 0L, game.relativePath)
-    val store = SaveStateStore(context, key, game.uri.toString())
-    if (com.rfandango.haku_x.data.ExperienceStore(context).effective(key)
-        .enabled(com.rfandango.haku_x.data.ExperienceSetting.OFFER_RESUME) && store.state(SaveStateStore.AUTO_SLOT).isFile) {
-      resumeFor = game to store
-    } else onLaunch(game)
+    launchFor = game
   }
   val haptics = LocalHapticFeedback.current
   // One column in portrait, two side by side in landscape.
@@ -429,11 +423,14 @@ private fun GameList(
       }
     }
   }
-  resumeFor?.let { (game, store) ->
-    androidx.compose.material3.AlertDialog(onDismissRequest = { resumeFor = null },
-      title = { Text(stringResource(R.string.exp_resume_title)) }, text = { Text(stringResource(R.string.exp_resume_message)) },
-      confirmButton = { TextButton(onClick = { resumeFor = null; onLoadState(game, store, SaveStateStore.AUTO_SLOT) }) { Text(stringResource(R.string.exp_continue)) } },
-      dismissButton = { TextButton(onClick = { resumeFor = null; onLaunch(game) }) { Text(stringResource(R.string.exp_start_normally)) } })
+  launchFor?.let { game ->
+    GameLaunchDialog(
+      game = game,
+      disc = info[game.uri],
+      onLaunch = onLaunch,
+      onLoadState = onLoadState,
+      onDismiss = { launchFor = null },
+    )
   }
   statesFor?.let { (game, store) ->
     LoadStatesDialog(

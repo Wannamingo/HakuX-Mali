@@ -62,7 +62,8 @@ internal fun experienceCategory(field: ExperienceSetting) = when (field) {
   else -> SettingsCategory.DISPLAY
 }
 
-internal val ExperienceIndex = ExperienceSetting.entries.map {
+// The library always offers launch choices. Keep the old preference readable in profiles only.
+internal val ExperienceIndex = ExperienceSetting.entries.filter { it != ExperienceSetting.OFFER_RESUME }.map {
   SettingsEntry(experienceLabel(it), experienceCategory(it), it.key.replace('_', ' ') +
     if (it in PostShaders.allFields) " shader mask crt lcd oled pixels scanline glow blur curvature шейдер маска пиксели строки свечение размытие выпуклость" else "")
 } + listOf(SettingsEntry(R.string.exp_hotkeys, SettingsCategory.CONTROLS, "hotkey shortcut screenshot quick save сочетания снимок быстрое сохранение"),
@@ -83,7 +84,8 @@ internal fun ColumnScope.ExperienceSettingsSection(category: SettingsCategory, g
       .onFailure { Toast.makeText(context, R.string.extra_save_failed, Toast.LENGTH_LONG).show() }
   }
   if (!autoOnly && category == SettingsCategory.DISPLAY) PostShaderSettingsSection(gameKey)
-  val fields = ExperienceSetting.entries.filter { it !in PostShaders.allFields && experienceCategory(it) == category &&
+  val fields = ExperienceSetting.entries.filter { it != ExperienceSetting.OFFER_RESUME &&
+    it !in PostShaders.allFields && experienceCategory(it) == category &&
     (if (autoOnly) it == ExperienceSetting.AUTO_PERFORMANCE else it != ExperienceSetting.AUTO_PERFORMANCE) }
   if (fields.isNotEmpty()) SettingsGroup(true) {
     Section(stringResource(when (category) {

@@ -29,6 +29,11 @@ class SaveStateStore(context: Context, gameKey: String, discUri: String? = null)
   /** The slots holding a state. */
   fun saved(): List<Int> = (listOf(AUTO_SLOT, QUICK_SLOT) + (1..SLOTS)).filter { state(it).isFile }
 
+  /** The latest completed state across automatic, quick and manual slots. */
+  fun latest(): SavedState? = latestIn(dir)
+
+  data class SavedState(val slot: Int, val modifiedAt: Long)
+
   /** Where a slot's files go (made on first use). */
   fun prepare() {
     dir.mkdirs()
@@ -66,6 +71,13 @@ class SaveStateStore(context: Context, gameKey: String, discUri: String? = null)
     const val SLOTS = 10
     const val AUTO_SLOT = 0
     const val QUICK_SLOT = 11
+
+    internal fun latestIn(directory: File): SavedState? =
+      (listOf(AUTO_SLOT, QUICK_SLOT) + (1..SLOTS)).mapNotNull { slot ->
+        val file = File(directory, "slot$slot.hxs")
+        if (file.isFile && file.length() > 0) SavedState(slot, file.lastModified()) else null
+      }.maxByOrNull { it.modifiedAt }
+
     fun label(context: Context, slot: Int) = when (slot) {
       AUTO_SLOT -> context.getString(com.rfandango.haku_x.R.string.exp_auto_slot)
       QUICK_SLOT -> context.getString(com.rfandango.haku_x.R.string.exp_quick_slot)

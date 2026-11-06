@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+  <string name="library_launch_title">Запуск игры: %1$s</string>
+  <string name="library_launch_message">Новый запуск открывает игру без загрузки состояния эмулятора. Существующие сохранения не удаляются.</string>
+  <string name="library_launch_new">Начать новую игру</string>
+  <string name="library_launch_latest">Загрузить последнее сохранение</string>
+  <string name="library_launch_checking">Проверка сохранений…</string>
+  <string name="library_launch_no_state">Для этой игры пока нет сохранений состояния эмулятора.</string>
+  <string name="library_launch_check_failed">Не удалось проверить сохранения. Можно начать новую игру.</string>
+  <string name="library_launch_last_detail">Последнее: %1$s · %2$s</string>
+</resources>
