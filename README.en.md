@@ -4,9 +4,17 @@
 
 ![HakuX-Mali](assets/branding/hakux-mali-banner.png)
 
-An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **Latest stable version: 1.7/code30 for ANBERNIC RG477M, RG476H, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
+An Android Mali fork of the Xbox emulator [hakuX](https://github.com/rfandango/hakuX). **Latest stable version: 1.7.1/code31 for ANBERNIC RG477M, RG476H, RG Vita Pro and RG Rotate.** Based on hakuX 1.2.0.
 
-**[Download APK 1.7](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.7/HakuX-Mali-1.7-release.apk)** · **[Release 1.7: source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.7)** · **[All changes](releases/1.7.en.md)**
+**[Download APK 1.7.1](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.7.1/HakuX-Mali-1.7.1-release.apk)** · **[Release 1.7.1: source and checksums](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.7.1)** · **[All changes](releases/1.7.1.en.md)**
+
+## New in 1.7.1
+
+- Selecting a game offers **Start a new game / Load latest save** in All games, recent games and search.
+- Shows the latest state slot and date; loading is disabled when none exists. Existing saves are kept.
+- Checked on RG477M, RG476H and Rotate, including real launches and state restores. Settings and driver choices were preserved.
+
+[1.7.1 notes](releases/1.7.1.en.md) · [Screenshots](docs/screenshots/1.7.1/README.md) · [Validation](docs/VALIDATION-1.7.1.json).
 
 ## New in 1.7
 

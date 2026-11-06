@@ -1,0 +1,78 @@
+{
+  "status": "PASS_CODE31_LAUNCH_CHOICE_ALL3_AND_REAL_COLD_STATE_LOAD",
+  "date": "2026-11-06",
+  "version": "1.7.1",
+  "versionCode": 31,
+  "APK_sha256": "5968eac07d1c477fb1a9e97d6f34b6037099c73967f4802a7ac6ccc1b96de8cc",
+  "devices": [
+    {
+      "device": "RG477M",
+      "version": "1.7.1",
+      "versionCode": 31,
+      "in_place_update": true,
+      "application_UID_unchanged": true,
+      "dialog_from_all_recent_search": true,
+      "locale": "ru",
+      "settings_preserved": true,
+      "original_driver_unchanged": "M2+DS1",
+      "root_private_hashes_verified": true,
+      "private_hash_limit": null,
+      "state_load_cache_index_refreshed": true
+    },
+    {
+      "device": "RG476H",
+      "version": "1.7.1",
+      "versionCode": 31,
+      "in_place_update": true,
+      "application_UID_unchanged": true,
+      "dialog_from_all_recent_search": true,
+      "locale": "ru",
+      "settings_preserved": true,
+      "original_driver_unchanged": "System",
+      "root_private_hashes_verified": true,
+      "private_hash_limit": null,
+      "state_load_cache_index_refreshed": false
+    },
+    {
+      "device": "RG Rotate",
+      "version": "1.7.1",
+      "versionCode": 31,
+      "in_place_update": true,
+      "application_UID_unchanged": true,
+      "dialog_from_all_recent_search": true,
+      "locale": "en",
+      "settings_preserved": true,
+      "original_driver_unchanged": "Unified P52",
+      "root_private_hashes_verified": false,
+      "private_hash_limit": "Unavailable on stock unrooted Rotate",
+      "state_load_cache_index_refreshed": null
+    }
+  ],
+  "host_unit_tests": {
+    "tests": 122,
+    "failures": 0,
+    "errors": 0,
+    "skipped": 0
+  },
+  "lintVitalRelease": true,
+  "runtime_tests": [
+    {
+      "device": "RG477M",
+      "game": "Mafia",
+      "cold_start_to_title_screen": true,
+      "state_slot1_load_done": true
+    },
+    {
+      "device": "RG476H",
+      "game": "Need for Speed Most Wanted Black Edition",
+      "state_slot1_load_done": true,
+      "race_visible_after_restore": true
+    }
+  ],
+  "no_state_load_button_disabled_RU": true,
+  "all_native_libraries_and_four_driver_ZIPs_unchanged_from_1_7": true,
+  "driver_GPU_qualification_not_repeated": true,
+  "new_FPS_benchmark": false,
+  "BIOS_HDD_games_and_states_not_bundled": true,
+  "no_full_userdata_or_HDD_backup": true
+}

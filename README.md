@@ -4,9 +4,17 @@
 
 ![HakuX-Mali](assets/branding/hakux-mali-banner.png)
 
-Форк Xbox-эмулятора [hakuX](https://github.com/rfandango/hakuX) для Android с Mali. **Последняя стабильная версия — 1.7/code30: ANBERNIC RG477M, RG476H, RG Vita Pro и RG Rotate.** Основа — hakuX 1.2.0.
+Форк Xbox-эмулятора [hakuX](https://github.com/rfandango/hakuX) для Android с Mali. **Последняя стабильная версия — 1.7.1/code31: ANBERNIC RG477M, RG476H, RG Vita Pro и RG Rotate.** Основа — hakuX 1.2.0.
 
-**[Скачать APK 1.7](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.7/HakuX-Mali-1.7-release.apk)** · **[Релиз 1.7: исходники и контрольные суммы](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.7)** · **[Все нововведения](releases/1.7.ru.md)**
+**[Скачать APK 1.7.1](https://github.com/Wannamingo/HakuX-Mali/releases/download/v1.7.1/HakuX-Mali-1.7.1-release.apk)** · **[Релиз 1.7.1: исходники и контрольные суммы](https://github.com/Wannamingo/HakuX-Mali/releases/tag/v1.7.1)** · **[Все нововведения](releases/1.7.1.ru.md)**
+
+## Новое в 1.7.1
+
+- При выборе игры: **«Начать новую игру» / «Загрузить последнее сохранение»**. Работает в общем списке, недавних играх и поиске.
+- Показ последнего слота и даты; при отсутствии состояния загрузка недоступна. Существующие сохранения не удаляются.
+- Проверено на RG477M, RG476H и Rotate, включая реальные запуски и восстановление состояний. Настройки и выбранные драйверы сохранены.
+
+[Описание 1.7.1](releases/1.7.1.ru.md) · [Скриншоты](docs/screenshots/1.7.1/README.md) · [Проверки](docs/VALIDATION-1.7.1.json).
 
 ## Новое в 1.7
 
